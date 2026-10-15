@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
     <PreserveCompilationContext>false</PreserveCompilationContext>
     <OutputType>Library</OutputType>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
@@ -187,6 +187,7 @@
     <Compile Include="Scenes\EntityBase.cs">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="Scenes\KeyframeMotion.SafeSerialization.cs" />
     <Compile Include="Scenes\KeyframeMotion.cs">
       <SubType>Code</SubType>
     </Compile>

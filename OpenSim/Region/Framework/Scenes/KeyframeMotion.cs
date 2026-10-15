@@ -38,8 +38,6 @@ using OpenSim.Framework;
 using OpenSim.Region.Framework.Interfaces;
 using OpenSim.Region.PhysicsModules.SharedBase;
 using OpenSim.Region.Framework.Scenes.Serialization;
-using System.Runtime.Serialization.Formatters.Binary;
-using System.Runtime.Serialization;
 using Timer = System.Timers.Timer;
 using log4net;
 
@@ -178,9 +176,11 @@ namespace OpenSim.Region.Framework.Scenes
     }
 
     [Serializable]
-    public class KeyframeMotion
+    public partial class KeyframeMotion
     {
-        //private static readonly ILog m_log = LogManager.GetLogger(MethodBase.GetCurrentMethod().DeclaringType);
+        private static readonly ILog m_log =
+            LogManager.GetLogger(MethodBase.GetCurrentMethod().DeclaringType);
+        private static int m_rejectedPersistedStateCount;
 
         public enum PlayMode : int
         {
@@ -308,16 +308,11 @@ namespace OpenSim.Region.Framework.Scenes
 
         public static KeyframeMotion FromData(SceneObjectGroup grp, Byte[] data)
         {
-            KeyframeMotion newMotion = null;
-
             try
             {
-                using (MemoryStream ms = new MemoryStream(data))
-                {
-                    BinaryFormatter fmt = new BinaryFormatter();
-                    newMotion = (KeyframeMotion)fmt.Deserialize(ms);
-                }
-
+                // Region DB and OAR blobs are potentially untrusted. Never invoke
+                // BinaryFormatter or reflectively instantiate serialized CLR types.
+                KeyframeMotion newMotion = DeserializeState(data);
                 newMotion.m_group = grp;
 
                 if (grp != null)
@@ -327,17 +322,27 @@ namespace OpenSim.Region.Framework.Scenes
                         newMotion.m_selected = true;
                 }
 
-//                newMotion.m_timerStopped = false;
-//                newMotion.m_running = true;
                 newMotion.m_isCrossing = false;
                 newMotion.m_waitingCrossing = false;
+                return newMotion;
             }
-            catch
+            catch (Exception error)
             {
-                newMotion = null;
+                // Avoid unsafe legacy BinaryFormatter deserialization. A legacy
+                // motion may be lost from DB/OAR on a subsequent object save,
+                // so loudly warn operators to stop upgrading and use the
+                // offline read-only audit before any migration attempt.
+                int rejected = Interlocked.Increment(ref m_rejectedPersistedStateCount);
+                if (rejected <= 5 || rejected % 100 == 0)
+                    m_log.WarnFormat(
+                        "[OGL .NET10 KEYFRAME]: Rejected persisted KeyframeMotion " +
+                        "(reason={0}, total={1}). This motion is NOT restored and may " +
+                        "be lost on a later save. Do not deploy the preview on " +
+                        "production regions before offline migration of legacy " +
+                        "KeyframeMotion database/OAR records.",
+                        error.GetType().Name, rejected);
+                return null;
             }
-
-            return newMotion;
         }
 
         public void UpdateSceneObject(SceneObjectGroup grp)
@@ -831,20 +836,22 @@ namespace OpenSim.Region.Framework.Scenes
             }
             StopTimer();
 
-            SceneObjectGroup tmp = m_group;
+            SceneObjectGroup originalGroup = m_group;
             m_group = null;
-
-            using (MemoryStream ms = new MemoryStream())
+            try
             {
-                BinaryFormatter fmt = new BinaryFormatter();
-                if (!m_selected && tmp != null)
-                    m_serializedPosition = tmp.AbsolutePosition;
-                fmt.Serialize(ms, this);
-                m_group = tmp;
+                if (!m_selected && originalGroup != null)
+                    m_serializedPosition = originalGroup.AbsolutePosition;
+
+                lock (m_frames)
+                    return SerializeState();
+            }
+            finally
+            {
+                // Restore the live motion object even when serialization fails.
+                m_group = originalGroup;
                 if (!timerWasStopped && m_running && !m_waitingCrossing)
                     StartTimer();
-
-                return ms.ToArray();
             }
         }
 

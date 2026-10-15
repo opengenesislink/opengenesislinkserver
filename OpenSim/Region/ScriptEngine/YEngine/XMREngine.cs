@@ -1164,13 +1164,17 @@ namespace OpenSim.Region.ScriptEngine.Yengine
         // the script is instantiated.
         public bool SetXMLState(UUID itemID, string xml)
         {
-            XmlDocument doc = new();
+            XmlDocument doc;
 
             try
             {
-                doc.LoadXml(xml);
+                // OAR and crossing snapshots are untrusted XML. Enforce the
+                // same size/DTD bounds as locally persisted YEngine state.
+                doc = XMRInstance.ParsePersistedStateXml(xml);
             }
-            catch
+            catch (Exception e) when (
+                e is XmlException || e is InvalidDataException ||
+                e is ArgumentNullException)
             {
                 return false;
             }
@@ -1211,11 +1215,7 @@ namespace OpenSim.Region.ScriptEngine.Yengine
 
             // Write out the .state file with the <ScriptState ...>...</ScriptState> XML text
             string statePath = XMRInstance.GetStateFileName(m_ScriptBasePath, itemID);
-            using (FileStream ss = File.Create(statePath))
-            {
-                using (StreamWriter sw = new(ss))
-                    sw.Write(scriptStateN.OuterXml);
-            }
+            XMRInstance.WriteStateFileAtomically(statePath, scriptStateN.OuterXml);
 
             return true;
         }

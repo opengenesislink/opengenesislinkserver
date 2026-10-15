@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
     <PreserveCompilationContext>false</PreserveCompilationContext>
     <OutputType>Library</OutputType>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
@@ -62,6 +62,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="AssetUploadLevelPolicy.cs" />
+    <Compile Include="AssetDiskCacheCodec.cs" />
     <Compile Include="FlightNeighbourPrefetchPolicy.cs" />
     <Compile Include="OfflineImMailRelayToken.cs">
       <SubType>Code</SubType>
