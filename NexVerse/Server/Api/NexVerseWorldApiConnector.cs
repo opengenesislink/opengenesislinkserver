@@ -648,6 +648,15 @@ namespace NexVerse.Server.Api
                     adminMinimumLevel,
                     new PersistentNexSecurityStore(apiConfig.GetString("SecurityStorePath", "data/nexverse-security.json")));
 
+                // Register the authenticated fallback immediately after its router is ready.
+                // Later optional services must not prevent users/me, users, auth and
+                // other core endpoints from being routed at all. The router retains
+                // its existing authorization and HTTP-method checks.
+                server.AddSimpleStreamHandler(
+                    new SimpleStreamHandler("/api", apiGate.Wrap(userRouter.Handle),
+                        "NexVerse World API privileged router"), true);
+                m_Log.Info("[NEX-WORLD-API]: Core privileged /api router registered.");
+
                 // Admin login now POSTs to the exact same URL serving the
                 // login page, /api/v1/docs. This works even when a KeyHelp
                 // reverse proxy routes only the public docs path correctly.
@@ -956,18 +965,24 @@ namespace NexVerse.Server.Api
                     if (string.IsNullOrWhiteSpace(sharedImSecret))
                         sharedImSecret = portalImConfig.GetString("SharedSecret", "");
                     if (System.Text.Encoding.UTF8.GetByteCount(sharedImSecret) < 32)
-                        throw new InvalidOperationException(
-                            "[NEX-PORTAL-IM]: Enabled archive requires a 32-byte shared secret.");
-                    citizenImStore = new NexCitizenImStore(
-                        portalImConfig.GetString("StorePath", "data/nexverse-portal-im.sqlite"),
-                        portalImConfig.GetInt("RetentionDays", 30));
-                    NexCitizenImIngress citizenImIngress = new NexCitizenImIngress(
-                        sharedImSecret, citizenImStore, userAccounts, friendsService);
-                    server.AddSimpleStreamHandler(
-                        new SimpleStreamHandler("/internal/nexportal/im/v1",
-                            citizenImIngress.Handle, "NexVerse Simulator Portal IM Ingest"),
-                        true);
-                    m_Log.Info("[NEX-PORTAL-IM]: Opt-in portal conversation archive enabled.");
+                    {
+                        // Optional portal IM archival must not take down the World API.
+                        // Fail closed: never register the ingestion endpoint without a secret.
+                        m_Log.Error("[NEX-PORTAL-IM]: Portal IM archive disabled: missing or too-short shared secret (minimum 32 UTF-8 bytes).");
+                    }
+                    else
+                    {
+                        citizenImStore = new NexCitizenImStore(
+                            portalImConfig.GetString("StorePath", "data/nexverse-portal-im.sqlite"),
+                            portalImConfig.GetInt("RetentionDays", 30));
+                        NexCitizenImIngress citizenImIngress = new NexCitizenImIngress(
+                            sharedImSecret, citizenImStore, userAccounts, friendsService);
+                        server.AddSimpleStreamHandler(
+                            new SimpleStreamHandler("/internal/nexportal/im/v1",
+                                citizenImIngress.Handle, "NexVerse Simulator Portal IM Ingest"),
+                            true);
+                        m_Log.Info("[NEX-PORTAL-IM]: Opt-in portal conversation archive enabled.");
+                    }
                 }
                 NexCitizenImApi citizenImApi =
                     new NexCitizenImApi(userAccounts, friendsService, authenticator,
@@ -1089,10 +1104,6 @@ namespace NexVerse.Server.Api
                     "/api/v1/auth/admin/session",
                     apiGate.Wrap(userRouter.Handle),
                     "OpenGenesisLINK native administrator session"));
-
-                server.AddSimpleStreamHandler(
-                    new SimpleStreamHandler("/api", apiGate.Wrap(userRouter.Handle), "NexVerse World API privileged router"),
-                    true);
 
                 m_Log.Warn("[NEX-WORLD-API]: Privileged endpoints are enabled. Use only over a transport that protects bearer tokens.");
             }
