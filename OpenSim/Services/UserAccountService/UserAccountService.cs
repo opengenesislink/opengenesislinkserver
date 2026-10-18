@@ -646,6 +646,74 @@ namespace OpenSim.Services.UserAccountService
             return CreateUser(UUID.Zero, UUID.Random(), firstName, lastName, password, email, modelAlias);
         }
 
+        // Set both login locations for every portal-created resident. Do not
+        // report success if either position failed to persist.
+        public UserAccount CreatePortalAvatar(string firstName, string lastName,
+            string password, string email, string modelAlias,
+            UUID homeRegionId, Vector3 homePosition)
+        {
+            if (homeRegionId.IsZero() || m_GridService == null ||
+                m_GridUserService == null || !float.IsFinite(homePosition.X) ||
+                !float.IsFinite(homePosition.Y) || !float.IsFinite(homePosition.Z))
+                return null;
+
+            GridRegion homeRegion = m_GridService.GetRegionByUUID(UUID.Zero, homeRegionId);
+            if (homeRegion == null || homeRegion.RegionID.IsZero() ||
+                homePosition.X < 0 || homePosition.X >= homeRegion.RegionSizeX ||
+                homePosition.Y < 0 || homePosition.Y >= homeRegion.RegionSizeY ||
+                homePosition.Z < 0 || homePosition.Z > 4096)
+                return null;
+
+            UserAccount account = CreatePortalAvatar(firstName, lastName, password, email, modelAlias);
+            if (account == null)
+                return null;
+
+            try
+            {
+                string userId = account.PrincipalID.ToString();
+                Vector3 lookAt = new Vector3(0, 1, 0);
+                bool homeSaved = m_GridUserService.SetHome(userId, homeRegionId, homePosition, lookAt);
+                bool lastSaved = m_GridUserService.SetLastPosition(
+                    userId, UUID.Zero, homeRegionId, homePosition, lookAt);
+                if (homeSaved && lastSaved)
+                    return account;
+
+                m_log.ErrorFormat(
+                    "[OGL PORTAL REGISTRATION]: Home/Last position initialization failed for {0}; home={1} last={2}",
+                    account.PrincipalID, homeSaved, lastSaved);
+            }
+            catch (Exception e)
+            {
+                m_log.ErrorFormat(
+                    "[OGL PORTAL REGISTRATION]: Position initialization failed for {0}: {1}",
+                    account.PrincipalID, e.Message);
+            }
+
+            // If cleanup fails, the remaining account must not be able to
+            // log in with a partially written GridUser placement.
+            account.Active = false;
+            account.NexVerseState = "provisioning_failed";
+            account.NexVerseStateReason = "Portal home/last position initialization failed.";
+            account.NexVerseStateChanged = Util.UnixTimeSinceEpoch();
+            try
+            {
+                StoreUserAccount(account);
+                InvalidateCache(account.PrincipalID);
+            }
+            catch (Exception e)
+            {
+                m_log.ErrorFormat(
+                    "[OGL PORTAL REGISTRATION]: Unable to deactivate incomplete account {0}: {1}",
+                    account.PrincipalID, e.Message);
+            }
+
+            // Best-effort only: related authentication, inventory and GridUser
+            // records may remain. Operators must reconcile orphaned data.
+            CompensateFailedOglStarterRegistration(account.PrincipalID);
+            InvalidateCache(account.PrincipalID);
+            return null;
+        }
+
         public UserAccount CreateUser(UUID scopeID, UUID principalID, string firstName, string lastName, string password, string email, string model = "")
         {
             if (string.IsNullOrWhiteSpace(firstName) || string.IsNullOrWhiteSpace(lastName))
@@ -820,6 +888,9 @@ namespace OpenSim.Services.UserAccountService
                 else
                 {
                     m_log.ErrorFormat("[USER ACCOUNT SERVICE]: Account creation failed for account {0} {1}", firstName, lastName);
+                    if (!string.IsNullOrEmpty(model) &&
+                        model.StartsWith("ogl:", StringComparison.OrdinalIgnoreCase))
+                        return null;
                 }
             }
             else
