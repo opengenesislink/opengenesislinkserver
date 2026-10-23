@@ -2,11 +2,13 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using System.Threading;
 
 namespace NexVerse.Core.Security
 {
@@ -99,7 +101,114 @@ namespace NexVerse.Core.Security
 
         private readonly object m_Sync = new object();
         private readonly string m_Path;
+        private readonly Mutex m_CrossProcessMutex;
         private StoreDocument m_Document;
+
+        // A World API process may serve an API key that was edited by a
+        // different ROBUST instance. An instance-local lock or initial Load()
+        // alone is insufficient: a successful authentication could then
+        // persist its stale copy, undoing freshly granted scopes.
+        private sealed class StoreLease : IDisposable
+        {
+            private readonly Mutex m_Mutex;
+            private readonly FileStream m_File;
+            public StoreLease(Mutex mutex, FileStream file)
+            {
+                m_Mutex = mutex;
+                m_File = file;
+            }
+
+            public void Dispose()
+            {
+                try
+                {
+                    m_File.Unlock(0, 1);
+                }
+                finally
+                {
+                    try
+                    {
+                        m_File.Dispose();
+                    }
+                    finally
+                    {
+                        m_Mutex.ReleaseMutex();
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// Lock all key-store operations across instances on the same host,
+        /// acquire an advisory lock alongside the JSON file (for shared
+        /// filesystems that support it), then load the latest on-disk grants.
+        /// Never return a cached document from a different request.
+        /// </summary>
+        private StoreLease OpenLatestLocked()
+        {
+            bool ownsMutex = false;
+            FileStream file = null;
+            bool fileLocked = false;
+            try
+            {
+                try
+                {
+                    ownsMutex = m_CrossProcessMutex.WaitOne(
+                        TimeSpan.FromSeconds(15));
+                }
+                catch (AbandonedMutexException)
+                {
+                    ownsMutex = true;
+                }
+
+                if (!ownsMutex)
+                    throw new IOException(
+                        "Timed out waiting for the API key store update lock.");
+
+                string directory = Path.GetDirectoryName(m_Path);
+                if (!string.IsNullOrWhiteSpace(directory))
+                    Directory.CreateDirectory(directory);
+
+                file = new FileStream(m_Path + ".lock",
+                    FileMode.OpenOrCreate, FileAccess.ReadWrite,
+                    FileShare.ReadWrite);
+                Stopwatch watch = Stopwatch.StartNew();
+                while (true)
+                {
+                    try
+                    {
+                        file.Lock(0, 1);
+                        fileLocked = true;
+                        break;
+                    }
+                    catch (IOException) when (watch.Elapsed <
+                        TimeSpan.FromSeconds(15))
+                    {
+                        Thread.Sleep(25);
+                    }
+                }
+
+                m_Document = Load() ?? new StoreDocument();
+                m_Document.Keys ??= new List<NexApiKeyRecord>();
+                return new StoreLease(m_CrossProcessMutex, file);
+            }
+            catch
+            {
+                try
+                {
+                    if (fileLocked)
+                        file?.Unlock(0, 1);
+                }
+                finally
+                {
+                    file?.Dispose();
+                    if (ownsMutex)
+                        m_CrossProcessMutex.ReleaseMutex();
+                }
+                throw;
+            }
+        }
+
 
         public PersistentNexApiKeyStore(string path)
         {
@@ -109,10 +218,16 @@ namespace NexVerse.Core.Security
                     nameof(path));
 
             m_Path = Path.GetFullPath(path);
-            m_Document = Load();
-            m_Document ??= new StoreDocument();
-            m_Document.Keys ??=
-                new List<NexApiKeyRecord>();
+            // Stable per-store name. A named mutex also serializes multiple
+            // PersistentNexApiKeyStore instances inside the same process.
+            string mutexName = "ogl-worldapi-apikeys-" +
+                Convert.ToHexString(SHA256.HashData(
+                    Encoding.UTF8.GetBytes(m_Path))).ToLowerInvariant();
+            m_CrossProcessMutex = new Mutex(false, mutexName);
+            lock (m_Sync)
+            {
+                using StoreLease lease = OpenLatestLocked();
+            }
         }
 
         public NexApiKeyRegistration Create(
@@ -160,6 +275,7 @@ namespace NexVerse.Core.Security
 
             lock (m_Sync)
             {
+                using StoreLease lease = OpenLatestLocked();
                 // A secret is only returned once. Accidentally recreating
                 // an already active *identical service identity* leaves
                 // orphaned credentials. Require explicit disable/rotation.
@@ -185,6 +301,7 @@ namespace NexVerse.Core.Security
         {
             lock (m_Sync)
             {
+                using StoreLease lease = OpenLatestLocked();
                 return m_Document.Keys
                     .Select(Clone)
                     .OrderBy(x => x.Name, StringComparer.OrdinalIgnoreCase)
@@ -213,6 +330,7 @@ namespace NexVerse.Core.Security
 
             lock (m_Sync)
             {
+                using StoreLease lease = OpenLatestLocked();
                 NexApiKeyRecord record = m_Document.Keys.FirstOrDefault(x =>
                     string.Equals(x.KeyId, keyId, StringComparison.Ordinal));
 
@@ -261,6 +379,7 @@ namespace NexVerse.Core.Security
 
             lock (m_Sync)
             {
+                using StoreLease lease = OpenLatestLocked();
                 NexApiKeyRecord record =
                     m_Document.Keys.FirstOrDefault(x =>
                         string.Equals(
@@ -295,6 +414,7 @@ namespace NexVerse.Core.Security
             if (string.IsNullOrWhiteSpace(keyId)) return false;
             lock (m_Sync)
             {
+                using StoreLease lease = OpenLatestLocked();
                 // Key deletion is irreversible and is only allowed after
                 // explicitly disabling it. Never delete an active key.
                 NexApiKeyRecord record = m_Document.Keys.FirstOrDefault(x =>
@@ -326,6 +446,7 @@ namespace NexVerse.Core.Security
 
             lock (m_Sync)
             {
+                using StoreLease lease = OpenLatestLocked();
                 NexApiKeyRecord stored =
                     m_Document.Keys.FirstOrDefault(x =>
                         string.Equals(
@@ -341,8 +462,18 @@ namespace NexVerse.Core.Security
                         stored.SecretHash))
                     return false;
 
-                stored.LastUsedAt = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-                SaveLocked();
+                long now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+                // Last-used is operational metadata, not an authorization
+                // grant. Avoid rewriting the entire credential file for
+                // every asset/statistics HTTP request under high traffic.
+                // First use is always persisted; later uses are sampled
+                // with a maximum age of 30 seconds.
+                if (stored.LastUsedAt <= 0 ||
+                    now - stored.LastUsedAt >= 30)
+                {
+                    stored.LastUsedAt = now;
+                    SaveLocked();
+                }
                 record = Clone(stored);
                 return true;
             }
