@@ -367,6 +367,7 @@ namespace NexVerse.Server.Api
             md.AppendLine("### Avatarprofil, soziale Funktionen und Instant Messages");
             md.AppendLine("- Avatarprofil GET /profiles/{principalId} (oeffentlich je PublishProfile/Privatsphaere); PATCH /profiles/{principalId} nur fuer den eigenen Avatar bzw. legitimen Admin, exakt die erlaubten editierbaren Felder. useruuid und die aktiven profileImage/ProfileFirstImage-Assetreferenzen sind nicht frei schreibbar; kein generischer Bilderupload ueber World API.");
             md.AppendLine("- GET /profiles/{principalId}/image liefert ausschliesslich das aktuell konfigurierte Profilbild, privat nur mit Owner-/Admin-Berechtigung. Profilbild-URL kann fehlen; Querystrings nie mit Secrets versehen.");
+            md.AppendLine("- Neue Media-API-Bilder unter /media/profiles/{principalId}/image, /media/profiles/{principalId}/first-life und /media/groups/{groupId}/image. Nur aktuelle, autoritativ zugeordnete Bildreferenzen; First-Life immer nur Owner/Admin, Gruppenbilder brauchen groups:read. Fuer Vorschaubilder ?size=64|128|256|512 nutzen. Keine beliebigen Asset-UUIDs.");
             md.AppendLine("- GET /relationships/{principalId}: eigene Freunde und Anfragen; POST/PUT/PATCH/DELETE /relationships/{principalId}/{targetId}: einladen, bestaetigen, Rechte veraendern, ablehnen oder entfernen. /blocks/{targetId} fuer persoenliches Blockieren/Entsperren.");
             md.AppendLine("- Nachrichten: POST /messages nur an einen bestaetigten lokalen Freund, 202 bedeutet angenommen, nicht gelesen. GET /messages/settings und PATCH /messages/settings fuer Opt-in; GET /messages, /messages/events und /messages/with/{peerId} fuer eigenen Verlauf; DELETE /messages/history nur nach klarer Absicht. Ohne NexPortalIM-Modul ist eine Viewer-Antwort nicht garantiert.");
             md.AppendLine("");
@@ -632,6 +633,10 @@ namespace NexVerse.Server.Api
             AppendCatalogGroup(md, requestedAudience, "shared", "Avatarprofile und Bildbytes",
                 "/api/v1/profiles/{principalId}",
                 "/api/v1/profiles/{principalId}/image");
+            AppendCatalogGroup(md, requestedAudience, "shared", "OpenGenesisLINK Media API 1.0: autorisierte Gruppen- und Avatarbilder",
+                "/api/v1/media/groups/{groupId}/image",
+                "/api/v1/media/profiles/{principalId}/image",
+                "/api/v1/media/profiles/{principalId}/first-life");
             AppendCatalogGroup(md, requestedAudience, "shared", "Regionen",
                 "/api/v1/regions",
                 "/api/v1/regions/{regionId}");
