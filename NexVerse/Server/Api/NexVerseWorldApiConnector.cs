@@ -609,6 +609,12 @@ namespace NexVerse.Server.Api
                     oauthStore,
                     apiKeyStore,
                     adminMinimumLevel);
+                // Only the authenticated local UserLevel-200 operator may list
+                // or read local daily logs. No shell / arbitrary file access.
+                NexOperatorLogsApi operatorLogs = new NexOperatorLogsApi(authenticator);
+                server.AddSimpleStreamHandler(new SimpleStreamHandler(
+                    "/api/v1/admin/logs", apiGate.Wrap(operatorLogs.Handle),
+                    "OpenGenesisLINK operator daily log archives"), true);
 
                 // Attach the existing, server-side native admin authenticator
                 // once privileged services are available. No duplicate routing.
