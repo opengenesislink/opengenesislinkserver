@@ -51,7 +51,8 @@ assert "secretKeySearch" in page and "secretKeyState" in page
 assert "oglFilterKeys()" in page
 assert "entries.filter(x=>prefixes.some(p=>x.path.startsWith(p)))" in page
 assert "selectEntry(entry)" in page
-assert "['secrets','nodes','grid','security','console'].includes(name)" in page
+assert "['secrets','nodes','grid','security','console'," in page
+assert "'logs','audit','users','groups'" in page
 assert "keine unbeschränkte Shell" in page or "Keine unbeschränkte Shell" in page
 # Extract JS from the actual HTML page (do not create a separate, unused demo file).
 script=re.search(r"<script>\s*('use strict';.*?)\s*</script>",page,re.S)
