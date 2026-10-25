@@ -1023,7 +1023,7 @@ function oglFilterKeys(){
   const needle=($('secretKeySearch')?.value||'').trim().toLowerCase();
   const filter=$('secretKeyState')?.value||'all';
   document.querySelectorAll('#secretKeyList > .change').forEach(card=>{
-    const matching=!needle||card.textContent.toLowerCase().includes(needle);
+    const matching=!needle||(card.dataset.keySearch||'').includes(needle);
     const active=card.dataset.keyEnabled==='true';
     card.hidden=!(matching&&(filter==='all'||(filter==='active'&&active)||(filter==='disabled'&&!active)));
   });
@@ -2131,6 +2131,7 @@ function secretRenderKeyInventory(keys, supportedScopes) {
     duplicates+' aktive Duplikatgruppe(n) gefunden. Kein Schlüssel wurde automatisch verändert.';
   for(const key of keys){
     const card=document.createElement('div');card.className='change';card.dataset.keyEnabled=key.enabled?'true':'false';
+    card.dataset.keySearch=[key.name||'',key.key_id||'',...(key.scopes||[])].join(' ').toLowerCase();
     const title=document.createElement('strong');
     title.textContent=(key.name||'Unbenannt')+(key.enabled?' · Aktiv':' · Deaktiviert');
     card.append(title);
