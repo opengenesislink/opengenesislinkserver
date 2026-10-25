@@ -83,17 +83,21 @@ namespace NexVerse.Server.Api
                         else Error(response, HttpStatusCode.MethodNotAllowed, "method_not_allowed");
                         return;
                     }
-                    if (parts[3] == "inventory" && method == "GET")
-                    {
-                        ReadInventory(request, response, id);
-                        return;
-                    }
+                    // Inventory entries include an explicit /image suffix;
+                    // do not broaden the asset-UUID namespace.
+
                 }
                 if (parts.Length == 6 && parts[0] == "api" &&
                     parts[1] == "v1" && parts[2] == "media" &&
                     UUID.TryParse(parts[4], out UUID entity) && !entity.IsZero() &&
                     parts[5] == "image")
+                
                 {
+                    if (parts[3] == "inventory" && method == "GET")
+                    {
+                        ReadInventory(request, response, entity);
+                        return;
+                    }
                     if (parts[3] == "marketplace")
                     {
                         if (method == "GET") ReadListing(request, response, entity);
