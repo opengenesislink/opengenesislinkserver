@@ -181,7 +181,7 @@ namespace NexVerse.Server.Api
                     : "OpenGenesisLINK: Adminpanel nicht verfügbar.");
         }
 
-        private const string s_LoginPage = """
+        private static readonly string s_LoginPage = """
 <!doctype html>
 <html lang="de">
 <head>
@@ -217,7 +217,7 @@ label{display:block;color:#d3deed;font-size:12px;margin:18px 0 8px;font-weight:6
 </head>
 <body>
 <div id="loginView">
-<header class="top"><div class="brand"><div class="sigil">OGL</div><div><strong>OpenGenesisLINK</strong><span>World API · Control Center</span></div></div><div class="topright"><i class="light" aria-hidden="true"></i> Secure administration <span> / </span> OGL 0.9.3.12</div></header>
+<header class="top"><div class="brand"><div class="sigil"><img src="OGL_LOGO_DATA_URI" width="56" height="56" alt="OpenGenesisLINK World API Logo" style="width:56px;height:56px;object-fit:contain;display:block"></div><div><strong>OpenGenesisLINK</strong><span>World API · Control Center</span></div></div><div class="topright"><i class="light" aria-hidden="true"></i> Secure administration <span> / </span> Live Control Plane</div></header>
 <main class="stage">
 <section class="showcase"><div class="eyebrow">The next generation of OpenSimulator</div><h1>Deine Welt.<br><em>Deine Kontrolle.</em></h1><div class="intro">Willkommen im OpenGenesisLINK Control Center. Verwalte Simulator-Nodes, Grid-Regionen, Dienste, Sicherheit, API-Zugänge und die Infrastruktur deiner virtuellen Welt an einem zentralen Ort.</div><div class="highlights"><div class="highlight">◈ Grid &amp; Regions</div><div class="highlight">⬡ Simulator Control</div><div class="highlight">⌁ World API Explorer</div></div><div class="orbit" aria-hidden="true"></div></section>
 <div class="window"><section class="login"><div class="loginkicker">Authorized Personnel Only</div><h2>Administrator Login</h2><p>Bitte melde dich mit deinem lokalen GridUser-Konto an. Zugang für lokale GridUser ab <strong>UserLevel 200</strong>.</p><form id="adminForm" autocomplete="on"><label for="username">Grid-Benutzername</label><input id="username" name="username" autocomplete="username" maxlength="100" required placeholder="Vorname.Nachname"><div class="fieldhelp">Beispiel: Sleimer.Akina oder Vorname Resident</div><label for="password">Passwort</label><input id="password" name="password" autocomplete="current-password" type="password" maxlength="256" required placeholder="Dein Grid-Passwort"><div class="formlabel"><label for="totp">Zwei-Faktor-Code (falls aktiviert)</label><span>Optional</span></div><input id="totp" name="totp" autocomplete="one-time-code" inputmode="numeric" maxlength="12" placeholder="6-stelliger TOTP-Code"><button class="submit" id="submit" type="submit">Sicher anmelden →</button><div class="status" id="status" role="status" aria-live="polite">Mit Grid-Benutzername und Passwort anmelden.</div></form><div class="footnote">Benutzername, Passwort und UserLevel werden auf dem Server geprüft. HTTPS wird zum Schutz deiner Zugangsdaten empfohlen. Sitzungstokens bleiben nur im Arbeitsspeicher.</div></section></div>
@@ -290,6 +290,6 @@ form.addEventListener('submit',async event=>{
 </script>
 </body>
 </html>
-""";
+""".Replace("OGL_LOGO_DATA_URI", NexOglBranding.DataUri);
     }
 }
