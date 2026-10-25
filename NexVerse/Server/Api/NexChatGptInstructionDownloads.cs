@@ -529,6 +529,9 @@ namespace NexVerse.Server.Api
                 "/api/v1/search");
             AppendCatalogGroup(md, requestedAudience, "public", "version",
                 "/api/v1/version");
+            AppendCatalogGroup(md, requestedAudience, "admin", "ROBUST und OpenSim Tageslogs – lokale Operatoren",
+                "/api/v1/admin/logs",
+                "/api/v1/admin/logs/{service}/{date}/entries");
             AppendCatalogGroup(md, requestedAudience, "public", "OpenGenesisLINK GitHub Stable/Development/CI Status",
                 "/api/v1/repository/status");
             AppendCatalogGroup(md, requestedAudience, "public", "Oeffentliche Weltkarte",
