@@ -31,7 +31,9 @@ for name in ("Robust", "OpenSim"):
     assert appender.find("staticLogFileName").attrib["value"]=="false"
 
 for item in ('"/api/v1/admin/logs"', '"/api/v1/admin/logs/{service}/{date}/entries"'):
-    assert item in openapi and item in doc
+    assert item in openapi
+assert "GET /api/v1/admin/logs" in doc
+assert "/{yyyy-MM-dd}/entries" in doc
 assert 'new NexOperatorLogsApi(authenticator)' in connector
 assert 'apiGate.Wrap(operatorLogs.Handle)' in connector
 for marker in ("NexScopes.AdminAll", "account.UserLevel < 200", "account.LocalToGrid",
