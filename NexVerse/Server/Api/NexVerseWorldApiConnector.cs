@@ -1164,6 +1164,7 @@ namespace NexVerse.Server.Api
                         "NexVerse Citizen Friend IM"),
                     true);
 
+                IProfilesData mediaProfilesData = null;
                 IConfig profilesConfig = config.Configs["UserProfilesService"];
                 if (profilesConfig != null && profilesConfig.GetBoolean("Enabled", false))
                 {
@@ -1188,6 +1189,7 @@ namespace NexVerse.Server.Api
 
                     if (profilesData == null)
                         throw new InvalidOperationException("Unable to load NexVerse WebProfileV3 profile datastore.");
+                    mediaProfilesData = profilesData;
 
                     // Publication belongs to userprofile.profileAllowPublish.
                     // No InventoryService database dependency is needed for
@@ -1210,6 +1212,17 @@ namespace NexVerse.Server.Api
 
                     m_Log.Info("[NEX-WEBPROFILE-V3]: Avatarprofile über den maßgeblichen UserProfilesService-Datenspeicher aktiviert.");
                 }
+
+                // Shared entity-bound Media API. Reuse the initialized ROBUST
+                // AssetService; never bootstrap another FSAsset/OGLAsset instance.
+                NexMediaApi mediaApi = new NexMediaApi(
+                    userAccounts, mediaProfilesData, nexGroupsService,
+                    () => AssetServiceConnector.GetLocalService(config, "AssetService"),
+                    authenticator);
+                server.AddSimpleStreamHandler(
+                    new SimpleStreamHandler("/api/v1/media",
+                        apiGate.Wrap(mediaApi.Handle),
+                        "OpenGenesisLINK entity-bound Media API"), true);
 
                 // Preserve authenticated statistics: the early route now delegates
                 // to the fully initialized, scope-enforcing administrator service.
