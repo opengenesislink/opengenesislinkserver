@@ -514,3 +514,4 @@ internal class GroupMediaAssetProxy : DispatchProxy
             return id == Asset?.ID ? Asset : null;
         throw new NotSupportedException("Unexpected asset service access: " + method.Name);
     }
+}
