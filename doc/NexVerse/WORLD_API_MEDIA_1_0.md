@@ -1,61 +1,106 @@
-# OpenGenesisLINK Media API 1.0 – Gruppen-/Profilbilder
+# OpenGenesisLINK Media API – vollständige World-API-Integration
 
-Stand: 25.10.2026. Phase 1: **read-only** und durch Entitätszuordnung abgesichert. Für World-/ROBUST-Versionen mit diesem Feature-Commit; vor einem Deployment als nicht verfügbar behandeln.
+Stand: 25.10.2026. Der Medienkatalog ergänzt die bereits existierenden Avatar- und Gruppenservices, ohne eine zweite Asset-Datenbank oder einen zweiten AssetService zu starten. **Produktiv nutzbar erst nach Deployment und Staging-Abnahme des integrierten Builds.**
 
-## HTTP-Endpunkte
+## 1. Endpunkte
 
-| Methode | Endpunkt | Schutz |
+Basis: `https://world.stadt-nexverse.de`.
+
+| Methode | URL | Zugriffsregeln |
 |---|---|---|
-| GET | `/api/v1/media/groups/{groupId}/image` | `groups:read` (inkl. serverseitiger Gruppenreferenzprüfung) |
-| GET | `/api/v1/media/profiles/{principalId}/image` | öffentlich nur bei `profileAllowPublish`; sonst `profile:read` und Owner/Admin |
-| GET | `/api/v1/media/profiles/{principalId}/first-life` | **immer** `profile:read` und Avatar-Owner/Admin |
+| GET | `/api/v1/media/groups/{groupId}/image` | `groups:read`, maßgebliche Gruppeninsignie |
+| PUT | `/api/v1/media/groups/{groupId}/image` | Resident `groups:manage` **und** gruppeninterne `ChangeActions`-Berechtigung oder Founder, plus eigenes Upload |
+| GET | `/api/v1/media/profiles/{principalId}/image` | öffentlich bei `PublishProfile`, privat nur Owner/Admin |
+| PUT | `/api/v1/media/profiles/{principalId}/image` | `profile:write`, eigener Avatar und eigenes Upload |
+| GET | `/api/v1/media/profiles/{principalId}/first-life` | `profile:read`, immer Owner/Admin |
+| PUT | `/api/v1/media/profiles/{principalId}/first-life` | `profile:write`, eigener Avatar und eigenes Upload |
+| POST | `/api/v1/media/uploads` | Resident `profile:write` für sich selbst; vertrauenswürdiger Publisher mit `media:publish`-Maschinenkey für lokalen Avatar |
+| GET | `/api/v1/media/assets/{assetId}` | **Nur im Medienkatalog registrierte** Uploads; öffentlich nur bei expliziter Veröffentlichung, sonst Owner/Admin |
+| PATCH | `/api/v1/media/assets/{assetId}` | Owner mit `profile:write` oder dedizierter `media:publish`-Publisher |
+| GET | `/api/v1/media/inventory/{itemId}/image` | `inventory:read`, **nur wirklich eigenes Inventaritem** mit erlaubtem Bildtyp |
+| GET | `/api/v1/media/marketplace/{listingId}/image` | öffentlich, wenn vertrauenswürdiger Publisher eine Bildbindung für diese Listing-ID registriert hat |
+| PUT | `/api/v1/media/marketplace/{listingId}/image` | dedizierter `media:publish`-Maschinenkey, verifiziertes registriertes Eigentümer-Upload |
+| DELETE | `/api/v1/media/marketplace/{listingId}/image` | `media:publish`-Maschinenkey |
 
-Die vorhandene Route `GET /api/v1/profiles/{principalId}/image` bleibt unverändert.
+Die URL-Muster sind **nur** nach Deployment der entsprechenden World-Version erreichbar. Die bestehende `GET /api/v1/profiles/{principalId}/image`-Route bleibt kompatibel.
 
-Alle drei Media-Endpunkte akzeptieren `?size=64|128|256|512` als optionale maximale Pixelkante. Ohne `size` wird das Original (PNG/JPEG) oder die JPEG2000→PNG-Konvertierung ausgegeben; mit `size` wird nur verkleinert, nicht vergrößert. Antwort ist ein **echtes Bild** (`image/png` oder `image/jpeg`), **kein JSON**. Es gilt `Cache-Control: private, no-store`; keine Freigabe an geteilte CDNs. Eine optionale Größe garantiert nicht automatisch Zugriff.
+`GET`-Bildantworten liefern `image/png`/`image/jpeg`, nicht JSON. Für die gewünschte Vorschaubildgröße kann `?size=64|128|256|512` verwendet werden. Die bestehende Media API limitiert Ausgangs-/Eingangsbilder (bis 2048 Pixel Kantenlänge, 8 MiB) und liefert ausschließlich aktuell autorisierte Referenzen.
 
-### Beispiele
+## 2. Upload (Portal-Backend oder eingeloggter Bewohner)
 
 ```http
-GET /api/v1/media/groups/00000000-0000-0000-0000-000000000001/image?size=256
-Authorization: Bearer <resident-token-with-groups:read>
+POST /api/v1/media/uploads
+Content-Type: application/json
+Authorization: Bearer <resident-token-mit-profile:write>
+
+{
+  "content_type": "image/png",
+  "data_base64": "<base64>",
+}
 ```
+
+In gültigem JSON das letzte Komma weglassen. Unterstützt sind PNG/JPEG bis 4 MiB; der Server prüft Signatur und Abmessungen (max. 2048×2048), **transkodiert für OpenSim/Firestorm nach JPEG2000** und schreibt das Texture-Asset über den **bereits gestarteten ROBUST AssetService**. So bleibt das Bild inworld nutzbar. Antwort HTTP 201 enthält `asset_id`, `owner_id`, `content_type`, `image_url` und `visibility=private`.
+
+Ein Maschinen-Client verwendet statt Bearer den Header `X-NexVerse-Api-Key` mit explizit eingeräumtem `media:publish`; bei solchen Uploads ist im JSON zusätzlich die überprüfte lokale `owner_id` erforderlich. Dieser Key darf nur auf dem Portal-Backend stehen, nicht in Browser oder URLs.
+
+## 3. Aktivieren, Zuordnen, Veröffentlichen
+
+**Eigene Profil-/Gruppenbilder ändern:**
 
 ```http
-GET /api/v1/media/profiles/00000000-0000-0000-0000-000000000002/image?size=128
+PUT /api/v1/media/profiles/{principalId}/image
+Authorization: Bearer <eigener-token>
+Content-Type: application/json
+
+{"asset_id":"<id-aus-eigenem-upload>"}
 ```
+
+Entsprechende `PUT`-Routen gibt es für `/first-life` und `/groups/{groupId}/image`; Gruppenänderungen prüfen zusätzlich die tatsächlichen Gruppenrechte.
+
+**Eigenes Upload explizit öffentlich/privat schalten:**
 
 ```http
-GET /api/v1/media/profiles/00000000-0000-0000-0000-000000000002/first-life
-Authorization: Bearer <owner-token-with-profile:read>
+PATCH /api/v1/media/assets/{assetId}
+Authorization: Bearer <eigener-token>
+Content-Type: application/json
+
+{"public":true}
 ```
 
-**Die Beispiel-UUIDs sind Platzhalter**, keine gültigen Konten oder Gruppen. Öffentliche Profilbilder dürfen ohne Bearer gelesen werden; Gruppen- und First-Life-Bilder benötigen Credentials.
+Eine private Media-Asset-ID darf nicht von anderen Einwohnern allein per UUID abgerufen werden. Umgekehrt macht ein Medien-Upload nicht pauschal andere Inventarobjekte öffentlich.
 
-### Referenzen in Entitäts-JSON
+**Marketplace-Bild veröffentlichen (NUR Backend):**
 
-`GET /api/v1/groups/{groupId}` liefert künftig zusätzlich im `group`-Objekt `insignia_id` und die **relative** `image_url`. Beim Avatarprofil bleiben `profile_image_url` und `first_life_image` bestehen; neu: `media_image_url` und `first_life_image_url`. Ein nicht gesetztes Bild ergibt `null`. URLs sind nur Referenzen: Zugriffsrechte werden beim Abruf erneut geprüft.
+```http
+PUT /api/v1/media/marketplace/{listingId}/image
+X-NexVerse-Api-Key: <maschinenkey-mit-media:publish>
+Content-Type: application/json
 
-Die Gruppe kann weiterhin eine nicht veröffentlichte Insignie besitzen. Der Media-Endpunkt benötigt daher ausdrücklich `groups:read`; **Browser ohne Resident-Session erhalten 401**, auch wenn die Gruppe im Viewer angezeigt wird. Das Portal muss autorisierte Anfragen über seine Backend-/Session-Infrastruktur leiten. Ein öffentlicher Bildzugriff wäre eine gesondert abzusichernde Produktentscheidung.
+{"asset_id":"<registriertes-upload>","owner_id":"<lokaler-avatar-owner>"}
+```
 
-### Fehlercodes
+Die World API validiert die Zuordnung des Bilds zum registrierten Owner. **Die eigentliche Listing-ID und deren Besitzer/Berechtigung muss das Marketplace-Backend autoritativ prüfen, bevor es den signierten Publisher-Key benutzt.** Der World-Server stellt absichtlich kein eigenes zweites Marketplace-Verkaufs-/Kaufverzeichnis bereit; stattdessen hält er die sichere **Publikationsbindung Listing → Bild** in einer separaten Tabelle. `DELETE` entfernt sie wieder und der öffentliche URL-Abruf liefert 404.
 
-- 200 Bilddaten; 400 ungültige Größe.
-- 401/403 nicht authentifiziert bzw. erforderlicher Scope fehlt.
-- 404 ungültige Entität, nicht freigegebene oder fehlende Bildreferenz.
-- 405 nur GET erlaubt; 413 Bilddaten bzw. Dimensionen überschreiten Grenzwerte.
-- 415 Bildtyp/Bilddaten nicht dekodierbar; 503 Profil-, Gruppen- oder AssetService nicht erreichbar.
+## 4. Persistenz & Privatsphäre
 
-### Speicher-/Sicherheitsarchitektur
+Zwei neue Tabellen im bestehenden ROBUST-MariaDB-Schema werden automatisch angelegt:
 
-- Referenzauflösung ausschließlich über `GroupsService.GetGroupRecord(...).GroupPicture` bzw. `IProfilesData.GetAvatarProperties(...).ImageId/FirstLifeImageId`, **niemals** aus URL-Asset-ID, Browser-Headern oder nicht verifizierten Clientparametern.
-- Derselbe von ROBUST registrierte `AssetServiceConnector.GetLocalService(...)` wie die bestehende World API; **kein neuer AssetService, keine Datenbank und keine Asset-Kopie**.
-- Nur bildfähige Assettypen; maximal 8 MiB vor der Decodierung; gerenderte maximale Kante 2048 Pixel. JPEG2000-Konvertierung nutzt den OpenJPEG-Dekoder.
-- First-Life-Bilder sind selbst bei öffentlichem Avatarprofil nur für Owner/Admin auslieferbar. Keine Secrets in Querystrings. Keine Bearer/API-Keys an fremde Bild-CDNs weitergeben.
-- Kein `GET /api/v1/media/assets/{assetId}`: Eine Asset-UUID ist **kein** Leseberechtigungsnachweis. Marketplace, Inventar und freie Asset-IDs bleiben für eine später explizit geprüfte Autorisierung/Veröffentlichung zurückgestellt.
+- `ogl_media_uploads`: Texture-UUID, Avatar-Eigentümer, Original-MIME, Sichtbarkeit, Erstellungszeit
+- `ogl_media_marketplace`: Listing-ID, zugeordneter Upload, Eigentümer und Aktualisierungszeit (FK für nur zuvor registrierte Uploads)
 
-### Deployment-/Akzeptanzgrenzen
+`[NexVerseWorldApi] EnableManagedMedia = true` (Standard bei MariaDB). Ist MariaDB oder der bereits aktive AssetService nicht verfügbar, verweigern die schreibenden Media-Endpunkte ihren Dienst mit 503; **World-Login und ältere Bildrouten bleiben nutzbar**. MariaDB-DB-Benutzer benötigt CREATE TABLE/SELECT/INSERT/UPDATE/DELETE. Für andere Datenbankanbieter gibt es keinen stillen SQLite-Fallback.
 
-Funktioniert nur, wenn World API und die bereits konfigurierten `UserProfilesService`-/`NexGroups`-Module sowie ROBUST AssetService bereit sind. Gruppenbilder benötigen den eingeschalteten NexGroups-Dienst. Kompatibilitäts- und Sicherheitsregressionen werden im GitHub-Actions-Workflow ausgeführt; danach Bildabrufe, fehlende Assets, Fehlerfälle und Berechtigungswechsel im Staging-Portal/Firestorm verifizieren.
+`media:publish` ist **maschinenkey-only**; es gehört nicht zu den automatisch zugewiesenen Einwohner-/Rollenrechten. Alle Browser- und Besitzerrechte werden bei jedem Request erneut geprüft. Gruppen- und First-Life-Bilder sind niemals allein wegen ihrer UUID öffentlich. Private Bilder werden nicht in öffentlichen CDN-Caches geteilt (`Cache-Control: private, no-store`). Die AssetService-Daten bleiben unverändert; **bestehende beliebige Texture-UUIDs können nicht unkontrolliert publiziert werden**.
 
-**Nicht implementiert in Phase 1:** Asset-Rohdownloads, Marketplace-Produktbilder, Upload neuer Bilder, Public-Gruppenbilder ohne Authentifizierung, persistenter Thumbnail-Cache oder CDN-Publication.
+Für JPEG2000-Encoding/Decoding muss die OpenJPEG-/Grafiklaufzeit auf ROBUST vorhanden sein. Ein fehlender nativer Encoder soll einen klaren 503 auslösen; kein korruptes PNG darf als OpenSim-Texture-Asset gespeichert werden.
+
+## 5. Stadtportal-Arbeitsauftrag und Abnahme
+
+1. Das Portal-Backend nutzt Einwohner-OAuth/Bearer für persönliche Bilder, einen dedizierten `media:publish`-Maschinenkey ausschließlich für autorisierte Marketplace-Uploads/Bildbindungen. Die **Marketplace-Konto-/Listing-Owner-Prüfung passiert im Portal**, bevor dieser privilegierte Key verwendet wird.
+2. Hochladen als PNG/JPEG; neue `asset_id` aus 201 übernehmen. Profilsichtbarkeit respektieren. Gruppen- und Profil-JSON führen bereits `image_url` und `media_image_url`.
+3. Listen-/Kachelübersichten nutzen die Media-URLs; Gruppendarstellung braucht `groups:read` und einen authentifizierten Kontext. **Keine geheimen Bearer-Tokens in img-src-Queryparametern**.
+4. Einen frisch angelegten Testbewohner verwenden: Upload → Profil- und Gruppenbindung → Firestorm-Anzeige → GET PNG → private/public-Umschaltung.
+5. Marketplace: eigenen Test-Listing-Eigentümer verifizieren → mit Maschinenkey hochladen/veröffentlichen → anonym GET 200 → DELETE → GET 404. URL-Manipulation, fremde Asset-UUIDs, falscher Owner, fremdes Inventaritem und fehlende Scopes müssen abgelehnt werden.
+6. Nachträgliche Rechte-/Sichtbarkeitsänderungen, fehlende Assets und große/dekodierfehlerhafte Bilder testen. Backup/Restore der beiden Tabellen vorbereiten.
+
+**Die GitHub-CI ersetzt diese Realitätsabnahme nicht. Kein produktives Aktivieren, bevor die End-to-End-Prüfungen erfolgreich sind.**
