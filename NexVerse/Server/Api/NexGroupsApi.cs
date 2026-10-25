@@ -1240,9 +1240,17 @@ namespace NexVerse.Server.Api
                     new Dictionary<string, string>()));
         }
 
-        private static object GroupPayload(
-            ExtendedGroupRecord group) =>
-            GroupsDataUtils.GroupRecord(group);
+        private static object GroupPayload(ExtendedGroupRecord group)
+        {
+            Dictionary<string, object> payload = GroupsDataUtils.GroupRecord(group);
+            if (group != null)
+            {
+                payload["insignia_id"] = group.GroupPicture.ToString();
+                payload["image_url"] = group.GroupPicture.IsZero()
+                    ? null : "/api/v1/media/groups/" + group.GroupID + "/image";
+            }
+            return payload;
+        }
 
         private static object CompatibilityPayload(UUID groupId) =>
             new
