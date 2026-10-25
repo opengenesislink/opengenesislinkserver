@@ -46,7 +46,7 @@ namespace NexVerse.Server.Api
                 "no-referrer");
             response.AddHeader(
                 "Content-Security-Policy",
-                "default-src 'self'; img-src 'self' data:; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self' https://api.github.com");
+                "default-src 'self'; img-src 'self' data:; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'");
             response.RawBuffer =
                 Encoding.UTF8.GetBytes(s_Html);
         }
@@ -966,25 +966,30 @@ function oglRenderWorkspaces(){
 }
 document.querySelectorAll('[data-workspace-search]').forEach(input=>input.addEventListener('input',oglRenderWorkspaces));
 function oglGithubText(id,text){const element=$(id);if(element)element.textContent=String(text||'–')}
-async function oglGithubJson(url){
-  const response=await fetch(url,{headers:{Accept:'application/vnd.github+json'},cache:'no-store',mode:'cors'});
-  if(!response.ok)throw Error('GitHub HTTP '+response.status);
-  return response.json();
-}
 async function oglLoadGithub(force=false){
   if(oglGitPending)return oglGitPending;
   if(!force&&oglGitCache&&Date.now()-oglGitLoadedAt<300000){oglRenderGithub(oglGitCache);return}
   oglGithubText('githubState','Prüfe GitHub…');
   oglGitPending=(async()=>{
-    const base='https://api.github.com/repos/opengenesislink/opengenesislinkserver';
-    const results=await Promise.allSettled([
-      oglGithubJson(base+'/releases/latest'),
-      oglGithubJson(base+'/commits/main'),
-      oglGithubJson(base+'/actions/workflows/nexjast-ci.yml/runs?branch=main&per_page=1')
-    ]);
-    const get=i=>results[i].status==='fulfilled'?results[i].value:null;
-    const data={release:get(0),commit:get(1),ci:get(2),fail:results.map((r,i)=>r.status==='rejected'?i:null).filter(x=>x!==null),at:new Date().toISOString()};
-    oglGitCache=data;oglGitLoadedAt=Date.now();oglRenderGithub(data);
+    try{
+      const response=await fetch('/api/v1/repository/status',{cache:'no-store',credentials:'same-origin',headers:{Accept:'application/json'}});
+      if(!response.ok)throw Error('World-API Repository-Status HTTP '+response.status);
+      const data=await response.json();
+      if(!data||data.source!=='github'||!Array.isArray(data.fail))throw Error('Ungültige GitHub-Statusantwort');
+      oglGitCache=data;oglGitLoadedAt=Date.now();
+      oglRenderGithub(data);
+    }catch(error){
+      if(oglGitCache){
+        oglRenderGithub(oglGitCache);
+        oglGithubText('githubState','Zwischengespeicherter Status (GitHub derzeit nicht erreichbar)');
+      }else{
+        oglGithubText('githubState','GitHub nicht erreichbar');
+        if($('githubDot'))$('githubDot').className='dot bad';
+        for(const id of ['githubStableVersion','githubDevelopmentVersion','githubCiVersion',
+          'dashStable','dashDevelopment','dashWorkflow'])oglGithubText(id,'Nicht verfügbar');
+        oglGithubText('dashboardRepository','Repository-Status konnte nicht geladen werden. Keine Versionsnummer wird geraten.');
+      }
+    }
   })().finally(()=>{oglGitPending=null});
   return oglGitPending;
 }
