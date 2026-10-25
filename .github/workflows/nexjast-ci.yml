@@ -86,6 +86,10 @@ jobs:
       - name: Verify OpenGenesisLINK protected admin Control Center
         shell: bash
         run: python3 tools/ci/verify_ogl_docs_admin_ui.py
+      - name: Verify World API Sci-Fi admin dashboard navigation and GitHub releases
+        shell: bash
+        run: python3 tools/ci/verify_worldapi_scifi_admin_center.py
+
 
       - name: Verify OpenGenesisLINK 0.9.3.12 dashboard and diagnostic updates
         shell: bash
