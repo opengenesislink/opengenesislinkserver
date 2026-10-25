@@ -12,6 +12,10 @@ namespace NexVerse.Core.Messaging
 
         private readonly InMemoryNexEventBus m_Local = new InMemoryNexEventBus();
         private readonly INexEventTransport m_Transport;
+        // ROBUST-only authenticated NexBus log chunks bypass normal fan-out.
+        // Unlike ordinary bus events, they must never be re-relayed to
+        // third-party simulator peers which would expose private log text.
+        public Func<NexEvent, bool> ReceiveLogChunk { get; set; }
         private readonly ConcurrentDictionary<Guid, byte> m_Seen =
             new ConcurrentDictionary<Guid, byte>();
         private readonly ConcurrentQueue<Guid> m_SeenOrder =
