@@ -998,14 +998,19 @@ function oglRenderGithub(d){
   const release=d.release,commit=d.commit,run=d.ci?.workflow_runs?.[0];
   const stable=release?.tag_name||'Nicht verfügbar';
   const dev=commit?.sha?'main · '+commit.sha.slice(0,8):'Nicht verfügbar';
+  const roadmap=spec?.['x_nexverse_roadmap'];
+  const current=String(roadmap?.current_milestone||'');
+  const planned=(roadmap?.milestones||[]).filter(x=>x.status==='planned'&&String(x.version)>current)
+    .sort((x,y)=>String(x.version).localeCompare(String(y.version),undefined,{numeric:true}))[0];
+  const devLabel=planned?.version?planned.version+' · geplant':dev;
   const ci=run?(run.conclusion||run.status||'unbekannt'):'Nicht verfügbar';
   oglGithubText('githubStableVersion',stable);
   oglGithubText('dashStable',stable);
   oglGithubText('dashStableMeta',release?.published_at?'Veröffentlicht '+new Date(release.published_at).toLocaleDateString('de-DE'):'Release-API nicht verfügbar');
   oglGithubText('githubStableInfo',release?.name||'Kein bestätigter Release-Status. Keine Version wird geraten.');
-  oglGithubText('githubDevelopmentVersion',dev);
-  oglGithubText('dashDevelopment',dev);
-  oglGithubText('dashDevelopmentMeta',commit?'GitHub main · kein Stable-Tag':'Branch-Status nicht verfügbar');
+  oglGithubText('githubDevelopmentVersion',devLabel);
+  oglGithubText('dashDevelopment',devLabel);
+  oglGithubText('dashDevelopmentMeta',commit?'main '+commit.sha.slice(0,8)+' · kein Release':'Branch-Status nicht verfügbar');
   oglGithubText('githubDevelopmentInfo',commit?.commit?.message?.split('\n')[0]||'Letzter main-Commit nicht abrufbar.');
   oglGithubText('githubLastCommit',commit?'Letzter Entwicklungscommit: '+commit.sha+' · '+(commit.commit?.author?.date||'Zeit unbekannt'):'GitHub-main ist derzeit nicht erreichbar.');
   oglGithubText('githubCiVersion',ci);
