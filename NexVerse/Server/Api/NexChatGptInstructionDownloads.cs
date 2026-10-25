@@ -633,10 +633,14 @@ namespace NexVerse.Server.Api
             AppendCatalogGroup(md, requestedAudience, "shared", "Avatarprofile und Bildbytes",
                 "/api/v1/profiles/{principalId}",
                 "/api/v1/profiles/{principalId}/image");
-            AppendCatalogGroup(md, requestedAudience, "shared", "OpenGenesisLINK Media API 1.0: autorisierte Gruppen- und Avatarbilder",
+            AppendCatalogGroup(md, requestedAudience, "shared", "OpenGenesisLINK Media API: Bilder, sichere Uploads, Medienkatalog und Marketplace",
                 "/api/v1/media/groups/{groupId}/image",
                 "/api/v1/media/profiles/{principalId}/image",
-                "/api/v1/media/profiles/{principalId}/first-life");
+                "/api/v1/media/profiles/{principalId}/first-life",
+                "/api/v1/media/uploads",
+                "/api/v1/media/assets/{assetId}",
+                "/api/v1/media/inventory/{itemId}/image",
+                "/api/v1/media/marketplace/{listingId}/image");
             AppendCatalogGroup(md, requestedAudience, "shared", "Regionen",
                 "/api/v1/regions",
                 "/api/v1/regions/{regionId}");
