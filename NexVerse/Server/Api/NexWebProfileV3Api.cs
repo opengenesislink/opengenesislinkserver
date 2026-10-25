@@ -147,6 +147,12 @@ namespace NexVerse.Server.Api
                 first_life_text = profile.FirstLifeText ?? string.Empty,
                 profile_image_url = profile.ImageId.IsZero()
                     ? null : "/api/v1/profiles/" + account.PrincipalID + "/image",
+                media_image_url = profile.ImageId.IsZero()
+                    ? null : "/api/v1/media/profiles/" + account.PrincipalID + "/image",
+                // First-Life requires owner/admin authentication even when
+                // the regular avatar profile is published.
+                first_life_image_url = profile.FirstLifeImageId.IsZero()
+                    ? null : "/api/v1/media/profiles/" + account.PrincipalID + "/first-life",
                 about = profile.AboutText ?? string.Empty,
                 web_url = profile.WebUrl ?? string.Empty,
                 interests = new
