@@ -529,6 +529,8 @@ namespace NexVerse.Server.Api
                 "/api/v1/search");
             AppendCatalogGroup(md, requestedAudience, "public", "version",
                 "/api/v1/version");
+            AppendCatalogGroup(md, requestedAudience, "public", "OpenGenesisLINK GitHub Stable/Development/CI Status",
+                "/api/v1/repository/status");
             AppendCatalogGroup(md, requestedAudience, "public", "Oeffentliche Weltkarte",
                 "/api/v1/world-map",
                 "/api/v1/world-map/view");
