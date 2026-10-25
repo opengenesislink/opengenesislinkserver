@@ -248,6 +248,7 @@ main{padding:28px clamp(17px,3vw,52px)}
 <div class="shell">
 <nav aria-label="World API Verwaltung">
 <div class="brand ogl-brand"><div class="ogl-logo"><img src="OGL_LOGO_DATA_URI" width="56" height="56" alt="OpenGenesisLINK World API Logo"></div><div class="brand-copy"><strong>OpenGenesisLINK</strong><span>WORLD API · CONTROL CENTER</span></div></div>
+<div class="navsection-label">CONTROL CENTER · BEREICHE</div>
 <div class="nav-scroll">
 <details class="navgroup" open><summary>Übersicht &amp; Monitoring</summary>
 <button class="navbtn active" data-page="overview">Dashboard</button>
