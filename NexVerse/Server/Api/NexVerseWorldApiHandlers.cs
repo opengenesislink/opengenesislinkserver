@@ -135,6 +135,7 @@ namespace NexVerse.Server.Api
                 ["/api/v1"] = GetOperation("Metadaten des World-API-Dienstes"),
                 ["/api/v1/health"] = GetOperation("Status der World API"),
                 ["/api/v1/version"] = GetOperation("NexVerse-Server- und Protokollversionen"),
+                ["/api/v1/repository/status"] = GetOperation("Autoritative GitHub-Releases, Entwicklungsstand main und letzter CI-Lauf; gecacht, ohne Secrets"),
                 ["/api/v1/capabilities"] = GetOperation("NexVerse-Funktions- und Kompatibilitätsstufen"),
                 ["/api/v1/openapi.json"] = GetOperation("OpenAPI-Dokument"),
                 ["/api/v1/docs"] = GetOperation("Selbst gehostete, durchsuchbare API-Dokumentation mit Live-Explorer"),
