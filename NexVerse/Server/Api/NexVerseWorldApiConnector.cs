@@ -324,6 +324,12 @@ namespace NexVerse.Server.Api
             m_Log.Info("[NEX-WORLD-API]: Endpunkt für Statistikübersicht registriert.");
 
             server.AddSimpleStreamHandler(new SimpleStreamHandler("/api/v1/version", apiGate.Wrap(handlers.Version), "NexVerse World API Version"));
+            // GitHub is queried server-side because the protected admin iframe
+            // inherits the login shell's restrictive same-origin CSP.
+            NexGithubRepositoryStatusApi githubStatus = new NexGithubRepositoryStatusApi();
+            server.AddSimpleStreamHandler(new SimpleStreamHandler(
+                "/api/v1/repository/status", apiGate.Wrap(githubStatus.Handle),
+                "OpenGenesisLINK public GitHub releases and CI status"));
             server.AddSimpleStreamHandler(new SimpleStreamHandler("/api/v1/capabilities", apiGate.Wrap(handlers.Capabilities), "NexVerse World API Capabilities"));
             server.AddSimpleStreamHandler(new SimpleStreamHandler("/api/v1/openapi.json", apiGate.Wrap(handlers.OpenApi), "NexVerse World API OpenAPI"));
 
