@@ -1219,6 +1219,31 @@ namespace NexVerse.Server.Api
                     userAccounts, mediaProfilesData, nexGroupsService,
                     () => AssetServiceConnector.GetLocalService(config, "AssetService"),
                     authenticator);
+                NexMediaCatalogStore mediaCatalog = null;
+                if (apiConfig.GetBoolean("EnableManagedMedia", true))
+                {
+                    if (!string.IsNullOrWhiteSpace(databaseConnectionString) &&
+                        (databaseStorageProvider.IndexOf("MySQL", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                         databaseStorageProvider.IndexOf("MariaDB", StringComparison.OrdinalIgnoreCase) >= 0))
+                    {
+                        try
+                        {
+                            mediaCatalog = new NexMediaCatalogStore(databaseConnectionString);
+                        }
+                        catch (Exception e)
+                        {
+                            m_Log.Error("[OGL-MEDIA]: Managed media unavailable: MariaDB initialization failed.", e);
+                        }
+                    }
+                    else
+                        m_Log.Warn("[OGL-MEDIA]: Managed uploads require the existing ROBUST MariaDB provider.");
+                }
+                NexManagedMediaApi managedMedia = new NexManagedMediaApi(
+                    authenticator, userAccounts, inventory, mediaProfilesData,
+                    nexGroupsService,
+                    () => AssetServiceConnector.GetLocalService(config, "AssetService"),
+                    mediaCatalog, mediaApi.ServeLinkedImage);
+                mediaApi.ConfigureManaged(managedMedia);
                 server.AddSimpleStreamHandler(
                     new SimpleStreamHandler("/api/v1/media",
                         apiGate.Wrap(mediaApi.Handle),
