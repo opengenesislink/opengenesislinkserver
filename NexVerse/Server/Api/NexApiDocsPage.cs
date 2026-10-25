@@ -51,7 +51,7 @@ namespace NexVerse.Server.Api
                 Encoding.UTF8.GetBytes(s_Html);
         }
 
-        private const string s_Html = """
+        private static readonly string s_Html = """
 <!doctype html>
 <html lang="de">
 <head>
@@ -197,6 +197,7 @@ body{background:radial-gradient(ellipse at 78% 0%,rgba(11,70,143,.22),transparen
 .shell{grid-template-columns:284px minmax(0,1fr)}
 nav{width:284px;display:flex;flex-direction:column;overflow:hidden;border-right:1px solid rgba(74,168,241,.23);background:linear-gradient(180deg,rgba(5,17,34,.99),rgba(5,12,25,.99));padding:0 12px}
 .ogl-brand{flex:0 0 auto;display:flex;gap:10px;align-items:center;padding:23px 10px 15px;margin:0;border-bottom:1px solid rgba(75,157,218,.23)}
+.ogl-brand .ogl-logo img{width:56px;height:56px;object-fit:contain;filter:drop-shadow(0 0 12px rgba(56,209,255,.2))}
 .ogl-brand .ogl-logo{flex:0 0 61px;width:61px;height:61px;border-radius:12px;display:grid;place-items:center;font-size:14px;box-shadow:0 0 16px rgba(0,220,255,.18);border:1px solid rgba(60,211,252,.3)}
 .ogl-brand .brand-copy{min-width:0}.ogl-brand strong{font-size:15px;letter-spacing:-.25px}.ogl-brand span{font-size:9px;letter-spacing:.11em}
 .nav-scroll{overflow-y:auto;overscroll-behavior:contain;flex:1;padding:12px 3px 24px;scrollbar-width:thin;scrollbar-color:#24466b transparent}
@@ -246,7 +247,7 @@ main{padding:28px clamp(17px,3vw,52px)}
 <body>
 <div class="shell">
 <nav aria-label="World API Verwaltung">
-<div class="brand ogl-brand"><div class="ogl-logo" aria-hidden="true">OGL</div><div class="brand-copy"><strong>OpenGenesisLINK</strong><span>WORLD API · CONTROL CENTER</span></div></div>
+<div class="brand ogl-brand"><div class="ogl-logo"><img src="OGL_LOGO_DATA_URI" width="56" height="56" alt="OpenGenesisLINK World API Logo"></div><div class="brand-copy"><strong>OpenGenesisLINK</strong><span>WORLD API · CONTROL CENTER</span></div></div>
 <div class="nav-scroll">
 <details class="navgroup" open><summary>Übersicht &amp; Monitoring</summary>
 <button class="navbtn active" data-page="overview">Dashboard</button>
@@ -2527,6 +2528,6 @@ init();
 </script>
 </body>
 </html>
-""";
+""".Replace("OGL_LOGO_DATA_URI", NexOglBranding.DataUri);
     }
 }
