@@ -1219,7 +1219,8 @@ async function oglLoadLogIndex(){
     for(const file of files){
       const row=document.createElement('details');row.className='ogl-day';
       const heading=document.createElement('summary');
-      const title=file.service+' Log vom '+oglCleanDate(file.date+'T12:00:00');
+      const title=file.service+(file.node_id?' · Node '+file.node_id:' · lokal')+
+        ' Log vom '+oglCleanDate(file.date+'T12:00:00');
       heading.append(oglPlain('span','',title),oglPlain('small','',Math.round((file.bytes||0)/1024)+' KiB'));
       const body=document.createElement('div');body.className='ogl-log-body';
       const pre=document.createElement('pre');pre.className='ogl-logs-pre';pre.textContent='Zum Laden aufklappen.';
@@ -1237,7 +1238,9 @@ async function oglLoadLogIndex(){
         state.loading=true;more.disabled=true;
         pre.textContent=state.loaded?'Lade weitere Zeilen…':'Lese Tagesarchiv…';
         try{
-          const endpoint='/api/v1/admin/logs/'+file.service+'/'+file.date+'/entries?offset='+state.offset+'&limit=500';
+          const endpoint='/api/v1/admin/logs/'+file.service+'/'+file.date+
+            '/entries?offset='+state.offset+'&limit=500'+
+            (file.node_id?'&node_id='+encodeURIComponent(file.node_id):'');
           const result=await oglRequest(endpoint);
           state.lines.push(...(result.lines||[]));state.offset=result.next_offset;
           state.more=Boolean(result.has_more);state.loaded=true;render();
