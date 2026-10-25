@@ -20,11 +20,12 @@ namespace NexVerse.Server.Api
         private const int MaxPage = 1000;
         private const int MaxOffset = 1000000;
         private static readonly Regex s_FileName = new Regex(
-            @"^(Robust|OpenSim)_(\d{2})_(\d{2})_(\d{4})\.log$",
+            @"^(Robust|OpenSim)(?:_([A-Za-z0-9][A-Za-z0-9._-]{0,63}))?_(\d{2})_(\d{2})_(\d{4})\.log$",
             RegexOptions.CultureInvariant | RegexOptions.Compiled);
         private static readonly Regex s_Secret = new Regex(
-            @"(?i)(authorization\\s*[:=]\\s*bearer\\s+|x-nexverse-api-key\\s*[:=]\\s*|password(?:hash|salt)?\\s*[:=]\\s*|token\\s*[:=]\\s*)([^\\s,;]+)",
+            @"(?i)(authorization\s*[:=]\s*bearer\s+|x-nexverse-api-key\s*[:=]\s*|password(?:hash|salt)?\s*[:=]\s*|token\s*[:=]\s*)([^\s,;]+)",
             RegexOptions.CultureInvariant | RegexOptions.Compiled);
+
         private readonly NexApiAuthenticator m_Auth;
         private readonly string m_LogDirectory;
 
@@ -93,7 +94,14 @@ namespace NexVerse.Server.Api
                 Write(response, HttpStatusCode.BadRequest, new {error = "invalid_pagination"});
                 return;
             }
-            ReadDay(response, parts[4], date, limit, offset);
+            string nodeId = request.QueryString?["node_id"] ?? string.Empty;
+            if (nodeId.Length != 0 &&
+                (parts[4] != "OpenSim" || !NexBusRemoteLogArchive.SafeNode.IsMatch(nodeId)))
+            {
+                Write(response, HttpStatusCode.BadRequest, new {error = "invalid_node_id"});
+                return;
+            }
+            ReadDay(response, parts[4], date, limit, offset, nodeId);
         }
 
         private void List(IOSHttpResponse response)
@@ -109,13 +117,14 @@ namespace NexVerse.Server.Api
                         Match match = s_FileName.Match(basename);
                         if (!match.Success ||
                             !DateTime.TryParseExact(
-                                match.Groups[2].Value+"_"+match.Groups[3].Value+"_"+match.Groups[4].Value,
+                                match.Groups[3].Value+"_"+match.Groups[4].Value+"_"+match.Groups[5].Value,
                                 "dd_MM_yyyy", CultureInfo.InvariantCulture, DateTimeStyles.None,
                                 out DateTime date)) continue;
                         FileInfo info = new FileInfo(file);
                         dates.Add(new
                         {
                             service = match.Groups[1].Value,
+                            node_id = match.Groups[2].Success ? match.Groups[2].Value : null,
                             date = date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
                             name = basename,
                             bytes = info.Length,
@@ -137,9 +146,11 @@ namespace NexVerse.Server.Api
             }
         }
 
-        private void ReadDay(IOSHttpResponse response, string service, DateTime date, int limit, int offset)
+        private void ReadDay(IOSHttpResponse response, string service, DateTime date,
+            int limit, int offset, string nodeId)
         {
-            string filename = service+"_"+date.ToString("dd_MM_yyyy", CultureInfo.InvariantCulture)+".log";
+            string filename = service+(string.IsNullOrEmpty(nodeId) ? "" : "_"+nodeId)+
+                "_"+date.ToString("dd_MM_yyyy", CultureInfo.InvariantCulture)+".log";
             string file = Path.Combine(m_LogDirectory, filename);
             if (!File.Exists(file))
             {
@@ -167,7 +178,8 @@ namespace NexVerse.Server.Api
                 if (hasMore) lines.RemoveAt(limit);
                 Write(response, HttpStatusCode.OK, new
                 {
-                    service, date = date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+                    service, node_id = string.IsNullOrEmpty(nodeId) ? null : nodeId,
+                    date = date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
                     file = filename, offset, limit, has_more = hasMore, next_offset = offset + lines.Count,
                     lines
                 });
