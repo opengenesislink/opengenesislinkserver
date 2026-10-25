@@ -259,7 +259,8 @@ main{padding:28px clamp(17px,3vw,52px)}
 <button class="navbtn" data-page="grid">Grid-Planer &amp; Regionen</button>
 <button class="navbtn" data-page="nodes">Simulator-Nodes</button>
 <button class="navbtn" data-page="estates">Estates &amp; Land</button>
-<button class="navbtn" data-page="console">Konsole &amp; Aufträge</button></details>
+<button class="navbtn" data-page="console">Konsole &amp; Aufträge</button>
+<button class="navbtn" data-page="logs">ROBUST / OpenSim Logs</button></details>
 <details class="navgroup"><summary>Einwohner &amp; Communities</summary>
 <button class="navbtn" data-page="users">Benutzer &amp; Avatare</button>
 <button class="navbtn" data-page="groups">Gruppen &amp; Rollen</button>
@@ -272,7 +273,8 @@ main{padding:28px clamp(17px,3vw,52px)}
 <button class="navbtn" data-page="experiences">Experiences</button></details>
 <details class="navgroup"><summary>API &amp; Sicherheit</summary>
 <button class="navbtn" data-page="secrets">API-Schlüssel &amp; Scopes</button>
-<button class="navbtn" data-page="security">Sicherheit &amp; Audit</button>
+<button class="navbtn" data-page="security">Sicherheit</button>
+<button class="navbtn" data-page="audit">Audit-Protokoll</button>
 <button class="navbtn" data-page="explorer">API-Explorer</button>
 <button class="navbtn" data-page="chatgpt">Portale &amp; Integration</button>
 <button class="navbtn" data-page="adminlogin">Admin-Anmeldung</button></details>
@@ -380,6 +382,10 @@ main{padding:28px clamp(17px,3vw,52px)}
 <div class="hero"><div><div class="eyebrow">OGL CONTROL PLANE · CONSOLE</div><h1>Konsole &amp; Aufträge</h1><p>Kontrollierte Serverfunktionen und Jobs über bereits geprüfte HTTP-Endpunkte. Keine unbeschränkte Shell.</p></div><div class="pill"><span class="dot good"></span><span>Autoritative API</span></div></div>
 <div class="section"><h2>Verfügbare Verwaltungsoperationen</h2><p class="sectionlead">Aus dem aktiven OpenAPI-Vertrag dieses Servers. Ein Klick öffnet die echte Operation mit Parametern, Berechtigungen und Ausführung im API-Explorer; nicht vorhandene Funktionen werden nicht simuliert.</p><div class="ogl-workspace-tools"><input aria-label="Operationen filtern" data-workspace-search="console" placeholder="Operation oder Pfad filtern…"><span id="workspace-count-console">–</span></div><div class="ogl-operation-grid" id="workspace-console"><div class="empty">API-Vertrag wird geladen…</div></div></div>
 </section>
+<section class="page" id="page-logs"><div class="hero"><div><div class="eyebrow">OBSERVABILITY · DIAGNOSTICS</div><h1>Tagesprotokolle</h1><p>ROBUST und lokale OpenSim-Logs werden nach Kalendertag archiviert. Archive öffnen, blättern und Fehler filtern – ohne Konsolenzugriff oder Download fremder Dateien.</p></div><div class="pill"><span class="dot" id="oglLogsDot"></span><span id="oglLogsStatus">Noch nicht geladen</span></div></div>
+<div class="section"><div class="ogl-section-flex"><div><h2>Logarchiv</h2><p class="sectionlead">Sortiert nach Datum (neueste zuerst). Die OpenSim-Liste zeigt nur Dateien, die auf demselben Server vorhanden sind; fremde Simulator-Nodes benötigen ihren eigenen geschützten Logdienst.</p></div><button class="action" id="oglLogsRefresh" type="button">Tagesarchive laden</button></div><div class="ogl-workspace-tools"><select id="oglLogsService" aria-label="Logdienst"><option value="all">Alle Dienste</option><option value="Robust">ROBUST</option><option value="OpenSim">OpenSim</option></select><input id="oglLogsSearch" type="search" placeholder="In geladenen Logzeilen filtern…"><span id="oglLogsCount">–</span></div><div id="oglLogArchiveList" class="ogl-log-list"><div class="empty">Zum Öffnen der Logarchive mit einer gültigen Administrator-Sitzung anmelden.</div></div></div></section>
+<section class="page" id="page-audit"><div class="hero"><div><div class="eyebrow">SECURITY · TRACEABILITY</div><h1>Audit &amp; Ereignisse</h1><p>Die bereits gespeicherten Administrationsaktionen mit Zeit, Akteur, Ressource und Korrelation; gruppiert nach Datum. Keine Änderung oder Löschung von Audit-Ereignissen.</p></div><div class="pill"><span class="dot" id="oglAuditDot"></span><span id="oglAuditStatus">Noch nicht geladen</span></div></div>
+<div class="section"><div class="ogl-section-flex"><div><h2>Administrations-Audit</h2><p class="sectionlead">Abfrage der bestehenden persistenten World-API-Audit-Historie. Datumseinträge zeigen die aktuell geladene Ergebnismenge; ältere Datensätze können seitenweise nachgeladen werden.</p></div><button class="action" id="oglAuditRefresh" type="button">Audit laden</button></div><div class="ogl-workspace-tools"><input id="oglAuditActor" placeholder="Akteur (optional)"><input id="oglAuditAction" placeholder="Aktion (optional)"><input id="oglAuditResource" placeholder="Ressource (optional)"></div><div id="oglAuditEntries" class="ogl-log-list"></div><button class="action" id="oglAuditMore" type="button" hidden>Weitere Auditeinträge laden</button></div></section>
 <section class="page" id="page-diagnostics">
 <div class="hero"><div><div class="eyebrow">OGL CONTROL PLANE / DIAGNOSTICS</div><h1>Systemdiagnose</h1><p>Prüfe die tatsächlich erreichbaren World-API-Dienste dieses OGL-Servers. Kein Demo-Status, keine Datenbankänderungen.</p></div><div class="pill"><span class="dot" id="diagDot"></span><span id="diagSummary">Noch nicht geprüft</span></div></div>
 <div class="section"><h2>Live-Selbsttest</h2><p class="sectionlead">Diese Prüfung liest ausschließlich den aktuellen Health-/Versions-/OpenAPI-Zustand, die ChatGPT-Anweisung und den optionalen Node-Lizenzdienst. Keine schreibenden Aktionen.</p>
