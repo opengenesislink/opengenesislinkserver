@@ -213,14 +213,45 @@ label{display:block;color:#d3deed;font-size:12px;margin:18px 0 8px;font-weight:6
 #app{border:0;display:block;width:100%;height:100vh;background:#060b16}#app[hidden],#loginView[hidden]{display:none!important}
 @media(max-width:1000px){.stage{grid-template-columns:1fr;max-width:670px;padding-top:34px}.orbit{display:none}h1{font-size:clamp(43px,9vw,65px)}.intro{max-width:580px}.top{padding:22px 24px}.topright{font-size:9px}}@media(max-width:570px){.stage{gap:30px;padding:25px 18px 45px}.highlights{gap:7px}.highlight{font-size:11px;padding:8px 9px}.login{padding:25px 21px}.brand strong{font-size:15px}.sigil{width:41px;height:41px}.topright{display:none}.bottom{padding:15px 22px}}
 @media(prefers-reduced-motion:reduce){body:before{animation:none}.submit{transition:none}}
+
+/* World API Operator Login 3.0 – cinematic but keyboard-accessible */
+:root{--a:#5bd6fa;--v:#7daeff;--paper:#eef8ff;--muted:#9bb8cf;--line:rgba(110,174,226,.3)}
+body{background:radial-gradient(ellipse at 8% 12%,rgba(29,109,160,.16),transparent 32%),radial-gradient(ellipse at 86% 77%,rgba(61,95,187,.14),transparent 41%),#040b16}
+body:before{opacity:.28}
+.top{background:rgba(6,16,29,.8);border-bottom:1px solid rgba(75,159,207,.26);min-height:88px}
+.brand strong{letter-spacing:-.025em;font-size:20px}.brand span{letter-spacing:.12em}
+.sigil{background:#0e2539;border-radius:14px;width:56px;height:56px}
+.sigil img{width:51px!important;height:51px!important;filter:drop-shadow(0 0 13px rgba(82,222,247,.32))}
+.topright{letter-spacing:.09em}
+.stage{max-width:1350px;min-height:calc(100vh - 160px);margin:auto;display:grid;grid-template-columns:minmax(0,1.2fr) minmax(340px,.8fr);align-items:center;gap:clamp(25px,4vw,75px);padding:clamp(38px,6vw,78px) clamp(22px,5vw,60px)}
+.showcase{position:relative;overflow:hidden;padding:20px 10px 20px 0}
+.showcase:before{content:'';position:absolute;top:20px;left:-100px;width:440px;height:440px;border:1px solid rgba(86,196,252,.13);border-radius:50%;pointer-events:none;box-shadow:0 0 0 40px rgba(70,172,230,.027),0 0 0 85px rgba(63,123,216,.025)}
+.showcase h1{font-weight:780;font-size:clamp(38px,4.3vw,66px);line-height:1.08;letter-spacing:-.055em;margin:18px 0}
+.showcase h1 em{font-style:normal;background:linear-gradient(90deg,#69e4fa,#86aaff);-webkit-background-clip:text;background-clip:text;color:transparent}
+.ogl-showcase-logo{width:158px;height:158px;display:grid;place-items:center;border-radius:36px;position:relative;background:radial-gradient(circle,rgba(36,154,228,.2),transparent 70%);filter:drop-shadow(0 0 24px rgba(44,175,245,.22))}
+.ogl-showcase-logo img{object-fit:contain;width:158px;height:158px}
+.showcase .intro{max-width:580px;color:#b3cadc;line-height:1.8}
+.highlights{gap:8px;flex-wrap:wrap}.highlight{border:1px solid rgba(67,139,204,.24);border-radius:8px;background:rgba(9,31,55,.75);font-size:12px}
+.orbit{display:none}
+.window{width:100%;max-width:460px;margin:0;justify-self:end;background:rgba(11,27,46,.96);border:1px solid rgba(79,178,227,.33);border-radius:20px;box-shadow:0 24px 85px rgba(0,0,0,.38),0 0 70px rgba(47,146,212,.04)}
+.login{padding:clamp(22px,3vw,43px)}.login h2{font-size:29px;letter-spacing:-.035em;color:#f1faff}
+.loginkicker{font-size:11px;letter-spacing:.13em;color:#66d8fc;font-weight:800}
+.login p{color:#acc6d9;line-height:1.6}
+.login input{min-height:47px;border-radius:9px;background:#09192c;border:1px solid #2d516b}
+.login input:focus-visible{outline:2px solid #60d9f7;outline-offset:2px}
+.submit{margin-top:20px;border-radius:9px;min-height:50px;background:linear-gradient(110deg,#1ca2ce,#4073c3);color:#f7fcff;font-weight:750;box-shadow:0 10px 28px rgba(16,128,199,.16)}
+.submit:hover{background:linear-gradient(110deg,#25bce6,#588de3)}
+.bottom{border-top:1px solid rgba(61,134,185,.22);background:#060f1d;color:#9bacc4}
+@media(max-width:1000px){.stage{grid-template-columns:1fr;max-width:630px}.window{max-width:none;justify-self:stretch}.showcase{text-align:left}.ogl-showcase-logo{width:110px;height:110px}.ogl-showcase-logo img{width:110px;height:110px}}
+@media(prefers-reduced-motion:reduce){.showcase:before,.ogl-showcase-logo{animation:none!important}}
 </style>
 </head>
 <body>
 <div id="loginView">
 <header class="top"><div class="brand"><div class="sigil"><img src="OGL_LOGO_DATA_URI" width="44" height="44" alt="OpenGenesisLINK World API Logo" style="width:44px;height:44px;object-fit:contain;display:block"></div><div><strong>OpenGenesisLINK</strong><span>World API · Control Center</span></div></div><div class="topright"><i class="light" aria-hidden="true"></i> Secure administration <span> / </span> Live Control Plane</div></header>
 <main class="stage">
-<section class="showcase"><div class="eyebrow">The next generation of OpenSimulator</div><h1>Deine Welt.<br><em>Deine Kontrolle.</em></h1><div class="intro">Willkommen im OpenGenesisLINK Control Center. Verwalte Simulator-Nodes, Grid-Regionen, Dienste, Sicherheit, API-Zugänge und die Infrastruktur deiner virtuellen Welt an einem zentralen Ort.</div><div class="highlights"><div class="highlight">◈ Grid &amp; Regions</div><div class="highlight">⬡ Simulator Control</div><div class="highlight">⌁ World API Explorer</div></div><div class="orbit" aria-hidden="true"></div></section>
-<div class="window"><section class="login"><div class="loginkicker">Authorized Personnel Only</div><h2>Administrator Login</h2><p>Bitte melde dich mit deinem lokalen GridUser-Konto an. Zugang für lokale GridUser ab <strong>UserLevel 200</strong>.</p><form id="adminForm" autocomplete="on"><label for="username">Grid-Benutzername</label><input id="username" name="username" autocomplete="username" maxlength="100" required placeholder="Vorname.Nachname"><div class="fieldhelp">Beispiel: Sleimer.Akina oder Vorname Resident</div><label for="password">Passwort</label><input id="password" name="password" autocomplete="current-password" type="password" maxlength="256" required placeholder="Dein Grid-Passwort"><div class="formlabel"><label for="totp">Zwei-Faktor-Code (falls aktiviert)</label><span>Optional</span></div><input id="totp" name="totp" autocomplete="one-time-code" inputmode="numeric" maxlength="12" placeholder="6-stelliger TOTP-Code"><button class="submit" id="submit" type="submit">Sicher anmelden →</button><div class="status" id="status" role="status" aria-live="polite">Mit Grid-Benutzername und Passwort anmelden.</div></form><div class="footnote">Benutzername, Passwort und UserLevel werden auf dem Server geprüft. HTTPS wird zum Schutz deiner Zugangsdaten empfohlen. Sitzungstokens bleiben nur im Arbeitsspeicher.</div></section></div>
+<section class="showcase"><div class="eyebrow">OPEN GENESIS LINK · WORLD CONTROL PLANE</div><div class="ogl-showcase-logo"><img src="OGL_LOGO_DATA_URI" alt="OpenGenesisLINK World API Logo" width="158" height="158"></div><h1>Control Center.<br><em>Grenzenlose Möglichkeiten.</em></h1><div class="intro">Willkommen im OpenGenesisLINK Control Center. Verwalte Simulator-Nodes, Grid-Regionen, Dienste, Sicherheit, API-Zugänge und die Infrastruktur deiner virtuellen Welt an einem zentralen Ort.</div><div class="highlights"><div class="highlight">◈ Grid- &amp; Regionensteuerung</div><div class="highlight">⬡ Live-Diagnose &amp; Audit</div><div class="highlight">⌁ API &amp; Sicherheit</div></div><div class="orbit" aria-hidden="true"></div></section>
+<div class="window"><section class="login"><div class="loginkicker">SECURE ACCESS · ADMIN LEVEL 200</div><h2>Administrator-Anmeldung</h2><p>Bitte melde dich mit deinem lokalen GridUser-Konto an. Zugang für lokale GridUser ab <strong>UserLevel 200</strong>.</p><form id="adminForm" autocomplete="on"><label for="username">Grid-Benutzername</label><input id="username" name="username" autocomplete="username" maxlength="100" required placeholder="Vorname.Nachname"><div class="fieldhelp">Beispiel: Sleimer.Akina oder Vorname Resident</div><label for="password">Passwort</label><input id="password" name="password" autocomplete="current-password" type="password" maxlength="256" required placeholder="Dein Grid-Passwort"><div class="formlabel"><label for="totp">Zwei-Faktor-Code (falls aktiviert)</label><span>Optional</span></div><input id="totp" name="totp" autocomplete="one-time-code" inputmode="numeric" maxlength="12" placeholder="6-stelliger TOTP-Code"><button class="submit" id="submit" type="submit">Sicher anmelden →</button><div class="status" id="status" role="status" aria-live="polite">Mit Grid-Benutzername und Passwort anmelden.</div></form><div class="footnote">Benutzername, Passwort und UserLevel werden auf dem Server geprüft. HTTPS wird zum Schutz deiner Zugangsdaten empfohlen. Sitzungstokens bleiben nur im Arbeitsspeicher.</div></section></div>
 </main>
 <footer class="bottom"><div>© OpenGenesisLINK · OGL Server Technology</div><div>Protected administration environment</div></footer>
 </div>

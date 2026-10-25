@@ -7,6 +7,11 @@
     NodeId = ""
     PeerUrl = "${Environment|NEXVERSE_NEXBUS_PEER_URL}"
     SharedKey = "${Environment|NEXVERSE_NEXBUS_SHARED_KEY}"
+    ; Daily OpenSim_<dd_MM_yyyy>.log is forwarded automatically to ROBUST
+    ; as signed NexBus chunks. This contains sensitive diagnostics:
+    ; only enable for trusted peers reachable over HTTPS.
+    ; ROBUST stores OpenSim_<NodeId>_<dd_MM_yyyy>.log under bin/logs.
+    LogForwardingEnabled = true
     InboundPath = "/internal/nexbus/v1/events"
     HeartbeatSeconds = 30
     QueueCapacity = 2048

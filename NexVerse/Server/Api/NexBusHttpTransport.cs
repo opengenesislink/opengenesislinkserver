@@ -284,8 +284,14 @@ namespace NexVerse.Server.Api
 
             try
             {
-                bool accepted = m_Bus.Receive(nexEvent);
-                Write(response, HttpStatusCode.Accepted, new
+                bool isLogChunk = nexEvent.Name == "node.log.chunk";
+                // Persist logs synchronously before acknowledging the sender.
+                // Do NOT publish these private payloads to the general bus:
+                // DistributedNexEventBus.Receive would fan them out to peers.
+                bool accepted = isLogChunk
+                    ? (m_Bus.ReceiveLogChunk?.Invoke(nexEvent) == true)
+                    : m_Bus.Receive(nexEvent);
+                Write(response, isLogChunk && !accepted ? HttpStatusCode.Conflict : HttpStatusCode.Accepted, new
                 {
                     accepted,
                     event_id = nexEvent.EventId

@@ -175,6 +175,10 @@ namespace NexVerse.Server.Api
                     ("post", "Einwohnersitzungen widerrufen und Sicherheitsstempel fortschreiben", "self or admin:*", "200")),
                 ["/api/v1/audit"] = AuthenticatedOperations(
                     ("get", "Persistente administrative Audit-Historie abfragen", "admin:*", "200")),
+                ["/api/v1/admin/logs"] = AuthenticatedOperations(
+                    ("get", "Tagesarchiv-Liste von lokalem ROBUST und OpenSim, nur lokale Administratoren ab UserLevel 200", "admin:*", "200")),
+                ["/api/v1/admin/logs/{service}/{date}/entries"] = AuthenticatedOperations(
+                    ("get", "Paginierte Logzeilen eines lokalen Tagesarchivs, 1-1000 pro Anfrage, sensitive Tokens maskiert", "admin:*", "200")),
                 ["/api/v1/statistics/summary"] = StatisticsOperation(),
                 ["/api/v1/grid/layout"] = AuthenticatedOperations(
                     ("get", "Gebundenes Welt-Raster mit Zellbelegung lesen", "regions:read", "200")),

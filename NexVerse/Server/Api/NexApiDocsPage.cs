@@ -242,6 +242,43 @@ main{padding:28px clamp(17px,3vw,52px)}
 #page-repository .section{min-height:125px}
 @media(max-width:1180px){.ogl-status-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.ogl-release-grid{grid-template-columns:1fr 1fr}}
 @media(max-width:850px){.shell{grid-template-columns:1fr}nav{position:relative;top:auto;width:100%;height:auto;max-height:440px}.nav-scroll{max-height:285px}.ogl-status-grid,.ogl-release-grid,.ogl-panel-split,.ogl-operation-grid{grid-template-columns:1fr}.ogl-command-bar{align-items:start;flex-direction:column}.navmeta{display:none}}
+
+/* Operator Control Center 3.0 – restrained, legible aerospace design */
+:root{--bg:#060d19;--panel:#111d2c;--panel2:#17283d;--line:#28435a;--text:#edf4fc;--muted:#9cb3c8;--accent:#52c9eb;--accent2:#89aaff;--good:#56d9a9;--shadow:0 8px 28px rgba(0,0,0,.24)}
+body{background:linear-gradient(148deg,#0a1628 0%,#050a14 56%,#0a1020 100%);font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}
+.shell{grid-template-columns:276px minmax(0,1fr)}
+nav{width:276px;background:#091423;border-right:1px solid #243b53}
+.ogl-brand{border-bottom:1px solid #253c52}
+.navgroup summary{color:#9db4ca;letter-spacing:.08em}
+.navbtn{font-size:13px}.navbtn.active{box-shadow:inset 3px 0 #4fcbed;color:#ebfaff;background:#162f43}
+main{max-width:1900px;width:100%;margin:0 auto}
+.hero{border-radius:14px;background:linear-gradient(108deg,#152c43,#101d31 64%,#10182b);box-shadow:none;border:1px solid #2b4962;min-height:145px}
+.hero:before{opacity:.25}
+.ogl-status-card,.ogl-release-card,.section,.card{background:#111f31;border:1px solid #2c4358;box-shadow:none;border-radius:12px}
+.ogl-status-card:before{background:#4fcbed;opacity:.55}
+.ogl-command-bar h2{font-size:26px}.ogl-opcard{background:#0d1929;border:1px solid #2d455c}
+.ogl-opcard:hover{background:#172d43}
+.ogl-log-list{display:grid;gap:9px}
+.ogl-day{background:#0b192a;border:1px solid #2c455c;border-radius:10px;overflow:hidden}
+.ogl-day summary{cursor:pointer;padding:17px 18px;display:flex;align-items:center;gap:10px;justify-content:space-between;font-weight:700}
+.ogl-day summary:hover{background:#122b42}
+.ogl-log-body{padding:14px;border-top:1px solid #29435e}
+.ogl-logs-pre{font:12px/1.65 ui-monospace,SFMono-Regular,Consolas,monospace;max-height:560px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;background:#06111e;color:#bdd6e6;padding:16px;border-radius:9px;border:1px solid #20384d}
+.ogl-audit-line{padding:12px;border-bottom:1px solid #294052;display:grid;grid-template-columns:178px 160px 1fr;gap:12px;color:#cad9e9;overflow-wrap:anywhere}
+.ogl-action-surface{border:1px solid #3c6e86;border-radius:12px;background:#10273a;padding:19px;margin:16px 0}
+.ogl-action-surface h3{margin:0 0 8px;font-size:17px}
+.ogl-action-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:11px;margin:14px 0}
+.ogl-action-field{display:flex;flex-direction:column;gap:6px;min-width:0}
+.ogl-action-field label{color:#a9c7df;font-size:12px}
+.ogl-action-surface textarea{min-height:145px;width:100%;font-family:ui-monospace,monospace}
+.ogl-action-surface pre{font-size:12px;max-height:420px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;background:#061321;border-radius:8px;padding:14px}
+.ogl-action-buttonrow{display:flex;gap:9px;flex-wrap:wrap;margin-top:11px}
+.ogl-inline-admin{display:flex;flex-wrap:wrap;gap:10px;margin:16px 0}
+.ogl-inline-admin input{flex:1;min-width:140px}
+.ogl-user-results{display:grid;gap:8px;margin:10px 0}
+.ogl-user-row{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;background:#0b1b2d;border:1px solid #31475b;border-radius:9px;padding:11px}
+.ogl-user-row small{color:#a1bacf}
+@media(max-width:900px){.ogl-audit-line{grid-template-columns:1fr}.ogl-action-grid{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -259,7 +296,8 @@ main{padding:28px clamp(17px,3vw,52px)}
 <button class="navbtn" data-page="grid">Grid-Planer &amp; Regionen</button>
 <button class="navbtn" data-page="nodes">Simulator-Nodes</button>
 <button class="navbtn" data-page="estates">Estates &amp; Land</button>
-<button class="navbtn" data-page="console">Konsole &amp; Aufträge</button></details>
+<button class="navbtn" data-page="console">Konsole &amp; Aufträge</button>
+<button class="navbtn" data-page="logs">ROBUST / OpenSim Logs</button></details>
 <details class="navgroup"><summary>Einwohner &amp; Communities</summary>
 <button class="navbtn" data-page="users">Benutzer &amp; Avatare</button>
 <button class="navbtn" data-page="groups">Gruppen &amp; Rollen</button>
@@ -272,7 +310,8 @@ main{padding:28px clamp(17px,3vw,52px)}
 <button class="navbtn" data-page="experiences">Experiences</button></details>
 <details class="navgroup"><summary>API &amp; Sicherheit</summary>
 <button class="navbtn" data-page="secrets">API-Schlüssel &amp; Scopes</button>
-<button class="navbtn" data-page="security">Sicherheit &amp; Audit</button>
+<button class="navbtn" data-page="security">Sicherheit</button>
+<button class="navbtn" data-page="audit">Audit-Protokoll</button>
 <button class="navbtn" data-page="explorer">API-Explorer</button>
 <button class="navbtn" data-page="chatgpt">Portale &amp; Integration</button>
 <button class="navbtn" data-page="adminlogin">Admin-Anmeldung</button></details>
@@ -336,7 +375,17 @@ main{padding:28px clamp(17px,3vw,52px)}
 </div>
 <div class="section"><div class="ogl-section-flex"><div><h2>Repository-Verbindung</h2><p class="sectionlead" id="githubUpdated">Die Daten werden ausschließlich lesend von der offiziellen GitHub-API geladen.</p></div><button class="action" id="githubRefresh" type="button">Jetzt aktualisieren</button></div><div class="ogl-mini-status" id="githubLastCommit">Kein Commit geladen.</div><div class="ogl-mini-status" id="githubReleaseNotes">Keine Release-Informationen geladen.</div><p class="authnote">Hinweis: Eine GitHub-Freigabe ist nicht identisch mit der momentan auf diesem ROBUST-Host installierten Version. Der lokale Build steht im Dashboard unter „Server“.</p></div>
 </section>
-<section class="page" id="page-users">
+<section class="page" id="page-users"><div class="section"><h2>Benutzerverwaltung</h2><p class="sectionlead">Einwohner direkt erstellen, suchen und deaktivieren. Serverprüfungen und Audit sind aktiv.</p>
+<form id="oglUserCreate" class="ogl-action-surface"><h3>Neues Benutzerkonto</h3><div class="ogl-action-grid">
+<label class="ogl-action-field">Vorname<input id="oglFirstName" required maxlength="64"></label>
+<label class="ogl-action-field">Nachname<input id="oglLastName" required maxlength="64"></label>
+<label class="ogl-action-field">E-Mail-Adresse<input id="oglUserEmail" type="email"></label>
+<label class="ogl-action-field">Initialpasswort<input id="oglUserPassword" type="password" autocomplete="new-password" required minlength="8"></label>
+<label class="ogl-action-field">Startregion<input id="oglHomeRegion" required placeholder="Magdeburg"></label></div>
+<button type="submit" class="action">Benutzer jetzt anlegen</button><pre id="oglUserCreateResult" class="ogl-logs-pre" hidden></pre></form>
+<div class="ogl-action-surface"><h3>Benutzer suchen / verwalten</h3><div class="ogl-inline-admin"><input id="oglUserQuery" placeholder="Mindestens zwei Zeichen"><button id="oglUserSearch" class="action" type="button">Suchen</button></div><p id="oglUserSearchStatus" class="authnote"></p><div id="oglUserResults" class="ogl-user-results"></div></div>
+</div>
+
 <div class="hero"><div><div class="eyebrow">OGL CONTROL PLANE · USERS</div><h1>Benutzer &amp; Avatare</h1><p>Einwohnerkonten, Registrierung, Profile, Aktivität und Sperr-/Löschabläufe.</p></div><div class="pill"><span class="dot good"></span><span>Autoritative API</span></div></div>
 <div class="section"><h2>Verfügbare Verwaltungsoperationen</h2><p class="sectionlead">Aus dem aktiven OpenAPI-Vertrag dieses Servers. Ein Klick öffnet die echte Operation mit Parametern, Berechtigungen und Ausführung im API-Explorer; nicht vorhandene Funktionen werden nicht simuliert.</p><div class="ogl-workspace-tools"><input aria-label="Operationen filtern" data-workspace-search="users" placeholder="Operation oder Pfad filtern…"><span id="workspace-count-users">–</span></div><div class="ogl-operation-grid" id="workspace-users"><div class="empty">API-Vertrag wird geladen…</div></div></div>
 </section>
@@ -380,6 +429,10 @@ main{padding:28px clamp(17px,3vw,52px)}
 <div class="hero"><div><div class="eyebrow">OGL CONTROL PLANE · CONSOLE</div><h1>Konsole &amp; Aufträge</h1><p>Kontrollierte Serverfunktionen und Jobs über bereits geprüfte HTTP-Endpunkte. Keine unbeschränkte Shell.</p></div><div class="pill"><span class="dot good"></span><span>Autoritative API</span></div></div>
 <div class="section"><h2>Verfügbare Verwaltungsoperationen</h2><p class="sectionlead">Aus dem aktiven OpenAPI-Vertrag dieses Servers. Ein Klick öffnet die echte Operation mit Parametern, Berechtigungen und Ausführung im API-Explorer; nicht vorhandene Funktionen werden nicht simuliert.</p><div class="ogl-workspace-tools"><input aria-label="Operationen filtern" data-workspace-search="console" placeholder="Operation oder Pfad filtern…"><span id="workspace-count-console">–</span></div><div class="ogl-operation-grid" id="workspace-console"><div class="empty">API-Vertrag wird geladen…</div></div></div>
 </section>
+<section class="page" id="page-logs"><div class="hero"><div><div class="eyebrow">OBSERVABILITY · DIAGNOSTICS</div><h1>Tagesprotokolle</h1><p>ROBUST und lokale OpenSim-Logs werden nach Kalendertag archiviert. Archive öffnen, blättern und Fehler filtern – ohne Konsolenzugriff oder Download fremder Dateien.</p></div><div class="pill"><span class="dot" id="oglLogsDot"></span><span id="oglLogsStatus">Noch nicht geladen</span></div></div>
+<div class="section"><div class="ogl-section-flex"><div><h2>Logarchiv</h2><p class="sectionlead">Sortiert nach Datum (neueste zuerst). Die OpenSim-Liste zeigt nur Dateien, die auf demselben Server vorhanden sind; fremde Simulator-Nodes benötigen ihren eigenen geschützten Logdienst.</p></div><button class="action" id="oglLogsRefresh" type="button">Tagesarchive laden</button></div><div class="ogl-workspace-tools"><select id="oglLogsService" aria-label="Logdienst"><option value="all">Alle Dienste</option><option value="Robust">ROBUST</option><option value="OpenSim">OpenSim</option></select><input id="oglLogsSearch" type="search" placeholder="In geladenen Logzeilen filtern…"><span id="oglLogsCount">–</span></div><div id="oglLogArchiveList" class="ogl-log-list"><div class="empty">Zum Öffnen der Logarchive mit einer gültigen Administrator-Sitzung anmelden.</div></div></div></section>
+<section class="page" id="page-audit"><div class="hero"><div><div class="eyebrow">SECURITY · TRACEABILITY</div><h1>Audit &amp; Ereignisse</h1><p>Die bereits gespeicherten Administrationsaktionen mit Zeit, Akteur, Ressource und Korrelation; gruppiert nach Datum. Keine Änderung oder Löschung von Audit-Ereignissen.</p></div><div class="pill"><span class="dot" id="oglAuditDot"></span><span id="oglAuditStatus">Noch nicht geladen</span></div></div>
+<div class="section"><div class="ogl-section-flex"><div><h2>Administrations-Audit</h2><p class="sectionlead">Abfrage der bestehenden persistenten World-API-Audit-Historie. Datumseinträge zeigen die aktuell geladene Ergebnismenge; ältere Datensätze können seitenweise nachgeladen werden.</p></div><button class="action" id="oglAuditRefresh" type="button">Audit laden</button></div><div class="ogl-workspace-tools"><input id="oglAuditActor" placeholder="Akteur (optional)"><input id="oglAuditAction" placeholder="Aktion (optional)"><input id="oglAuditResource" placeholder="Ressource (optional)"></div><div id="oglAuditEntries" class="ogl-log-list"></div><button class="action" id="oglAuditMore" type="button" hidden>Weitere Auditeinträge laden</button></div></section>
 <section class="page" id="page-diagnostics">
 <div class="hero"><div><div class="eyebrow">OGL CONTROL PLANE / DIAGNOSTICS</div><h1>Systemdiagnose</h1><p>Prüfe die tatsächlich erreichbaren World-API-Dienste dieses OGL-Servers. Kein Demo-Status, keine Datenbankänderungen.</p></div><div class="pill"><span class="dot" id="diagDot"></span><span id="diagSummary">Noch nicht geprüft</span></div></div>
 <div class="section"><h2>Live-Selbsttest</h2><p class="sectionlead">Diese Prüfung liest ausschließlich den aktuellen Health-/Versions-/OpenAPI-Zustand, die ChatGPT-Anweisung und den optionalen Node-Lizenzdienst. Keine schreibenden Aktionen.</p>
@@ -961,11 +1014,105 @@ function oglRenderWorkspaces(){
       const path=document.createElement('code');path.textContent=entry.path;
       const summary=document.createElement('small');summary.textContent=entry.op.summary||'API-Operation';
       const scope=document.createElement('small');scope.textContent='Scope: '+(entry.op['x-nexverse-scope']||'laut OpenAPI-Vertrag');
-      b.append(badge,path,summary,scope);b.addEventListener('click',()=>oglWorkspaceOpen(entry));host.append(b);
+      b.append(badge,path,summary,scope);b.addEventListener('click',()=>oglActionEditor(domain,entry));host.append(b);
     }
   }
 }
 document.querySelectorAll('[data-workspace-search]').forEach(input=>input.addEventListener('input',oglRenderWorkspaces));
+
+/* Inline API editor. No permission shortcut: every action uses the signed
+ * administrator bearer token and the existing server-side World API. */
+function oglActionEditor(domain,entry){
+ const host=$('workspace-'+domain);if(!host)return;
+ let panel=$('oglAction-'+domain);
+ if(!panel){panel=document.createElement('div');panel.id='oglAction-'+domain;panel.className='ogl-action-surface';host.parentNode.insertBefore(panel,host)}
+ panel.replaceChildren();
+ panel.append(oglPlain('h3','',entry.method+' '+entry.path),oglPlain('p','sectionlead',entry.op.summary||'World API'));
+ const form=document.createElement('form'), fields=document.createElement('div');fields.className='ogl-action-grid';
+ const params=[];
+ const pathNames=[...entry.path.matchAll(/\{([^}]+)\}/g)].map(m=>m[1]);
+ const queryNames=(entry.op.parameters||[]).filter(x=>x.in==='query');
+ for(const param of [...pathNames.map(name=>({name,in:'path',required:true})),...queryNames]){
+   const wrapper=document.createElement('label');wrapper.className='ogl-action-field';wrapper.textContent=param.name+(param.in==='path'?' · UUID / ID':' · Query');
+   const input=document.createElement('input');input.required=param.required===true;input.placeholder=param.description||param.name;
+   wrapper.append(input);fields.append(wrapper);params.push({def:param,input});
+ }
+ if(params.length)form.append(fields);
+ let bodyInput=null;const schema=requestSchema(entry.op);
+ if(schema){
+   const label=oglPlain('label','label2','Anfragedaten (JSON)');
+   bodyInput=document.createElement('textarea');bodyInput.setAttribute('aria-label','JSON-Anfrage');bodyInput.spellcheck=false;bodyInput.value=JSON.stringify(exampleFor(schema),null,2);
+   form.append(label,bodyInput);
+ }
+ const bar=document.createElement('div');bar.className='ogl-action-buttonrow';
+ const run=document.createElement('button');run.type='submit';run.className='action';run.textContent=entry.method+' ausführen';
+ const detail=document.createElement('button');detail.type='button';detail.className='action';detail.textContent='API-Details';
+ detail.addEventListener('click',()=>oglWorkspaceOpen(entry));
+ bar.append(run,detail);form.append(bar);
+ const status=oglPlain('p','authnote','Authentifizierte World-API-Operation; Rechteprüfung erfolgt serverseitig.');
+ const output=document.createElement('pre');output.className='ogl-logs-pre';output.hidden=true;
+ panel.append(form,status,output);
+ form.addEventListener('submit',async e=>{
+   e.preventDefault();if(!adminIsActive()){status.textContent='Bitte als Administrator anmelden.';return}
+   let url=entry.path;const query=new URLSearchParams();
+   for(const {def,input} of params){const v=input.value.trim();if(!v&&def.required){status.textContent=def.name+' fehlt';return}
+     if(def.in==='path')url=url.replace('{'+def.name+'}',encodeURIComponent(v));
+     else if(v)query.set(def.name,v);
+   }
+   if(query.toString())url+='?'+query.toString();
+   if(!url.startsWith('/api/v1/')||url.includes('{')){status.textContent='Ungültige World-API-URL';return}
+   const body=bodyInput?.value.trim()||'';if(body){try{JSON.parse(body)}catch{status.textContent='JSON-Anfrage ist ungültig';return}}
+   if(entry.method!=='GET'&&entry.method!=='HEAD'){
+     const destructive=entry.method==='DELETE'||/reset|revoke|ban|purge|delete/i.test(entry.path);
+     if(destructive){if(prompt('Zur Bestätigung AUSFÜHREN eintippen: '+entry.method+' '+url)!=='AUSFÜHREN')return}
+     else if(!confirm(entry.method+' '+url+' wirklich ausführen?'))return;
+   }
+   run.disabled=true;status.textContent='Anfrage läuft…';output.hidden=false;output.textContent='';
+   try{
+     const options={method:entry.method};if(body&&entry.method!=='GET')options.body=body;
+     const result=await oglRequest(url,options);
+     output.textContent=JSON.stringify(result,null,2);status.textContent='Server meldet Erfolg';
+   }catch(error){status.textContent='Fehler: '+error.message}
+   finally{run.disabled=false}
+ });
+ panel.scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+async function oglCreateUser(event){
+ event.preventDefault();const out=$('oglUserCreateResult');out.hidden=false;out.textContent='Benutzer wird angelegt…';
+ try{
+   const json=await oglRequest('/api/v1/users',{method:'POST',body:JSON.stringify({
+     first_name:$('oglFirstName').value.trim(),last_name:$('oglLastName').value.trim(),
+     email:$('oglUserEmail').value.trim(),password:$('oglUserPassword').value,
+     home_region:{name:$('oglHomeRegion').value.trim()}
+   })});
+   out.textContent='Benutzer angelegt: '+JSON.stringify(json,null,2);
+ }catch(error){out.textContent=error.message}finally{$('oglUserPassword').value=''}
+}
+async function oglSearchUsers(){
+ const q=$('oglUserQuery').value.trim(),host=$('oglUserResults');host.replaceChildren();
+ if(q.length<2){$('oglUserSearchStatus').textContent='Mindestens 2 Zeichen benötigt';return}
+ try{
+   const data=await oglRequest('/api/v1/users?q='+encodeURIComponent(q)+'&limit=50');
+   const users=data.users||data.results||data.items||[];
+   $('oglUserSearchStatus').textContent=users.length+' Ergebnisse';
+   for(const user of users){
+     const id=user.principal_id||user.principalId||user.user_id||user.id;
+     const row=document.createElement('div');row.className='ogl-user-row';
+     row.append(oglPlain('strong','',(user.first_name||user.firstName||'')+' '+(user.last_name||user.lastName||'')),
+       oglPlain('small','',id||'Keine ID'));
+     const buttons=document.createElement('div');buttons.className='ogl-action-buttonrow';
+     const view=document.createElement('button');view.className='action';view.textContent='Details';view.type='button';
+     view.onclick=async()=>{try{const data=await oglRequest('/api/v1/users/'+encodeURIComponent(id));row.append(oglPlain('pre','ogl-logs-pre',JSON.stringify(data,null,2)))}catch(e){$('oglUserSearchStatus').textContent=e.message}};
+     const remove=document.createElement('button');remove.className='action';remove.textContent='Deaktivieren';remove.type='button';
+     remove.onclick=async()=>{if(prompt('Benutzer deaktivieren (Soft-Delete)? Bitte DEAKTIVIEREN eingeben: '+id)!=='DEAKTIVIEREN')return;
+       try{await oglRequest('/api/v1/users/'+encodeURIComponent(id),{method:'DELETE'});$('oglUserSearchStatus').textContent='Konto deaktiviert';await oglSearchUsers()}catch(e){$('oglUserSearchStatus').textContent=e.message}};
+     buttons.append(view,remove);row.append(buttons);host.append(row);
+   }
+   if(!users.length)host.append(oglPlain('p','empty','Keine Benutzer gefunden.'));
+ }catch(error){$('oglUserSearchStatus').textContent=error.message}
+}
+$('oglUserCreate').addEventListener('submit',oglCreateUser);
+$('oglUserSearch').addEventListener('click',oglSearchUsers);
 function oglGithubText(id,text){const element=$(id);if(element)element.textContent=String(text||'–')}
 async function oglLoadGithub(force=false){
   if(oglGitPending)return oglGitPending;
@@ -1033,8 +1180,132 @@ function oglFilterKeys(){
     card.hidden=!(matching&&(filter==='all'||(filter==='active'&&active)||(filter==='disabled'&&!active)));
   });
 }
+
+/* Direct operators: all changes go to existing server-side authorized APIs. */
+const oglLogState=new Map();
+let oglAuditOffset=0,oglAuditEvents=[];
+function oglAdminHeaders(body=false){
+  const token=adminAuthToken();
+  if(!token)throw Error('UserLevel-200-Administrator-Anmeldung erforderlich.');
+  const headers={Accept:'application/json',Authorization:'Bearer '+token};
+  if(body)headers['Content-Type']='application/json';
+  return headers;
+}
+async function oglRequest(path,options={}){
+  if(!path.startsWith('/api/v1/')||path.startsWith('//')||path.includes('\\'))throw Error('Nur lokale World-API-Routen sind erlaubt.');
+  const response=await fetch(path,{...options,headers:{...oglAdminHeaders(!!options.body),...(options.headers||{})},credentials:'same-origin',cache:'no-store'});
+  const raw=await response.text();let json;
+  try{json=JSON.parse(raw)}catch{json={message:raw.slice(0,6000)}}
+  if(!response.ok)throw Error('HTTP '+response.status+' · '+(json.error||json.message||'API-Anfrage fehlgeschlagen'));
+  return json;
+}
+function oglCleanDate(timestamp){
+  const value=new Date(timestamp);
+  return Number.isNaN(value.getTime())?'Unbekanntes Datum':value.toLocaleDateString('de-DE',{year:'numeric',month:'2-digit',day:'2-digit'});
+}
+function oglPlain(tag,cls,value){
+  const e=document.createElement(tag);if(cls)e.className=cls;e.textContent=String(value??'');return e;
+}
+async function oglLoadLogIndex(){
+  $('oglLogsStatus').textContent='Lade Archive…';$('oglLogsDot').className='dot';
+  try{
+    const data=await oglRequest('/api/v1/admin/logs');
+    const chosen=$('oglLogsService').value;
+    const files=(data.files||[]).filter(x=>chosen==='all'||x.service===chosen)
+      .sort((a,b)=>String(b.date).localeCompare(String(a.date))||String(a.service).localeCompare(String(b.service)));
+    const host=$('oglLogArchiveList');host.replaceChildren();oglLogState.clear();
+    $('oglLogsCount').textContent=files.length+' Tagesarchive';
+    if(!files.length)host.append(oglPlain('p','empty','Noch keine tagesweise protokollierten Dateien auf diesem Host.'));
+    for(const file of files){
+      const row=document.createElement('details');row.className='ogl-day';
+      const heading=document.createElement('summary');
+      const title=file.service+(file.node_id?' · Node '+file.node_id:' · lokal')+
+        ' Log vom '+oglCleanDate(file.date+'T12:00:00');
+      heading.append(oglPlain('span','',title),oglPlain('small','',Math.round((file.bytes||0)/1024)+' KiB'));
+      const body=document.createElement('div');body.className='ogl-log-body';
+      const pre=document.createElement('pre');pre.className='ogl-logs-pre';pre.textContent='Zum Laden aufklappen.';
+      const more=document.createElement('button');more.className='action';more.type='button';more.textContent='Weitere Logzeilen';more.hidden=true;
+      body.append(pre,more);row.append(heading,body);host.append(row);
+      const state={file,lines:[],offset:0,more:false,loading:false,loaded:false};
+      oglLogState.set(row,state);
+      const render=()=>{
+        const q=$('oglLogsSearch').value.trim().toLowerCase();
+        pre.textContent=state.lines.filter(x=>!q||x.toLowerCase().includes(q)).join('\\n')||'Keine passenden Logzeilen.';
+        more.hidden=!state.more;
+      };
+      const load=async()=>{
+        if(state.loading||(!state.more&&state.loaded))return;
+        state.loading=true;more.disabled=true;
+        pre.textContent=state.loaded?'Lade weitere Zeilen…':'Lese Tagesarchiv…';
+        try{
+          const endpoint='/api/v1/admin/logs/'+file.service+'/'+file.date+
+            '/entries?offset='+state.offset+'&limit=500'+
+            (file.node_id?'&node_id='+encodeURIComponent(file.node_id):'');
+          const result=await oglRequest(endpoint);
+          state.lines.push(...(result.lines||[]));state.offset=result.next_offset;
+          state.more=Boolean(result.has_more);state.loaded=true;render();
+        }catch(e){pre.textContent='Log konnte nicht geladen werden: '+e.message}
+        finally{state.loading=false;more.disabled=false}
+      };
+      row.addEventListener('toggle',()=>{if(row.open&&!state.loaded)load()});
+      more.addEventListener('click',load);
+    }
+    $('oglLogsStatus').textContent=files.length+' Tagesarchive';$('oglLogsDot').className='dot good';
+  }catch(error){$('oglLogsStatus').textContent=error.message;$('oglLogsDot').className='dot bad'}
+}
+function oglFilterLogLines(){
+  for(const [row,state] of oglLogState.entries()){
+    if(!state.loaded)continue;
+    const pre=row.querySelector('pre'),q=$('oglLogsSearch').value.trim().toLowerCase();
+    pre.textContent=state.lines.filter(x=>!q||x.toLowerCase().includes(q)).join('\\n')||'Keine passenden Logzeilen.';
+  }
+}
+async function oglLoadAudit(next=false){
+  if(!next){oglAuditOffset=0;oglAuditEvents=[]}
+  $('oglAuditStatus').textContent='Lade Audit…';$('oglAuditDot').className='dot';
+  const p=new URLSearchParams({limit:'100',offset:String(oglAuditOffset)});
+  for(const [id,param] of [['oglAuditActor','actor'],['oglAuditAction','action'],['oglAuditResource','resource']]){
+    const val=$(id).value.trim();if(val)p.set(param,val);
+  }
+  try{
+    const data=await oglRequest('/api/v1/audit?'+p.toString());
+    oglAuditEvents.push(...(data.events||[]));
+    oglAuditOffset+=data.events?.length||0;
+    const buckets=new Map();
+    for(const event of oglAuditEvents){
+      const day=oglCleanDate(event.timestamp);
+      if(!buckets.has(day))buckets.set(day,[]);
+      buckets.get(day).push(event);
+    }
+    const host=$('oglAuditEntries');host.replaceChildren();
+    for(const [day,events] of buckets){
+      const fold=document.createElement('details');fold.className='ogl-day';fold.open=true;
+      const heading=document.createElement('summary');heading.textContent='Audit vom '+day+' · '+events.length+' Ereignisse';
+      const body=document.createElement('div');body.className='ogl-log-body';
+      for(const event of events){
+        const row=document.createElement('div');row.className='ogl-audit-line';
+        row.append(oglPlain('time','',String(event.timestamp||'').replace('T',' ').slice(0,19)),
+          oglPlain('strong','',event.action||'Unbekannte Aktion'),
+          oglPlain('span','',String(event.actor||'–')+' · '+String(event.resource||'–')));
+        const detail=document.createElement('details');detail.className='ogl-audit-detail';
+        detail.append(oglPlain('summary','','Details / Korrelation anzeigen'),oglPlain('pre','ogl-logs-pre',JSON.stringify({event_id:event.event_id,correlation_id:event.correlation_id,details:event.details},null,2)));
+        body.append(row,detail);
+      }
+      fold.append(heading,body);host.append(fold);
+    }
+    if(!buckets.size)host.append(oglPlain('p','empty','Keine Auditereignisse gefunden.'));
+    $('oglAuditMore').hidden=!data.pagination?.has_more;
+    $('oglAuditStatus').textContent=oglAuditEvents.length+' Einträge geladen';
+    $('oglAuditDot').className='dot good';
+  }catch(error){$('oglAuditStatus').textContent=error.message;$('oglAuditDot').className='dot bad'}
+}
+$('oglLogsRefresh').addEventListener('click',oglLoadLogIndex);
+$('oglLogsService').addEventListener('change',oglLoadLogIndex);
+$('oglLogsSearch').addEventListener('input',oglFilterLogLines);
+$('oglAuditRefresh').addEventListener('click',()=>oglLoadAudit(false));
+$('oglAuditMore').addEventListener('click',()=>oglLoadAudit(true));
 function showPage(name){
-  if(['secrets','nodes','grid','security','console'].includes(name)&&!adminIsActive()){
+  if(['secrets','nodes','grid','security','console','logs','audit','users','groups','inventory','economy','profiles','marketplace','estates','experiences','discovery'].includes(name)&&!adminIsActive()){
     adminNextPage=name;
     name='adminlogin';
     adminUpdateStatus('Anmeldung mit UserLevel >= 200 erforderlich.',null);
@@ -1042,6 +1313,8 @@ function showPage(name){
   document.querySelectorAll('.page').forEach(x=>x.classList.toggle('active',x.id==='page-'+name));
   document.querySelectorAll('.navbtn').forEach(x=>{x.classList.toggle('active',x.dataset.page===name);if(x.dataset.page===name)x.closest('details')?.setAttribute('open','');});
   if(name==='repository')oglLoadGithub();
+  if(name==='logs')oglLoadLogIndex();
+  if(name==='audit')oglLoadAudit(false);
   if(oglWorkspaceGroups[name])oglRenderWorkspaces();
   window.scrollTo({top:0,behavior:'smooth'});
 }
