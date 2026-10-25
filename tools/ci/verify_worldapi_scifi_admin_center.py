@@ -19,7 +19,19 @@ assert "frame-ancestors 'none'" in login
 assert "m_Authenticator.TryAuthenticate" in login
 assert "UserLevel < MinimumLevel" in login
 assert 'adminIsActive()' in page
-assert 'api.github.com' in page and "connect-src 'self' https://api.github.com" in page
+assert "connect-src 'self'" in page
+assert "connect-src 'self' https://api.github.com" not in page
+connector=(root/"NexVerse/Server/Api/NexVerseWorldApiConnector.cs").read_text()
+github=(root/"NexVerse/Server/Api/NexGithubRepositoryStatusApi.cs").read_text()
+openapi=(root/"NexVerse/Server/Api/NexVerseWorldApiHandlers.cs").read_text()
+assert '"/api/v1/repository/status"' in connector and 'githubStatus.Handle' in connector
+assert '"/api/v1/repository/status"' in openapi
+assert "https://api.github.com/repos/opengenesislink/opengenesislinkserver" in github
+assert '"/releases/latest"' in github and '"/commits/main"' in github
+assert '"/actions/workflows/nexjast-ci.yml/runs?branch=main&per_page=1"' in github
+assert "TimeSpan.FromMinutes(5)" in github
+assert "JsonSerializer.SerializeToUtf8Bytes" in github
+assert "fetch('/api/v1/repository/status'" in page
 for name in ["overview","statistics","diagnostics","repository","grid","nodes",
              "estates","console","users","groups","inventory","profiles","economy",
              "marketplace","discovery","experiences","secrets","security","explorer",
@@ -28,9 +40,9 @@ for name in ["overview","statistics","diagnostics","repository","grid","nodes",
     assert 'id="page-'+name+'"' in page,name
 assert '<details class="navgroup"' in page
 assert "oglRenderWorkspaces()" in page and "oglWorkspaceOpen(entry)" in page
-assert "oglGithubJson(base+'/releases/latest')" in page
-assert "oglGithubJson(base+'/commits/main')" in page
-assert "oglGithubJson(base+'/actions/workflows/nexjast-ci.yml/runs?branch=main&per_page=1')" in page
+
+
+
 assert "release?.tag_name||'Nicht verfügbar'" in page
 assert "commit?.sha?" in page
 assert "d.fail.length" in page
