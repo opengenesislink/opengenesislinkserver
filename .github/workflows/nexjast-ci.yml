@@ -364,6 +364,10 @@ jobs:
         shell: bash
         run: python3 tools/ci/verify_r287_portal_api.py
 
+      - name: Verify World API Media API group/profile privacy and routing
+        shell: bash
+        run: python3 tools/ci/verify_media_api.py
+
       - name: Verify World API OpenAPI and ChatGPT MD consistency
         shell: bash
         run: python3 tools/ci/verify_worldapi_chatgpt_openapi.py
