@@ -46,7 +46,7 @@ namespace NexVerse.Server.Api
                 "no-referrer");
             response.AddHeader(
                 "Content-Security-Policy",
-                "default-src 'self'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'");
+                "default-src 'self'; img-src 'self' data:; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self' https://api.github.com");
             response.RawBuffer =
                 Encoding.UTF8.GetBytes(s_Html);
         }
@@ -190,26 +190,95 @@ main:before {content:"";position:fixed;inset:0;pointer-events:none;opacity:.17;z
 .ogl-triage-tile p{font-size:12px;color:#a4b8d4;line-height:1.6;}
 .ogl-triage-tile code{overflow-wrap:anywhere;}
 
+
+/* OGL COMMAND CENTER 2.0 — overlays existing validated controls and preserves IDs */
+:root{--bg:#030914;--panel:#0a172b;--panel2:#10243b;--line:rgba(75,157,218,.25);--text:#edf8ff;--muted:#97b5d2;--accent:#3ddcff;--accent2:#568cff;--good:#55eebd;--shadow:0 12px 46px rgba(0,0,0,.36)}
+body{background:radial-gradient(ellipse at 78% 0%,rgba(11,70,143,.22),transparent 36%),repeating-linear-gradient(90deg,transparent 0 77px,rgba(34,87,148,.024) 78px 79px),#030913}
+.shell{grid-template-columns:284px minmax(0,1fr)}
+nav{width:284px;display:flex;flex-direction:column;overflow:hidden;border-right:1px solid rgba(74,168,241,.23);background:linear-gradient(180deg,rgba(5,17,34,.99),rgba(5,12,25,.99));padding:0 12px}
+.ogl-brand{flex:0 0 auto;display:flex;gap:10px;align-items:center;padding:23px 10px 15px;margin:0;border-bottom:1px solid rgba(75,157,218,.23)}
+.ogl-brand .ogl-logo{flex:0 0 61px;width:61px;height:61px;border-radius:12px;display:grid;place-items:center;font-size:14px;box-shadow:0 0 16px rgba(0,220,255,.18);border:1px solid rgba(60,211,252,.3)}
+.ogl-brand .brand-copy{min-width:0}.ogl-brand strong{font-size:15px;letter-spacing:-.25px}.ogl-brand span{font-size:9px;letter-spacing:.11em}
+.nav-scroll{overflow-y:auto;overscroll-behavior:contain;flex:1;padding:12px 3px 24px;scrollbar-width:thin;scrollbar-color:#24466b transparent}
+.navgroup{border-bottom:1px solid rgba(74,140,209,.10);margin-bottom:5px;padding-bottom:7px}
+.navgroup summary{cursor:pointer;list-style:none;padding:12px 12px 7px;font-size:10px;font-weight:800;letter-spacing:.125em;text-transform:uppercase;color:#81b2d9;display:flex;justify-content:space-between;align-items:center}
+.navgroup summary:after{content:'+';color:#57cfff;font-size:17px;line-height:1}.navgroup[open] summary:after{content:'−'}
+.navgroup summary::-webkit-details-marker{display:none}
+.navbtn{display:block;width:100%;margin:1px 0;padding:9px 13px;font-size:12px;border-radius:8px;min-height:35px}
+.navmeta{position:static;flex:0 0 auto;padding:12px 10px 15px;line-height:1.4;max-height:88px;overflow:hidden;border-top:1px solid rgba(72,167,240,.21)}
+main{padding:28px clamp(17px,3vw,52px)}
+.page{max-width:1600px}
+.hero{background:linear-gradient(110deg,rgba(11,33,68,.94),rgba(6,25,54,.94) 65%,rgba(7,17,39,.93));min-height:146px}
+.hero h1{letter-spacing:-.035em;font-size:clamp(26px,2.6vw,37px)}
+.section,.card,.ogl-release-card,.ogl-status-card{background:linear-gradient(145deg,rgba(13,28,53,.92),rgba(6,17,34,.97));border:1px solid rgba(73,155,224,.21);box-shadow:0 12px 45px rgba(0,0,0,.21)}
+.ogl-overline{font-size:10px;letter-spacing:.17em;color:#50d9ff;font-weight:800}
+.ogl-command-bar{display:flex;justify-content:space-between;align-items:center;gap:15px;margin:0 0 17px}
+.ogl-command-bar h2{font-size:24px;margin:3px 0}.ogl-command-bar p{color:var(--muted);margin:0}
+.ogl-quick-actions{display:flex;flex-wrap:wrap;gap:8px}
+.ogl-status-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:0 0 19px}
+.ogl-status-card{padding:19px 20px;border-radius:13px;display:flex;flex-direction:column;gap:5px;position:relative;overflow:hidden}
+.ogl-status-card:before{content:'';position:absolute;left:0;right:0;top:0;height:2px;background:linear-gradient(90deg,#2ee0ff,transparent);opacity:.7}
+.ogl-status-card small,.ogl-release-type{font-size:10px;letter-spacing:.11em;font-weight:750;color:#83b9e0}
+.ogl-status-card strong{font-size:clamp(16px,1.5vw,23px);color:#e6f9ff;overflow-wrap:anywhere}
+.ogl-status-card span{font-size:11px;color:var(--muted)}
+.ogl-panel-split{display:grid;grid-template-columns:1fr 1fr;gap:15px}
+.ogl-section-flex{display:flex;justify-content:space-between;gap:15px;align-items:start}
+.ogl-shortcuts{display:grid;grid-template-columns:1fr 1fr;gap:9px}.ogl-shortcuts button{padding:13px;border:1px solid rgba(79,173,240,.21);background:#081a31;color:#c7edff;text-align:left;border-radius:9px;cursor:pointer}.ogl-shortcuts button:hover{border-color:#42cfff}
+.ogl-release-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-bottom:18px}
+.ogl-release-card{border-radius:14px;padding:23px;min-height:195px;display:flex;flex-direction:column;gap:12px}
+.ogl-release-card strong{font-size:25px;overflow-wrap:anywhere}
+.ogl-release-card p{margin:0;color:var(--muted);flex:1;overflow-wrap:anywhere}
+.ogl-release-card a{color:#75ddff;font-size:12px}
+.ogl-mini-status{border:1px solid rgba(81,149,213,.2);padding:12px;margin:10px 0;border-radius:9px;background:rgba(7,20,42,.6);color:#a5c9e4;overflow-wrap:anywhere}
+.ogl-workspace-tools{display:flex;gap:15px;align-items:center;margin:15px 0}.ogl-workspace-tools input{flex:1;min-width:0}.ogl-workspace-tools span{color:var(--muted);white-space:nowrap}
+.ogl-operation-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.ogl-opcard{display:flex;flex-direction:column;gap:9px;align-items:start;border:1px solid rgba(72,148,219,.25);background:rgba(4,17,37,.66);border-radius:10px;padding:15px;color:var(--text);text-align:left;cursor:pointer;overflow-wrap:anywhere}
+.ogl-opcard:hover,.ogl-opcard:focus-visible{border-color:#33c8ff;background:rgba(13,53,90,.5)}
+.ogl-opcard small{font-size:11px;color:var(--muted)}.ogl-opcard code{font-size:11px;white-space:normal}
+.ogl-opbadge{font-size:10px;font-weight:850;padding:3px 7px;border-radius:5px;background:#1b4262;color:#b9f4ff}
+.ogl-opbadge.write{background:#4b351d;color:#ffce80}
+.ogl-status-ok{color:#52e3ac}.ogl-status-error{color:#ff9797}
+#page-repository .section{min-height:125px}
+@media(max-width:1180px){.ogl-status-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.ogl-release-grid{grid-template-columns:1fr 1fr}}
+@media(max-width:850px){.shell{grid-template-columns:1fr}nav{position:relative;top:auto;width:100%;height:auto;max-height:440px}.nav-scroll{max-height:285px}.ogl-status-grid,.ogl-release-grid,.ogl-panel-split,.ogl-operation-grid{grid-template-columns:1fr}.ogl-command-bar{align-items:start;flex-direction:column}.navmeta{display:none}}
 </style>
 </head>
 <body>
 <div class="shell">
-<nav>
-<div class="brand"><div class="ogl-logo" aria-hidden="true">OGL</div><strong>OpenGenesisLINK</strong><span>WORLD API · CONTROL CENTER</span></div>
-<div class="navsection-label">CONTROL CENTER</div>
-<button class="navbtn active" data-page="overview">Übersicht</button>
-<button class="navbtn" data-page="statistics">Statistik</button>
+<nav aria-label="World API Verwaltung">
+<div class="brand ogl-brand"><div class="ogl-logo" aria-hidden="true">OGL</div><div class="brand-copy"><strong>OpenGenesisLINK</strong><span>WORLD API · CONTROL CENTER</span></div></div>
+<div class="nav-scroll">
+<details class="navgroup" open><summary>Übersicht &amp; Monitoring</summary>
+<button class="navbtn active" data-page="overview">Dashboard</button>
+<button class="navbtn" data-page="statistics">Statistik &amp; Aktivität</button>
 <button class="navbtn" data-page="diagnostics">Systemdiagnose</button>
-<button class="navbtn" data-page="grid">Grid-Planer</button>
-<button class="navbtn" data-page="nodes">Simulatoren</button>
-<button class="navbtn" data-page="changes">Was ist neu?</button>
-<button class="navbtn" data-page="versions">Versionen</button>
-<button class="navbtn" data-page="roadmap">Entwicklungsplan</button>
-<div class="navsection-label">INTEGRATIONEN</div>
-<button class="navbtn" data-page="chatgpt">ChatGPT / Portale</button>
-<button class="navbtn" data-page="adminlogin">Administrator</button>
-<button class="navbtn" data-page="secrets">Schlüssel &amp; Einrichtung</button>
-<button class="navbtn" data-page="explorer">API-Endpunkte</button>
+<button class="navbtn" data-page="repository">GitHub &amp; Releases</button></details>
+<details class="navgroup" open><summary>Grid &amp; Simulatoren</summary>
+<button class="navbtn" data-page="grid">Grid-Planer &amp; Regionen</button>
+<button class="navbtn" data-page="nodes">Simulator-Nodes</button>
+<button class="navbtn" data-page="estates">Estates &amp; Land</button>
+<button class="navbtn" data-page="console">Konsole &amp; Aufträge</button></details>
+<details class="navgroup"><summary>Einwohner &amp; Communities</summary>
+<button class="navbtn" data-page="users">Benutzer &amp; Avatare</button>
+<button class="navbtn" data-page="groups">Gruppen &amp; Rollen</button>
+<button class="navbtn" data-page="inventory">Inventar &amp; Assets</button>
+<button class="navbtn" data-page="profiles">Profile &amp; Media</button></details>
+<details class="navgroup"><summary>Wirtschaft &amp; Content</summary>
+<button class="navbtn" data-page="economy">Economy / NV$</button>
+<button class="navbtn" data-page="marketplace">Marketplace &amp; Medien</button>
+<button class="navbtn" data-page="discovery">Orte, Suche &amp; Events</button>
+<button class="navbtn" data-page="experiences">Experiences</button></details>
+<details class="navgroup"><summary>API &amp; Sicherheit</summary>
+<button class="navbtn" data-page="secrets">API-Schlüssel &amp; Scopes</button>
+<button class="navbtn" data-page="security">Sicherheit &amp; Audit</button>
+<button class="navbtn" data-page="explorer">API-Explorer</button>
+<button class="navbtn" data-page="chatgpt">Portale &amp; Integration</button>
+<button class="navbtn" data-page="adminlogin">Admin-Anmeldung</button></details>
+<details class="navgroup"><summary>Software &amp; Planung</summary>
+<button class="navbtn" data-page="changes">Changelog</button>
+<button class="navbtn" data-page="versions">Versionshistorie</button>
+<button class="navbtn" data-page="roadmap">Roadmap &amp; Meilensteine</button></details>
+</div>
 <div class="navmeta" id="navmeta">Live-Daten werden geladen…</div>
 </nav>
 <main>
@@ -218,6 +287,16 @@ main:before {content:"";position:fixed;inset:0;pointer-events:none;opacity:.17;z
 <div><div class="eyebrow">OpenGenesisLINK / WORLD API</div><h1>Deine Welt. <em>Deine Kontrolle.</em></h1><p>Live-Übersicht über Serverversion, API-Vertrag, aktuelle Erweiterungen und verfügbare Endpunkte.</p></div>
 <div class="pill"><span class="dot" id="healthDot"></span><span id="healthText">Prüfe API-Status…</span></div>
 </div>
+<div class="ogl-command-bar"><div><span class="ogl-overline">MISSION CONTROL · LIVE GRID</span><h2>Systemübersicht</h2><p>Reale API-Werte, veröffentlichte Releases und Verwaltungszugriffe auf einen Blick.</p></div><div class="ogl-quick-actions"><button class="action" data-goto="grid">Regionen</button><button class="action" data-goto="secrets">Schlüssel</button><button class="action" data-goto="console">Aufträge</button></div></div>
+<div class="ogl-status-grid">
+<div class="ogl-status-card"><small>GITHUB STABLE · veröffentlicht</small><strong id="dashStable">Prüfe GitHub…</strong><span id="dashStableMeta">Release-Kanal</span></div>
+<div class="ogl-status-card"><small>GITHUB DEVELOPMENT · main</small><strong id="dashDevelopment">Prüfe Branch…</strong><span id="dashDevelopmentMeta">Build-Stand</span></div>
+<div class="ogl-status-card"><small>CI / GITHUB ACTIONS</small><strong id="dashWorkflow">Prüfe CI…</strong><span id="dashWorkflowMeta">Letzter main-Lauf</span></div>
+<div class="ogl-status-card"><small>EINWOHNER REGISTRIERT</small><strong id="dashResidents">–</strong><span>World-Statistik</span></div>
+<div class="ogl-status-card"><small>AVATARE ONLINE</small><strong id="dashOnline">–</strong><span>Aktuelle Sessions</span></div>
+<div class="ogl-status-card"><small>API-OPERATIONEN</small><strong id="dashOperations">–</strong><span>OpenAPI-Vertrag</span></div>
+</div>
+<div class="ogl-panel-split"><div class="section"><div class="ogl-section-flex"><div><h2>Repository &amp; Releases</h2><p class="sectionlead">Autoritativ aus GitHub; bei Fehlern keine erfundenen Versionen.</p></div><button class="action" data-goto="repository">Alle Details</button></div><div id="dashboardRepository" class="ogl-mini-status">GitHub-Abfrage steht aus.</div></div><div class="section"><div class="ogl-section-flex"><div><h2>Direktzugriff</h2><p class="sectionlead">Jede Aktion verwendet den bestehenden, berechtigten World-API-Vertrag.</p></div></div><div class="ogl-shortcuts"><button data-goto="users">Avatare verwalten</button><button data-goto="groups">Gruppen</button><button data-goto="economy">NV$-Economy</button><button data-goto="security">Audit &amp; Sicherheit</button><button data-goto="diagnostics">Diagnose</button></div></div></div>
 <div class="ogl-live-strip"><span class="livepulse"></span><strong>OGL LIVE</strong><span>SERVER &amp; WORLD API</span><span class="live-version" id="oglActiveRelease">OpenGenesisLINK · Status wird geladen</span></div>
 <div class="ogl-section-head"><span>Systemstatus</span><small>AKTUELLE SERVERDATEN</small></div>
 <div class="cards">
@@ -246,6 +325,59 @@ main:before {content:"";position:fixed;inset:0;pointer-events:none;opacity:.17;z
 </section>
 
 
+<section class="page" id="page-repository">
+<div class="hero"><div><div class="eyebrow">GITHUB · OPEN SOURCE / RELEASE CONTROL</div><h1>Repository &amp; Versionen</h1><p>Stable ist der neueste veröffentlichte Nicht-Prerelease-GitHub-Release. Development basiert auf main, nicht auf einer behaupteten Stable-Freigabe.</p></div><div class="pill"><span class="dot" id="githubDot"></span><span id="githubState">Noch nicht geladen</span></div></div>
+<div class="ogl-release-grid">
+<div class="ogl-release-card"><span class="ogl-release-type">STABLE · GITHUB RELEASE</span><strong id="githubStableVersion">–</strong><p id="githubStableInfo">Noch nicht geladen</p><a href="https://github.com/opengenesislink/opengenesislinkserver/releases" target="_blank" rel="noopener noreferrer">GitHub-Releases ansehen</a></div>
+<div class="ogl-release-card"><span class="ogl-release-type">DEVELOPMENT · MAIN</span><strong id="githubDevelopmentVersion">–</strong><p id="githubDevelopmentInfo">Noch nicht geladen</p><a href="https://github.com/opengenesislink/opengenesislinkserver/commits/main/" target="_blank" rel="noopener noreferrer">Commits ansehen</a></div>
+<div class="ogl-release-card"><span class="ogl-release-type">CI · MAIN</span><strong id="githubCiVersion">–</strong><p id="githubCiInfo">Noch nicht geladen</p><a href="https://github.com/opengenesislink/opengenesislinkserver/actions" target="_blank" rel="noopener noreferrer">Actions ansehen</a></div>
+</div>
+<div class="section"><div class="ogl-section-flex"><div><h2>Repository-Verbindung</h2><p class="sectionlead" id="githubUpdated">Die Daten werden ausschließlich lesend von der offiziellen GitHub-API geladen.</p></div><button class="action" id="githubRefresh" type="button">Jetzt aktualisieren</button></div><div class="ogl-mini-status" id="githubLastCommit">Kein Commit geladen.</div><div class="ogl-mini-status" id="githubReleaseNotes">Keine Release-Informationen geladen.</div><p class="authnote">Hinweis: Eine GitHub-Freigabe ist nicht identisch mit der momentan auf diesem ROBUST-Host installierten Version. Der lokale Build steht im Dashboard unter „Server“.</p></div>
+</section>
+<section class="page" id="page-users">
+<div class="hero"><div><div class="eyebrow">OGL CONTROL PLANE · USERS</div><h1>Benutzer &amp; Avatare</h1><p>Einwohnerkonten, Registrierung, Profile, Aktivität und Sperr-/Löschabläufe.</p></div><div class="pill"><span class="dot good"></span><span>Autoritative API</span></div></div>
+<div class="section"><h2>Verfügbare Verwaltungsoperationen</h2><p class="sectionlead">Aus dem aktiven OpenAPI-Vertrag dieses Servers. Ein Klick öffnet die echte Operation mit Parametern, Berechtigungen und Ausführung im API-Explorer; nicht vorhandene Funktionen werden nicht simuliert.</p><div class="ogl-workspace-tools"><input aria-label="Operationen filtern" data-workspace-search="users" placeholder="Operation oder Pfad filtern…"><span id="workspace-count-users">–</span></div><div class="ogl-operation-grid" id="workspace-users"><div class="empty">API-Vertrag wird geladen…</div></div></div>
+</section>
+<section class="page" id="page-groups">
+<div class="hero"><div><div class="eyebrow">OGL CONTROL PLANE · GROUPS</div><h1>Gruppen &amp; Rollen</h1><p>Gruppenprofile, Mitglieder, Einladungen, Rechte, Gruppenland und Finanzen.</p></div><div class="pill"><span class="dot good"></span><span>Autoritative API</span></div></div>
+<div class="section"><h2>Verfügbare Verwaltungsoperationen</h2><p class="sectionlead">Aus dem aktiven OpenAPI-Vertrag dieses Servers. Ein Klick öffnet die echte Operation mit Parametern, Berechtigungen und Ausführung im API-Explorer; nicht vorhandene Funktionen werden nicht simuliert.</p><div class="ogl-workspace-tools"><input aria-label="Operationen filtern" data-workspace-search="groups" placeholder="Operation oder Pfad filtern…"><span id="workspace-count-groups">–</span></div><div class="ogl-operation-grid" id="workspace-groups"><div class="empty">API-Vertrag wird geladen…</div></div></div>
+</section>
+<section class="page" id="page-inventory">
+<div class="hero"><div><div class="eyebrow">OGL CONTROL PLANE · INVENTORY</div><h1>Inventar &amp; Assets</h1><p>Eigentümerbezogenes Inventar, Medien-Assets und geschützte Bestandsoperationen.</p></div><div class="pill"><span class="dot good"></span><span>Autoritative API</span></div></div>
+<div class="section"><h2>Verfügbare Verwaltungsoperationen</h2><p class="sectionlead">Aus dem aktiven OpenAPI-Vertrag dieses Servers. Ein Klick öffnet die echte Operation mit Parametern, Berechtigungen und Ausführung im API-Explorer; nicht vorhandene Funktionen werden nicht simuliert.</p><div class="ogl-workspace-tools"><input aria-label="Operationen filtern" data-workspace-search="inventory" placeholder="Operation oder Pfad filtern…"><span id="workspace-count-inventory">–</span></div><div class="ogl-operation-grid" id="workspace-inventory"><div class="empty">API-Vertrag wird geladen…</div></div></div>
+</section>
+<section class="page" id="page-profiles">
+<div class="hero"><div><div class="eyebrow">OGL CONTROL PLANE · PROFILES</div><h1>Profile &amp; Media</h1><p>Avatarprofile, Profilbilder, First-Life und sichere Media-Verwaltung.</p></div><div class="pill"><span class="dot good"></span><span>Autoritative API</span></div></div>
+<div class="section"><h2>Verfügbare Verwaltungsoperationen</h2><p class="sectionlead">Aus dem aktiven OpenAPI-Vertrag dieses Servers. Ein Klick öffnet die echte Operation mit Parametern, Berechtigungen und Ausführung im API-Explorer; nicht vorhandene Funktionen werden nicht simuliert.</p><div class="ogl-workspace-tools"><input aria-label="Operationen filtern" data-workspace-search="profiles" placeholder="Operation oder Pfad filtern…"><span id="workspace-count-profiles">–</span></div><div class="ogl-operation-grid" id="workspace-profiles"><div class="empty">API-Vertrag wird geladen…</div></div></div>
+</section>
+<section class="page" id="page-economy">
+<div class="hero"><div><div class="eyebrow">OGL CONTROL PLANE · ECONOMY</div><h1>Economy / NV$</h1><p>Banking, Zahlungen, Wallets, Verkäufe und Ledger-/Revisionsprozesse.</p></div><div class="pill"><span class="dot good"></span><span>Autoritative API</span></div></div>
+<div class="section"><h2>Verfügbare Verwaltungsoperationen</h2><p class="sectionlead">Aus dem aktiven OpenAPI-Vertrag dieses Servers. Ein Klick öffnet die echte Operation mit Parametern, Berechtigungen und Ausführung im API-Explorer; nicht vorhandene Funktionen werden nicht simuliert.</p><div class="ogl-workspace-tools"><input aria-label="Operationen filtern" data-workspace-search="economy" placeholder="Operation oder Pfad filtern…"><span id="workspace-count-economy">–</span></div><div class="ogl-operation-grid" id="workspace-economy"><div class="empty">API-Vertrag wird geladen…</div></div></div>
+</section>
+<section class="page" id="page-marketplace">
+<div class="hero"><div><div class="eyebrow">OGL CONTROL PLANE · MARKETPLACE</div><h1>Marketplace &amp; Medien</h1><p>Veröffentlichte Bilder, Publisher-Scopes, Media-Bindungen und Katalog-Schnittstellen.</p></div><div class="pill"><span class="dot good"></span><span>Autoritative API</span></div></div>
+<div class="section"><h2>Verfügbare Verwaltungsoperationen</h2><p class="sectionlead">Aus dem aktiven OpenAPI-Vertrag dieses Servers. Ein Klick öffnet die echte Operation mit Parametern, Berechtigungen und Ausführung im API-Explorer; nicht vorhandene Funktionen werden nicht simuliert.</p><div class="ogl-workspace-tools"><input aria-label="Operationen filtern" data-workspace-search="marketplace" placeholder="Operation oder Pfad filtern…"><span id="workspace-count-marketplace">–</span></div><div class="ogl-operation-grid" id="workspace-marketplace"><div class="empty">API-Vertrag wird geladen…</div></div></div>
+</section>
+<section class="page" id="page-discovery">
+<div class="hero"><div><div class="eyebrow">OGL CONTROL PLANE · DISCOVERY</div><h1>Orte, Events &amp; Suche</h1><p>Suche, Destination Guide, Places, Events und Community-Discovery.</p></div><div class="pill"><span class="dot good"></span><span>Autoritative API</span></div></div>
+<div class="section"><h2>Verfügbare Verwaltungsoperationen</h2><p class="sectionlead">Aus dem aktiven OpenAPI-Vertrag dieses Servers. Ein Klick öffnet die echte Operation mit Parametern, Berechtigungen und Ausführung im API-Explorer; nicht vorhandene Funktionen werden nicht simuliert.</p><div class="ogl-workspace-tools"><input aria-label="Operationen filtern" data-workspace-search="discovery" placeholder="Operation oder Pfad filtern…"><span id="workspace-count-discovery">–</span></div><div class="ogl-operation-grid" id="workspace-discovery"><div class="empty">API-Vertrag wird geladen…</div></div></div>
+</section>
+<section class="page" id="page-experiences">
+<div class="hero"><div><div class="eyebrow">OGL CONTROL PLANE · EXPERIENCES</div><h1>Experiences</h1><p>Verwaltung und Berechtigungen der vorhandenen Experiences-API.</p></div><div class="pill"><span class="dot good"></span><span>Autoritative API</span></div></div>
+<div class="section"><h2>Verfügbare Verwaltungsoperationen</h2><p class="sectionlead">Aus dem aktiven OpenAPI-Vertrag dieses Servers. Ein Klick öffnet die echte Operation mit Parametern, Berechtigungen und Ausführung im API-Explorer; nicht vorhandene Funktionen werden nicht simuliert.</p><div class="ogl-workspace-tools"><input aria-label="Operationen filtern" data-workspace-search="experiences" placeholder="Operation oder Pfad filtern…"><span id="workspace-count-experiences">–</span></div><div class="ogl-operation-grid" id="workspace-experiences"><div class="empty">API-Vertrag wird geladen…</div></div></div>
+</section>
+<section class="page" id="page-security">
+<div class="hero"><div><div class="eyebrow">OGL CONTROL PLANE · SECURITY</div><h1>Sicherheit &amp; Audit</h1><p>Audithistorie, Benutzer-Sicherheit, Rollen und autorisierte Schutzfunktionen.</p></div><div class="pill"><span class="dot good"></span><span>Autoritative API</span></div></div>
+<div class="section"><h2>Verfügbare Verwaltungsoperationen</h2><p class="sectionlead">Aus dem aktiven OpenAPI-Vertrag dieses Servers. Ein Klick öffnet die echte Operation mit Parametern, Berechtigungen und Ausführung im API-Explorer; nicht vorhandene Funktionen werden nicht simuliert.</p><div class="ogl-workspace-tools"><input aria-label="Operationen filtern" data-workspace-search="security" placeholder="Operation oder Pfad filtern…"><span id="workspace-count-security">–</span></div><div class="ogl-operation-grid" id="workspace-security"><div class="empty">API-Vertrag wird geladen…</div></div></div>
+</section>
+<section class="page" id="page-estates">
+<div class="hero"><div><div class="eyebrow">OGL CONTROL PLANE · ESTATES</div><h1>Estates &amp; Land</h1><p>Regions- und Estate-Konfiguration, Parzellen und Gruppenzuordnung.</p></div><div class="pill"><span class="dot good"></span><span>Autoritative API</span></div></div>
+<div class="section"><h2>Verfügbare Verwaltungsoperationen</h2><p class="sectionlead">Aus dem aktiven OpenAPI-Vertrag dieses Servers. Ein Klick öffnet die echte Operation mit Parametern, Berechtigungen und Ausführung im API-Explorer; nicht vorhandene Funktionen werden nicht simuliert.</p><div class="ogl-workspace-tools"><input aria-label="Operationen filtern" data-workspace-search="estates" placeholder="Operation oder Pfad filtern…"><span id="workspace-count-estates">–</span></div><div class="ogl-operation-grid" id="workspace-estates"><div class="empty">API-Vertrag wird geladen…</div></div></div>
+</section>
+<section class="page" id="page-console">
+<div class="hero"><div><div class="eyebrow">OGL CONTROL PLANE · CONSOLE</div><h1>Konsole &amp; Aufträge</h1><p>Kontrollierte Serverfunktionen und Jobs über bereits geprüfte HTTP-Endpunkte. Keine unbeschränkte Shell.</p></div><div class="pill"><span class="dot good"></span><span>Autoritative API</span></div></div>
+<div class="section"><h2>Verfügbare Verwaltungsoperationen</h2><p class="sectionlead">Aus dem aktiven OpenAPI-Vertrag dieses Servers. Ein Klick öffnet die echte Operation mit Parametern, Berechtigungen und Ausführung im API-Explorer; nicht vorhandene Funktionen werden nicht simuliert.</p><div class="ogl-workspace-tools"><input aria-label="Operationen filtern" data-workspace-search="console" placeholder="Operation oder Pfad filtern…"><span id="workspace-count-console">–</span></div><div class="ogl-operation-grid" id="workspace-console"><div class="empty">API-Vertrag wird geladen…</div></div></div>
+</section>
 <section class="page" id="page-diagnostics">
 <div class="hero"><div><div class="eyebrow">OGL CONTROL PLANE / DIAGNOSTICS</div><h1>Systemdiagnose</h1><p>Prüfe die tatsächlich erreichbaren World-API-Dienste dieses OGL-Servers. Kein Demo-Status, keine Datenbankänderungen.</p></div><div class="pill"><span class="dot" id="diagDot"></span><span id="diagSummary">Noch nicht geprüft</span></div></div>
 <div class="section"><h2>Live-Selbsttest</h2><p class="sectionlead">Diese Prüfung liest ausschließlich den aktuellen Health-/Versions-/OpenAPI-Zustand, die ChatGPT-Anweisung und den optionalen Node-Lizenzdienst. Keine schreibenden Aktionen.</p>
@@ -646,7 +778,7 @@ Archivprüfungen bleiben auch für freigegebene Importe aktiv.</div>
 <div class="section">
 <h2>4. Vorhandene API-Schlüssel verwalten</h2>
 <p class="sectionlead">Bestehende Schlüssel lassen sich jetzt um Berechtigungen wie <code>statistics:read</code> erweitern, ohne ihren Schlüsselwert auszutauschen. Klicke beim gewünschten Schlüssel auf <strong>Berechtigungen bearbeiten</strong>. Die Liste zeigt nur zulässige Maschinen-Scopes; <code>admin:*</code> und interaktive Scopes bleiben gesperrt. Es erscheinen ausschließlich ID, Name, Scopes und letzte Nutzung, niemals geheime Werte.</p>
-<div class="row" style="margin-bottom:14px"><button class="action" id="secretLoadKeys">Schlüsselbestand aktualisieren</button></div>
+<div class="row" style="margin-bottom:14px"><button class="action" id="secretLoadKeys">Schlüsselbestand aktualisieren</button></div><div class="ogl-workspace-tools"><input id="secretKeySearch" type="search" placeholder="Schlüssel nach Name, ID oder Scope filtern…" aria-label="API-Schlüssel filtern"><select id="secretKeyState" aria-label="Schlüsselstatus"><option value="all">Alle Status</option><option value="active">Nur aktiv</option><option value="disabled">Deaktiviert</option></select></div>
 <div class="authnote" id="secretListStatus" role="status">Als Administrator anmelden, dann Schlüsselbestand laden.</div>
 <div id="secretKeyList" class="changegrid"></div>
 <p class="authnote">Scope-Änderungen gelten ab der nächsten API-Authentifizierung mit dem <em>gleichen</em> Schlüssel. Der vollständige Secret-Wert wird nicht erneut angezeigt. Die Bearbeitung sowie Aktivierung, Deaktivierung und Löschung verlangen Administratorrechte und werden protokolliert. Für dauerhafte Löschung zuerst deaktivieren.</p>
@@ -795,14 +927,110 @@ function categoryLabel(value){return categoryLabels[value]||value||''}
 function audienceLabel(value){return audienceLabels[value]||value||''}
 function languageLabel(value){return languageLabels[value]||value||''}
 
+
+/* OpenGenesisLINK modular dashboard and category workspaces */
+const oglWorkspaceGroups={"users":["/api/v1/users","/api/v1/auth"],"groups":["/api/v1/groups"],"inventory":["/api/v1/inventory","/api/v1/media/assets","/api/v1/media/inventory"],"profiles":["/api/v1/profiles","/api/v1/media/profiles","/api/v1/media/uploads"],"economy":["/api/v1/economy","/api/v1/banking","/api/v1/commerce","/api/v1/groups/{groupId}/transactions"],"marketplace":["/api/v1/media/marketplace","/api/v1/media/uploads","/api/v1/media/assets"],"discovery":["/api/v1/discovery","/api/v1/search","/api/v1/events","/api/v1/places"],"experiences":["/api/v1/experiences"],"security":["/api/v1/audit","/api/v1/security","/api/v1/auth/api-keys","/api/v1/feature-control"],"estates":["/api/v1/estates","/api/v1/regions","/api/v1/grid","/api/v1/groups/{groupId}/land"],"console":["/api/v1/jobs","/api/v1/nodes","/api/v1/regions","/api/v1/feature-control","/api/v1/maintenance","/api/v1/backup","/api/v1/oar","/api/v1/iar"]};
+let oglGitCache=null,oglGitLoadedAt=0,oglGitPending=null;
+function oglWorkspaceOpen(entry){
+  showPage('explorer');
+  endpointAudience='all';
+  document.querySelectorAll('[data-endpoint-audience]').forEach(x=>x.classList.toggle('active',x.dataset.endpointAudience==='all'));
+  $('search').value='';
+  selectEntry(entry);
+  $('detail').scrollIntoView({behavior:'smooth',block:'start'});
+}
+function oglRenderWorkspaces(){
+  for(const [domain,prefixes] of Object.entries(oglWorkspaceGroups)){
+    const host=$('workspace-'+domain);if(!host)continue;
+    host.replaceChildren();
+    const search=document.querySelector('[data-workspace-search="'+domain+'"]');
+    const q=(search?.value||'').trim().toLowerCase();
+    const matches=entries.filter(x=>prefixes.some(p=>x.path.startsWith(p))).filter(x=>
+      !q||[x.method,x.path,x.op.summary||'',x.op['x-nexverse-scope']||''].join(' ').toLowerCase().includes(q));
+    $('workspace-count-'+domain).textContent=matches.length+' Operationen';
+    if(!matches.length){
+      const empty=document.createElement('div');empty.className='empty';
+      empty.textContent=q?'Keine passenden Operationen.':'Der laufende Server stellt für diese Kategorie derzeit keine passende API-Operation bereit.';
+      host.append(empty);continue;
+    }
+    for(const entry of matches){
+      const b=document.createElement('button');b.type='button';b.className='ogl-opcard';
+      const badge=document.createElement('span');badge.className='ogl-opbadge'+(entry.method!=='GET'?' write':'');badge.textContent=entry.method;
+      const path=document.createElement('code');path.textContent=entry.path;
+      const summary=document.createElement('small');summary.textContent=entry.op.summary||'API-Operation';
+      const scope=document.createElement('small');scope.textContent='Scope: '+(entry.op['x-nexverse-scope']||'laut OpenAPI-Vertrag');
+      b.append(badge,path,summary,scope);b.addEventListener('click',()=>oglWorkspaceOpen(entry));host.append(b);
+    }
+  }
+}
+document.querySelectorAll('[data-workspace-search]').forEach(input=>input.addEventListener('input',oglRenderWorkspaces));
+function oglGithubText(id,text){const element=$(id);if(element)element.textContent=String(text||'–')}
+async function oglGithubJson(url){
+  const response=await fetch(url,{headers:{Accept:'application/vnd.github+json'},cache:'no-store',mode:'cors'});
+  if(!response.ok)throw Error('GitHub HTTP '+response.status);
+  return response.json();
+}
+async function oglLoadGithub(force=false){
+  if(oglGitPending)return oglGitPending;
+  if(!force&&oglGitCache&&Date.now()-oglGitLoadedAt<300000){oglRenderGithub(oglGitCache);return}
+  oglGithubText('githubState','Prüfe GitHub…');
+  oglGitPending=(async()=>{
+    const base='https://api.github.com/repos/opengenesislink/opengenesislinkserver';
+    const results=await Promise.allSettled([
+      oglGithubJson(base+'/releases/latest'),
+      oglGithubJson(base+'/commits/main'),
+      oglGithubJson(base+'/actions/workflows/nexjast-ci.yml/runs?branch=main&per_page=1')
+    ]);
+    const get=i=>results[i].status==='fulfilled'?results[i].value:null;
+    const data={release:get(0),commit:get(1),ci:get(2),fail:results.map((r,i)=>r.status==='rejected'?i:null).filter(x=>x!==null),at:new Date().toISOString()};
+    oglGitCache=data;oglGitLoadedAt=Date.now();oglRenderGithub(data);
+  })().finally(()=>{oglGitPending=null});
+  return oglGitPending;
+}
+function oglRenderGithub(d){
+  const release=d.release,commit=d.commit,run=d.ci?.workflow_runs?.[0];
+  const stable=release?.tag_name||'Nicht verfügbar';
+  const dev=commit?.sha?'main · '+commit.sha.slice(0,8):'Nicht verfügbar';
+  const ci=run?(run.conclusion||run.status||'unbekannt'):'Nicht verfügbar';
+  oglGithubText('githubStableVersion',stable);
+  oglGithubText('dashStable',stable);
+  oglGithubText('dashStableMeta',release?.published_at?'Veröffentlicht '+new Date(release.published_at).toLocaleDateString('de-DE'):'Release-API nicht verfügbar');
+  oglGithubText('githubStableInfo',release?.name||'Kein bestätigter Release-Status. Keine Version wird geraten.');
+  oglGithubText('githubDevelopmentVersion',dev);
+  oglGithubText('dashDevelopment',dev);
+  oglGithubText('dashDevelopmentMeta',commit?'GitHub main · kein Stable-Tag':'Branch-Status nicht verfügbar');
+  oglGithubText('githubDevelopmentInfo',commit?.commit?.message?.split('\n')[0]||'Letzter main-Commit nicht abrufbar.');
+  oglGithubText('githubLastCommit',commit?'Letzter Entwicklungscommit: '+commit.sha+' · '+(commit.commit?.author?.date||'Zeit unbekannt'):'GitHub-main ist derzeit nicht erreichbar.');
+  oglGithubText('githubCiVersion',ci);
+  oglGithubText('dashWorkflow',ci);
+  oglGithubText('dashWorkflowMeta',run?'Lauf #'+run.run_number:'CI-Status unbekannt');
+  oglGithubText('githubCiInfo',run?'Workflow: '+run.name+' · '+(run.head_sha||'').slice(0,8):'Kein bestätigter CI-Lauf gefunden.');
+  oglGithubText('githubReleaseNotes',release?.body?'Release: '+String(release.body).slice(0,460):'Keine Release-Notizen aus GitHub verfügbar.');
+  oglGithubText('githubUpdated','Stand '+new Date(d.at).toLocaleString('de-DE')+' · '+(d.fail.length?'Teilweise nicht erreichbar (HTTP-/Netzwerkfehler)':'GitHub REST API (kein Demo-Wert)'));
+  oglGithubText('githubState',d.fail.length?'Teilweise nicht erreichbar':'GitHub verbunden');
+  if($('githubDot'))$('githubDot').className='dot '+(d.fail.length?'bad':'good');
+  oglGithubText('dashboardRepository','Stable '+stable+' | Development '+dev+' | CI '+ci+'. Veröffentlichte GitHub-Version und lokaler ROBUST-Build können sich unterscheiden.');
+}
+if($('githubRefresh'))$('githubRefresh').addEventListener('click',()=>oglLoadGithub(true));
+function oglFilterKeys(){
+  const needle=($('secretKeySearch')?.value||'').trim().toLowerCase();
+  const filter=$('secretKeyState')?.value||'all';
+  document.querySelectorAll('#secretKeyList > .change').forEach(card=>{
+    const matching=!needle||card.textContent.toLowerCase().includes(needle);
+    const active=card.dataset.keyEnabled==='true';
+    card.hidden=!(matching&&(filter==='all'||(filter==='active'&&active)||(filter==='disabled'&&!active)));
+  });
+}
 function showPage(name){
-  if(['secrets','nodes','grid'].includes(name)&&!adminIsActive()){
+  if(['secrets','nodes','grid','security','console'].includes(name)&&!adminIsActive()){
     adminNextPage=name;
     name='adminlogin';
     adminUpdateStatus('Anmeldung mit UserLevel >= 200 erforderlich.',null);
   }
   document.querySelectorAll('.page').forEach(x=>x.classList.toggle('active',x.id==='page-'+name));
-  document.querySelectorAll('.navbtn').forEach(x=>x.classList.toggle('active',x.dataset.page===name));
+  document.querySelectorAll('.navbtn').forEach(x=>{x.classList.toggle('active',x.dataset.page===name);if(x.dataset.page===name)x.closest('details')?.setAttribute('open','');});
+  if(name==='repository')oglLoadGithub();
+  if(oglWorkspaceGroups[name])oglRenderWorkspaces();
   window.scrollTo({top:0,behavior:'smooth'});
 }
 document.querySelectorAll('.navbtn').forEach(x=>x.addEventListener('click',()=>showPage(x.dataset.page)));
@@ -992,6 +1220,8 @@ function renderStatistics(data){
   const residents=data.residents||{},hg=data.hypergrid||{},online=data.online||{};
   const protectedDetails=data.protected_details===true;
   statText('statRegistered',residents.registered_total);
+  oglGithubText('dashResidents',residents.registered_total==null?'–':residents.registered_total);
+  oglGithubText('dashOnline',online.total==null?'–':online.total);
   statText('statOnlineTotal',online.total);
   statText('statResidentsOnline',residents.online_now);
   statText('statActive7',residents.active_last_7_days);
@@ -1893,7 +2123,7 @@ function secretRenderKeyInventory(keys, supportedScopes) {
   $('secretListStatus').textContent=keys.length+' Schlüssel registriert. '+
     duplicates+' aktive Duplikatgruppe(n) gefunden. Kein Schlüssel wurde automatisch verändert.';
   for(const key of keys){
-    const card=document.createElement('div');card.className='change';
+    const card=document.createElement('div');card.className='change';card.dataset.keyEnabled=key.enabled?'true':'false';
     const title=document.createElement('strong');
     title.textContent=(key.name||'Unbenannt')+(key.enabled?' · Aktiv':' · Deaktiviert');
     card.append(title);
@@ -1967,6 +2197,7 @@ function secretRenderKeyInventory(keys, supportedScopes) {
     card.append(editor);
     host.append(card);
   }
+  oglFilterKeys();
 }
 async function secretEditKeyScopes(key,scopes) {
   try{
@@ -2242,7 +2473,8 @@ async function init(){
     $('navmeta').textContent=(version.server_version||'OpenGenesisLINK')+' · '+(version.api_version||'API')+' · '+languageLabel(version.language||spec['x_nexverse_language']||'de-DE');
     if(changes.length){$('lastChangeDate').textContent=changes[0].date||'–';$('lastChangeTitle').textContent=changes[0].title||''}
     const overview=$('overviewChanges');overview.replaceChildren();changes.slice(0,4).forEach(x=>overview.append(makeChange(x)));if(!changes.length)overview.innerHTML='<div class="empty">Noch keine Versionshinweise veröffentlicht.</div>';
-    renderChangeFilters();renderChanges('all');renderVersions();renderRoadmap();renderEndpointList();
+    renderChangeFilters();renderChanges('all');renderVersions();renderRoadmap();renderEndpointList();oglRenderWorkspaces();oglLoadGithub();
+    oglGithubText('dashOperations',entries.length);
     loadStatistics();
   }catch(err){
     $('healthText').textContent='API-Metadaten konnten nicht geladen werden';$('healthDot').className='dot bad';$('navmeta').textContent=String(err);
@@ -2259,6 +2491,8 @@ $('secretGeneratePortalIm').addEventListener('click',secretGeneratePortalIm);
 $('secretCopy').addEventListener('click',secretCopy);
 $('secretClear').addEventListener('click',secretClear);
 $('secretLoadKeys').addEventListener('click',secretLoadKeys);
+$('secretKeySearch').addEventListener('input',oglFilterKeys);
+$('secretKeyState').addEventListener('change',oglFilterKeys);
 $('worldAuthUseMe').addEventListener('click',worldAuthUseMe);
 $('worldAuthLoad').addEventListener('click',worldAuthLoad);
 $('worldAuthSave').addEventListener('click',worldAuthSave);
