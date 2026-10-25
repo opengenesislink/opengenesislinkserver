@@ -271,6 +271,11 @@ namespace NexVerse.Server.Api
                 new NexNodeRegistry(
                     eventBus,
                     nodeStaleAfterSeconds);
+            // Remote simulator logs arrive as authenticated NexBus events
+            // from NodeAgents already registered by node.heartbeat.
+            // Local ROBUST and local OpenSim log readers use the same folder.
+            NexBusRemoteLogArchive remoteLogs =
+                new NexBusRemoteLogArchive(eventBus, nodeRegistry);
 
             // Console verbosity is independent of the persistent audit
             // store: suppress routine health checks without losing audited
