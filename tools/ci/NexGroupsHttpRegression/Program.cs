@@ -103,16 +103,32 @@ internal static class Program
     private static SimpleStreamMethod MediaRoute(
         GroupsService groups, UserAccountService users,
         HmacNexAccessTokenService tokens, INexApiKeyStore keys,
-        IAssetService assetService)
+        IAssetService assetService, string connection, UUID assetId, UUID ownerId)
     {
         Assembly assembly = Assembly.Load("NexVerse.Server.Api");
         Type authType = assembly.GetType("NexVerse.Server.Api.NexApiAuthenticator", true);
         Type mediaType = assembly.GetType("NexVerse.Server.Api.NexMediaApi", true);
+        Type catalogType = assembly.GetType("NexVerse.Server.Api.NexMediaCatalogStore", true);
+        Type managedType = assembly.GetType("NexVerse.Server.Api.NexManagedMediaApi", true);
         object auth = Construct(authType, users, new NexAuthorizationService(),
             tokens, null, keys, 200);
         object api = Construct(mediaType, users, null, groups,
             new Func<IAssetService>(() => assetService), auth);
-        MethodInfo handle = mediaType.GetMethod("Handle", BindingFlags.Instance | BindingFlags.Public);
+        object catalog = Construct(catalogType, connection);
+        catalogType.GetMethod("RecordUpload",
+            BindingFlags.Instance | BindingFlags.NonPublic)!
+            .Invoke(catalog, new object[] { assetId, ownerId, "image/png" });
+        var renderer = (Action<UUID, IOSHttpResponse, int>)Delegate.CreateDelegate(
+            typeof(Action<UUID, IOSHttpResponse, int>), api,
+            mediaType.GetMethod("ServeLinkedImage",
+                BindingFlags.Instance | BindingFlags.NonPublic)!);
+        object managed = Construct(managedType, auth, users, null, null, groups,
+            new Func<IAssetService>(() => assetService), catalog, renderer);
+        mediaType.GetMethod("ConfigureManaged",
+            BindingFlags.Instance | BindingFlags.NonPublic)!
+            .Invoke(api, new[] { managed });
+        MethodInfo handle = mediaType.GetMethod("Handle",
+            BindingFlags.Instance | BindingFlags.Public);
         Check(handle != null, "NexMediaApi.Handle missing");
         return (SimpleStreamMethod)Delegate.CreateDelegate(
             typeof(SimpleStreamMethod), api, handle);
@@ -184,6 +200,8 @@ internal static class Program
                 tokens.Issue(account.PrincipalID.ToString(), scopes,
                     account.NexVerseStateChanged);
             string ownerToken = Jwt(owner, NexScopes.GroupsRead, NexScopes.GroupsManage);
+            string ownerMediaToken = Jwt(owner, NexScopes.GroupsRead, NexScopes.GroupsManage,
+                NexScopes.ProfileRead, NexScopes.ProfileWrite);
             string memberToken = Jwt(member, NexScopes.GroupsRead, NexScopes.GroupsManage);
             string strangerToken = Jwt(stranger, NexScopes.GroupsRead, NexScopes.GroupsManage);
             string inviteeReadToken = Jwt(invitee, NexScopes.GroupsRead);
@@ -214,6 +232,8 @@ internal static class Program
                 new[] { NexScopes.GroupsRead, NexScopes.EconomyRead });
             var groupsOnlyKey = keyStore.Create("Group Land Service",
                 new[] { NexScopes.GroupsRead });
+            var publisherKey = keyStore.Create("Media Publisher",
+                new[] { NexScopes.MediaPublish });
             var handler = Route(groups, users, tokens, () => activeEconomy, keyStore);
             UUID insignia = UUID.Random();
             IAssetService mediaAssetService = DispatchProxy.Create<IAssetService, GroupMediaAssetProxy>();
@@ -225,7 +245,8 @@ internal static class Program
                     "iVBORw0KGgoAAAANSUhEUgAAABAAAAAMCAIAAADkharW" +
                     "AAAAF0lEQVR4nGMUMQpgIAUwkaR6VMMI0gAAdQsArnr0MVEAAAAASUVORK5CYII=")
             };
-            var mediaHandler = MediaRoute(groups, users, tokens, keyStore, mediaAssetService);
+            var mediaHandler = MediaRoute(groups, users, tokens, keyStore,
+                mediaAssetService, connection, insignia, owner.PrincipalID);
             int port = FindPort();
             server = new BaseHttpServer((uint)port) { ListenIPAddress = IPAddress.Loopback };
             server.AddSimpleStreamHandler(
@@ -289,8 +310,45 @@ internal static class Program
             await Verify(http, mediaPath, narrowToken, HttpStatusCode.Forbidden, "error");
             await Verify(http, mediaPath + "?size=999", ownerToken,
                 HttpStatusCode.BadRequest, "error");
-            await Verify(http, "/api/v1/media/assets/" + insignia,
+            await Verify(http, "/api/v1/media/assets/" + UUID.Random(),
                 ownerToken, HttpStatusCode.NotFound, "error");
+            await Verify(http, "/api/v1/media/assets/" + insignia,
+                null, HttpStatusCode.Unauthorized, "error");
+            await Verify(http, "/api/v1/media/assets/" + insignia,
+                ownerMediaToken, HttpStatusCode.OK);
+            await Verify(http, "/api/v1/media/assets/" + insignia,
+                ownerMediaToken, HttpStatusCode.OK, "visibility",
+                HttpMethod.Patch, "{\"public\":true}");
+            await Verify(http, "/api/v1/media/assets/" + insignia,
+                null, HttpStatusCode.OK);
+
+            UUID listingImage = UUID.Random();
+            string listingUrl = "/api/v1/media/marketplace/" + listingImage + "/image";
+            using (var pub = new HttpRequestMessage(HttpMethod.Put, listingUrl))
+            {
+                pub.Headers.TryAddWithoutValidation("X-NexVerse-Api-Key", publisherKey.ApiKey);
+                pub.Content = new StringContent(JsonSerializer.Serialize(new {
+                    asset_id = insignia.ToString(), owner_id = owner.PrincipalID.ToString()
+                }), Encoding.UTF8, "application/json");
+                using var published = await http.SendAsync(pub);
+                Check(published.StatusCode == HttpStatusCode.OK,
+                    "marketplace publisher rejected binding: " +
+                    await published.Content.ReadAsStringAsync());
+            }
+            await Verify(http, listingUrl, null, HttpStatusCode.OK);
+            await Verify(http, listingUrl, ownerMediaToken, HttpStatusCode.Forbidden,
+                "error", HttpMethod.Delete);
+            using (var del = new HttpRequestMessage(HttpMethod.Delete, listingUrl))
+            {
+                del.Headers.TryAddWithoutValidation("X-NexVerse-Api-Key", publisherKey.ApiKey);
+                using var unpublished = await http.SendAsync(del);
+                Check(unpublished.StatusCode == HttpStatusCode.OK,
+                    "marketplace unpublish failed");
+            }
+            await Verify(http, listingUrl, null, HttpStatusCode.NotFound, "error");
+            await Verify(http, "/api/v1/media/assets/" + insignia,
+                ownerMediaToken, HttpStatusCode.OK, "visibility",
+                HttpMethod.Patch, "{\"public\":false}");
             using (var mediaRequest = new HttpRequestMessage(HttpMethod.Get, mediaPath))
             {
                 mediaRequest.Headers.Authorization =

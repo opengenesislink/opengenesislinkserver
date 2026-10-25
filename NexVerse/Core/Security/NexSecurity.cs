@@ -25,6 +25,9 @@ namespace NexVerse.Core.Security
         // user role and self-service grant lists.
         public const string PasswordRecoveryIssue = "password-recovery:issue";
         public const string PasswordRecoveryComplete = "password-recovery:complete";
+        // Dedicated portal/marketplace publisher; machine API-key only.
+        // Never add to resident/role-computed scopes.
+        public const string MediaPublish = "media:publish";
         public const string InventoryRead = "inventory:read";
         public const string InventoryWrite = "inventory:write";
         public const string FriendsManage = "friends:manage";

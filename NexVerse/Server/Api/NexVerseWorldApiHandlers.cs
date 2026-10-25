@@ -273,12 +273,27 @@ namespace NexVerse.Server.Api
                     AuthenticatedOperations(("patch", "Eigene 11 editierbare userprofile-Spalten ändern; useruuid, profileImage und profileFirstImage bleiben gesperrt", "profile:write", "200"))),
                 ["/api/v1/profiles/{principalId}/image"] = GetOperation(
                     "Browserfähige Profilbild-Bytes der aktuell verknüpften Avatar-Textur; privat nur Owner/Admin"),
-                ["/api/v1/media/profiles/{principalId}/image"] = GetOperation(
-                    "Browserfähiges Avatar-Profilbild über die gemeinsame Media API; privat nur Owner/Admin"),
+                ["/api/v1/media/profiles/{principalId}/image"] = MergeOperations(
+                    GetOperation("Avatarbild, öffentlich nur für veröffentlichte Profile"),
+                    AuthenticatedOperations(("put", "Eigenes hochgeladenes JPEG2000-Asset als aktuelles Profilbild setzen", "profile:write", "200"))),
                 ["/api/v1/media/profiles/{principalId}/first-life"] = AuthenticatedOperations(
-                    ("get", "First-Life-Bild nur für Avatar-Owner oder Administrator; kein öffentlicher Assetzugriff", "profile:read", "200")),
+                    ("get", "First-Life-Bild nur für Avatar-Owner oder Administrator", "profile:read", "200"),
+                    ("put", "Eigenes hochgeladenes JPEG2000-Asset als First-Life-Bild setzen", "profile:write", "200")),
                 ["/api/v1/media/groups/{groupId}/image"] = AuthenticatedOperations(
-                    ("get", "Gruppeninsignie aus der aktuellen Gruppenreferenz als PNG/JPEG; nur autorisiert", "groups:read", "200")),
+                    ("get", "Gruppeninsignie aus der aktuellen Gruppenreferenz als PNG/JPEG; nur autorisiert", "groups:read", "200"),
+                    ("put", "Eigene hochgeladene Bildtextur als Gruppeninsignie setzen; Gruppenpower zusätzlich geprüft", "groups:manage", "200")),
+                ["/api/v1/media/uploads"] = AuthenticatedOperations(
+                    ("post", "PNG/JPEG sicher als JPEG2000-Asset in bestehenden AssetService hochladen, Owner oder Publisher", "profile:write", "201")),
+                ["/api/v1/media/assets/{assetId}"] = MergeOperations(
+                    GetOperation("Nur in der Medienverwaltung registrierte Assets; private nur mit Owner-Rechten"),
+                    AuthenticatedOperations(("patch", "Eigene hochgeladene Bildtextur veröffentlichen/zurückziehen", "profile:write", "200"))),
+                ["/api/v1/media/inventory/{itemId}/image"] = AuthenticatedOperations(
+                    ("get", "Bildtextur aus dem eigenen Inventar, kein fremder Asset-Zugriff", "inventory:read", "200")),
+                ["/api/v1/media/marketplace/{listingId}/image"] = MergeOperations(
+                    GetOperation("Öffentliches Marketplace-Vorschaubild einer explizit veröffentlichten Listing-ID"),
+                    AuthenticatedOperations(
+                        ("put", "Marketplace-Bild veröffentlichen, dedizierter Maschinenkey nötig", "media:publish", "200"),
+                        ("delete", "Marketplace-Bild zurückziehen, dedizierter Maschinenkey nötig", "media:publish", "200"))),
                 ["/api/v1/relationships/{principalId}"] = AuthenticatedOperations(
                     ("get", "Eigene Freundesliste mit Anfragezustand, Online-Sichtbarkeit und Rechten lesen", "relationships:read", "200")),
                 ["/api/v1/relationships/{principalId}/{targetId}"] = AuthenticatedOperations(
@@ -770,6 +785,64 @@ namespace NexVerse.Server.Api
                 }
             }
 
+            // Managed Media API: publication and upload operations are JSON;
+            // read operations serve binary PNG/JPEG after entitlement checks.
+            ApplyJsonContract(paths, "/api/v1/media/uploads", "post",
+                "MediaUploadRequest", "MediaUploadResponse", "201");
+            ApplyJsonContract(paths, "/api/v1/media/assets/{assetId}", "patch",
+                "MediaVisibilityRequest", "MediaObjectResponse", "200");
+            ApplyJsonContract(paths, "/api/v1/media/marketplace/{listingId}/image", "put",
+                "MediaListingRequest", "MediaObjectResponse", "200");
+            ApplyJsonContract(paths, "/api/v1/media/marketplace/{listingId}/image", "delete",
+                null, "MediaObjectResponse", "200");
+            foreach (string route in new[] {
+                "/api/v1/media/groups/{groupId}/image",
+                "/api/v1/media/profiles/{principalId}/image",
+                "/api/v1/media/profiles/{principalId}/first-life" })
+                ApplyJsonContract(paths, route, "put", "MediaBindRequest",
+                    "MediaObjectResponse", "200");
+            AddOperationParameters(paths, "/api/v1/media/assets/{assetId}", "get",
+                PathParameter("assetId", "Registrierte Medien-Asset-UUID"));
+            AddOperationParameters(paths, "/api/v1/media/assets/{assetId}", "patch",
+                PathParameter("assetId", "Registrierte Medien-Asset-UUID"));
+            AddOperationParameters(paths, "/api/v1/media/inventory/{itemId}/image", "get",
+                PathParameter("itemId", "Eigenes Inventar-Item"));
+            foreach (string op in new[] { "get", "put", "delete" })
+                AddOperationParameters(paths, "/api/v1/media/marketplace/{listingId}/image", op,
+                    PathParameter("listingId", "Marketplace-Listing-ID"));
+            foreach (string route in new[] {
+                "/api/v1/media/groups/{groupId}/image",
+                "/api/v1/media/profiles/{principalId}/image",
+                "/api/v1/media/profiles/{principalId}/first-life" })
+                AddOperationParameters(paths, route, "put",
+                    PathParameter(route.Contains("/groups/") ? "groupId" : "principalId",
+                        route.Contains("/groups/") ? "Gruppen-UUID" : "Avatar-UUID"));
+            foreach (string route in new[] {
+                "/api/v1/media/assets/{assetId}",
+                "/api/v1/media/inventory/{itemId}/image",
+                "/api/v1/media/marketplace/{listingId}/image" })
+            {
+                AddOperationParameters(paths, route, "get",
+                    QueryParameter("size", false, "Vorschaubild: 64, 128, 256 oder 512 Pixel"));
+                if (paths[route] is Dictionary<string, object> page &&
+                    page["get"] is Dictionary<string, object> op)
+                {
+                    op["responses"] = new Dictionary<string, object>
+                    {
+                        ["200"] = new {
+                            description = "PNG-/JPEG-Bildbytes; kein JSON",
+                            content = new Dictionary<string, object> {
+                                ["image/png"] = new { schema = new { type = "string", format = "binary" } },
+                                ["image/jpeg"] = new { schema = new { type = "string", format = "binary" } }
+                            }
+                        },
+                        ["401"] = new { description = "Authentifizierung nötig" },
+                        ["403"] = new { description = "Zugriff verweigert" },
+                        ["404"] = new { description = "Bildreferenz nicht vorhanden" },
+                        ["503"] = new { description = "Mediendatenspeicher nicht verfügbar" }
+                    };
+                }
+            }
             ApplyJsonContract(paths, "/api/v1/experiences", "get", null, "ExperienceSearchResponse", "200");
             ApplyJsonContract(paths, "/api/v1/experiences", "post", "NexExperienceCreateRequest", "ExperienceDetailsResponse", "201");
             ApplyJsonContract(paths, "/api/v1/experiences/{experienceId}", "get", null, "ExperienceDetailsResponse", "200");
@@ -5732,6 +5805,69 @@ namespace NexVerse.Server.Api
                             format = "uuid"
                         },
                         ["correlation_id"] = new { type = "string" }
+                    }
+                },
+                ["MediaUploadRequest"] = new
+                {
+                    type = "object",
+                    required = new[] { "content_type", "data_base64" },
+                    properties = new Dictionary<string, object>
+                    {
+                        ["content_type"] = new { type = "string", @enum = new[] { "image/png", "image/jpeg" } },
+                        ["data_base64"] = new { type = "string", format = "byte", writeOnly = true },
+                        ["owner_id"] = new { type = "string", format = "uuid", description = "Nur mit media:publish-Maschinenkey" }
+                    }
+                },
+                ["MediaBindRequest"] = new
+                {
+                    type = "object",
+                    required = new[] { "asset_id" },
+                    properties = new Dictionary<string, object>
+                    {
+                        ["asset_id"] = new { type = "string", format = "uuid" }
+                    }
+                },
+                ["MediaVisibilityRequest"] = new
+                {
+                    type = "object",
+                    required = new[] { "public" },
+                    properties = new Dictionary<string, object>
+                    {
+                        ["public"] = new { type = "boolean" }
+                    }
+                },
+                ["MediaListingRequest"] = new
+                {
+                    type = "object",
+                    required = new[] { "asset_id", "owner_id" },
+                    properties = new Dictionary<string, object>
+                    {
+                        ["asset_id"] = new { type = "string", format = "uuid" },
+                        ["owner_id"] = new { type = "string", format = "uuid" }
+                    }
+                },
+                ["MediaUploadResponse"] = new
+                {
+                    type = "object",
+                    properties = new Dictionary<string, object>
+                    {
+                        ["asset_id"] = new { type = "string", format = "uuid" },
+                        ["owner_id"] = new { type = "string", format = "uuid" },
+                        ["content_type"] = new { type = "string" },
+                        ["image_url"] = new { type = "string" },
+                        ["visibility"] = new { type = "string" }
+                    }
+                },
+                ["MediaObjectResponse"] = new
+                {
+                    type = "object",
+                    properties = new Dictionary<string, object>
+                    {
+                        ["asset_id"] = new { type = "string", format = "uuid" },
+                        ["image_url"] = new { type = "string" },
+                        ["visibility"] = new { type = "string" },
+                        ["listing_id"] = new { type = "string", format = "uuid" },
+                        ["unpublished"] = new { type = "boolean" }
                     }
                 },
                 ["PasswordRecoveryIssueRequest"] = new

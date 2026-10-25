@@ -35,6 +35,14 @@ namespace NexVerse.Server.Api
         private readonly GroupsService m_Groups;
         private readonly Func<IAssetService> m_ResolveAssets;
         private readonly NexApiAuthenticator m_Authenticator;
+        private NexManagedMediaApi m_Managed;
+
+        internal void ConfigureManaged(NexManagedMediaApi managed) => m_Managed = managed;
+
+        // Reuse the same bounds, type checks and codec for every authorized
+        // entity, inventory item or media publication.
+        internal void ServeLinkedImage(UUID assetId, IOSHttpResponse response, int size) =>
+            Serve(assetId, response, size);
 
         internal NexMediaApi(IUserAccountService accounts, IProfilesData profiles,
             GroupsService groups, Func<IAssetService> resolveAssets,
@@ -54,6 +62,17 @@ namespace NexVerse.Server.Api
             if (request == null)
             {
                 Error(response, HttpStatusCode.BadRequest, "invalid_request");
+                return;
+            }
+            string rawPath = (request.UriPath ?? "").TrimEnd('/');
+            if (NexManagedMediaApi.CanHandle(rawPath, request.HttpMethod ?? ""))
+            {
+                if (m_Managed == null)
+                {
+                    Error(response, HttpStatusCode.ServiceUnavailable, "media_catalog_unavailable");
+                    return;
+                }
+                m_Managed.Handle(request, response);
                 return;
             }
             if (!string.Equals(request.HttpMethod, "GET", StringComparison.OrdinalIgnoreCase))
