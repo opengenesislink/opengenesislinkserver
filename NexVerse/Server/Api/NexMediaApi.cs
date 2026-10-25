@@ -234,9 +234,15 @@ namespace NexVerse.Server.Api
                 byte[] bytes = asset.Data;
                 if (IsPng(bytes) || IsJpeg(bytes))
                 {
-                    if (size == 0)
+                    bool png = IsPng(bytes);
+                    if (size == 0 ||
+                        (png && TryPngSize(bytes, out int originalWidth, out int originalHeight) &&
+                         originalWidth <= MaxDimension && originalHeight <= MaxDimension &&
+                         originalWidth <= size && originalHeight <= size))
                     {
-                        Binary(response, bytes, IsPng(bytes) ? "image/png" : "image/jpeg");
+                        // Avoid recompression of a small PNG. This works without
+                        // System.Drawing on .NET 8 Linux and is lossless.
+                        Binary(response, bytes, png ? "image/png" : "image/jpeg");
                         return;
                     }
                     using MemoryStream input = new MemoryStream(bytes, false);
@@ -283,6 +289,26 @@ namespace NexVerse.Server.Api
             x[6] == 0x1a && x[7] == 0x0a;
         private static bool IsJpeg(byte[] x) => x.Length >= 3 &&
             x[0] == 0xff && x[1] == 0xd8 && x[2] == 0xff;
+
+        // PNG IHDR is fixed-offset. Only use dimensions for a safe bypass
+        // when the requested maximum already contains the original image.
+        private static bool TryPngSize(byte[] data, out int width, out int height)
+        {
+            width = height = 0;
+            if (!IsPng(data) || data.Length < 24 ||
+                data[12] != (byte)'I' || data[13] != (byte)'H' ||
+                data[14] != (byte)'D' || data[15] != (byte)'R')
+                return false;
+            uint w = ((uint)data[16] << 24) | ((uint)data[17] << 16) |
+                ((uint)data[18] << 8) | data[19];
+            uint h = ((uint)data[20] << 24) | ((uint)data[21] << 16) |
+                ((uint)data[22] << 8) | data[23];
+            if (w == 0 || h == 0 || w > MaxDimension || h > MaxDimension)
+                return false;
+            width = (int)w;
+            height = (int)h;
+            return true;
+        }
 
         private static void WritePng(IOSHttpResponse response, Image source, int size)
         {
