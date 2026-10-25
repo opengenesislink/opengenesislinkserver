@@ -36,8 +36,44 @@ for marker in (
 ):
     assert marker in media, f"Media API missing safety constraint: {marker}"
 
-assert '"/api/v1/media/assets"' not in connector
-assert '"/api/v1/media/assets' not in openapi
+# /media/assets/{assetId} is now intentionally available ONLY to uploads
+# recorded in the authoritative MariaDB publication catalog.
+assert '"/api/v1/media/assets/{assetId}"' in openapi
+managed = Path("NexVerse/Server/Api/NexManagedMediaApi.cs").read_text()
+store = Path("NexVerse/Server/Api/NexMediaCatalogStore.cs").read_text()
+keys = Path("NexVerse/Core/Security/NexApiKeyStore.cs").read_text()
+security = Path("NexVerse/Core/Security/NexSecurity.cs").read_text()
+for route in (
+    "/api/v1/media/uploads",
+    "/api/v1/media/assets/{assetId}",
+    "/api/v1/media/inventory/{itemId}/image",
+    "/api/v1/media/marketplace/{listingId}/image",
+):
+    assert route in openapi, f"missing managed route: {route}"
+for marker in (
+    'm_Catalog.FindUpload(assetId)',
+    'item.Owner != user.PrincipalID',
+    'm_Auth.TryAuthenticate(request, NexScopes.MediaPublish',
+    'principal.Subject.StartsWith("api-key:"',
+    'm_Catalog.PublishListing(',
+    'm_Catalog.UnpublishListing(',
+    'm_Groups.UpdateGroup(',
+    'm_Profiles.UpdateAvatarProperties(',
+    'OpenJPEG.EncodeFromImage(',
+    'AssetType.Texture',
+    'MaxUploadBytes = 4 * 1024 * 1024',
+    'record.FounderID != user.PrincipalID',
+):
+    assert marker in managed, f"missing managed-media ownership/codec validation: {marker}"
+assert 'CREATE TABLE IF NOT EXISTS ogl_media_uploads' in store
+assert 'CREATE TABLE IF NOT EXISTS ogl_media_marketplace' in store
+assert 'FOREIGN KEY(asset_id)' in store
+assert 'NexScopes.MediaPublish' in keys
+assert 'public const string MediaPublish' in security
+role_scopes = security.split('private static readonly HashSet<string> s_AssignableScopes', 1)[1]
+assert 'NexScopes.MediaPublish' not in role_scopes
+assert 'ConfigureManaged(managedMedia)' in connector
+assert 'new NexMediaCatalogStore(databaseConnectionString)' in connector
 assert '"/api/v1/media"' in connector
 assert 'apiGate.Wrap(mediaApi.Handle)' in connector
 assert 'AssetServiceConnector.GetLocalService(config, "AssetService")' in connector
