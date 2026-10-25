@@ -70,6 +70,15 @@ namespace NexVerse.RegionModules.NodeAgent
         private SimulatorNexEventTransport m_Transport;
         private DistributedNexEventBus m_Bus;
         private Timer m_HeartbeatTimer;
+        // Secure, cursor-based export to the existing HMAC-authenticated
+        // NexBus peer. Never transport plain files via a public HTTP upload.
+        private Timer m_LogForwardTimer;
+        private HttpClient m_LogForwardClient;
+        private Uri m_LogForwardPeer;
+        private bool m_LogForwardEnabled;
+        private int m_LogForwardRunning;
+        private readonly Dictionary<string, long> m_LogForwardOffsets = new();
+        private readonly object m_LogForwardSync = new();
         private IDisposable m_CreateRegionSubscription;
         private IDisposable m_MoveRegionSubscription;
         private IDisposable m_RegionLifecycleSubscription;
@@ -126,6 +135,16 @@ namespace NexVerse.RegionModules.NodeAgent
             m_NodeId = OglArchiveFeatureGate.ResolveNodeId(
                 config.GetString("NodeId", Environment.MachineName),
                 Environment.MachineName);
+            // Log files can contain personally identifiable information or
+            // credentials. Forward only over TLS (or loopback for local tests).
+            m_LogForwardEnabled = config.GetBoolean("LogForwardingEnabled", true) &&
+                System.Text.RegularExpressions.Regex.IsMatch(m_NodeId,
+                    @"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$") &&
+                (peer.Scheme == Uri.UriSchemeHttps || peer.IsLoopback);
+            if (config.GetBoolean("LogForwardingEnabled", true) && !m_LogForwardEnabled)
+                m_Log.Warn("[NEX-NODE]: Automatic OpenSim log forwarding disabled: " +
+                           "NexBus peer must use HTTPS and NodeId must contain safe filename characters.");
+            m_LogForwardPeer = peer;
 
             m_SharedKey = sharedKey;
             m_UpdateStagingEnabled = config.GetBoolean("UpdateStagingEnabled", false);
@@ -295,6 +314,15 @@ namespace NexVerse.RegionModules.NodeAgent
                 null,
                 TimeSpan.FromSeconds(1),
                 TimeSpan.FromSeconds(m_HeartbeatSeconds));
+            if (m_LogForwardEnabled)
+            {
+                m_LogForwardClient = new HttpClient {
+                    Timeout = TimeSpan.FromSeconds(8)
+                };
+                m_LogForwardTimer = new Timer(
+                    _ => _ = ForwardDailyLogsSafeAsync(),
+                    null, TimeSpan.FromSeconds(8), TimeSpan.FromSeconds(15));
+            }
 
             Publish(new NexEvent(
                 "node.online",
@@ -347,6 +375,8 @@ namespace NexVerse.RegionModules.NodeAgent
             m_ObjectMessageOutboundRates.Clear();
             m_ObjectMessageInboundRates.Clear();
             m_HeartbeatTimer?.Dispose();
+            m_LogForwardTimer?.Dispose();
+            m_LogForwardClient?.Dispose();
             m_Bus?.Dispose();
             m_Transport = null;
             m_Bus = null;
@@ -1064,6 +1094,98 @@ namespace NexVerse.RegionModules.NodeAgent
                         "ROBUST-Signing-Key und Systemzeit prüfen. Archivfreigaben bleiben gesperrt.",
                         node, revision, expires);
             }
+        }
+
+
+        /// <summary>
+        /// Keep source offsets only after NexBus HTTP 202 acceptance. Each
+        /// message is signed using the existing NodeAgent HMAC transport key.
+        /// A retry starts at the same offset, so Robust de-duplicates content.
+        /// Read at most 4 * 32 KiB per timer cycle to avoid starving the sim.
+        /// The previous 7 daily archives remain eligible for catch-up.
+        /// </summary>
+        private async Task ForwardDailyLogsSafeAsync()
+        {
+            if (!m_Enabled || !m_LogForwardEnabled ||
+                Interlocked.CompareExchange(ref m_LogForwardRunning, 1, 0) != 0)
+                return;
+            try
+            {
+                int remaining = 4;
+                // An oldest-first replay also synchronizes yesterday's tail
+                // after reconnection, restart or temporary network failure.
+                for (int back = 7; back >= 0 && remaining > 0; --back)
+                {
+                    DateTime day = DateTime.Today.AddDays(-back);
+                    string dayId = day.ToString("yyyy-MM-dd",
+                        System.Globalization.CultureInfo.InvariantCulture);
+                    string local = Path.Combine(AppContext.BaseDirectory, "logs",
+                        "OpenSim_" + day.ToString("dd_MM_yyyy",
+                            System.Globalization.CultureInfo.InvariantCulture) + ".log");
+                    if (!File.Exists(local)) continue;
+
+                    long cursor;
+                    lock (m_LogForwardSync)
+                        cursor = m_LogForwardOffsets.TryGetValue(dayId, out long pos) ? pos : 0L;
+
+                    while (remaining > 0)
+                    {
+                        byte[] bytes = new byte[32 * 1024];
+                        int count;
+                        try
+                        {
+                            using var input = new FileStream(local, FileMode.Open, FileAccess.Read,
+                                FileShare.ReadWrite | FileShare.Delete);
+                            if (cursor > input.Length) cursor = 0L;
+                            input.Position = cursor;
+                            count = await input.ReadAsync(bytes.AsMemory(0, bytes.Length))
+                                .ConfigureAwait(false);
+                        }
+                        catch (IOException) { break; }
+                        catch (UnauthorizedAccessException) { break; }
+                        if (count == 0) break;
+                        if (count != bytes.Length) Array.Resize(ref bytes, count);
+
+                        var envelope = new NexEvent("node.log.chunk", "nexverse.simulator",
+                            new Dictionary<string, string> {
+                                ["node_id"] = m_NodeId,
+                                ["date"] = dayId,
+                                ["offset"] = cursor.ToString(
+                                    System.Globalization.CultureInfo.InvariantCulture),
+                                ["bytes_base64"] = Convert.ToBase64String(bytes)
+                            });
+                        byte[] payload = NexBusProtocol.Serialize(envelope);
+                        using var outgoing = new HttpRequestMessage(HttpMethod.Post, m_LogForwardPeer);
+                        outgoing.Headers.TryAddWithoutValidation("X-NexBus-Node", m_NodeId);
+                        outgoing.Headers.TryAddWithoutValidation("X-NexBus-Schema",
+                            NexVerse.Core.NexVersePlatform.NexBusSchemaVersion);
+                        outgoing.Headers.TryAddWithoutValidation("X-NexBus-Signature",
+                            "sha256=" + NexBusProtocol.Sign(payload, m_SharedKey));
+                        outgoing.Content = new ByteArrayContent(payload);
+                        outgoing.Content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
+                        using HttpResponseMessage result = await m_LogForwardClient.SendAsync(outgoing)
+                            .ConfigureAwait(false);
+                        if (result.StatusCode != HttpStatusCode.Accepted) return;
+                        // 'accepted=false' means the NexBus replay/dedup gate
+                        // rejected this particular event; never lose the cursor.
+                        byte[] reply = await result.Content.ReadAsByteArrayAsync()
+                            .ConfigureAwait(false);
+                        using JsonDocument ack = JsonDocument.Parse(reply);
+                        if (!ack.RootElement.TryGetProperty("accepted", out JsonElement accepted) ||
+                            accepted.ValueKind != JsonValueKind.True)
+                            return;
+                        cursor += count;
+                        lock (m_LogForwardSync) m_LogForwardOffsets[dayId] = cursor;
+                        --remaining;
+                    }
+                }
+            }
+            catch (Exception error)
+            {
+                if (error is not OperationCanceledException)
+                    m_Log.Debug("[NEX-NODE]: Signed log sync will retry: " + error.GetType().Name);
+            }
+            finally { Volatile.Write(ref m_LogForwardRunning, 0); }
         }
 
         private void PublishHeartbeatSafe()
