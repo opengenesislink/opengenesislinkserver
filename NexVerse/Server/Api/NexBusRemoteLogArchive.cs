@@ -31,7 +31,7 @@ namespace NexVerse.Server.Api
                 .Subscribe("node.log.chunk", Receive);
         }
 
-        private void Receive(object sender, NexEvent ev)
+        private void Receive(NexEvent ev)
         {
             if (ev == null || ev.Name != "node.log.chunk" ||
                 ev.Source != "nexverse.simulator" || ev.Data == null ||
