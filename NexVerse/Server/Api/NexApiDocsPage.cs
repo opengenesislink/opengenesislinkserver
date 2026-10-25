@@ -242,6 +242,43 @@ main{padding:28px clamp(17px,3vw,52px)}
 #page-repository .section{min-height:125px}
 @media(max-width:1180px){.ogl-status-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.ogl-release-grid{grid-template-columns:1fr 1fr}}
 @media(max-width:850px){.shell{grid-template-columns:1fr}nav{position:relative;top:auto;width:100%;height:auto;max-height:440px}.nav-scroll{max-height:285px}.ogl-status-grid,.ogl-release-grid,.ogl-panel-split,.ogl-operation-grid{grid-template-columns:1fr}.ogl-command-bar{align-items:start;flex-direction:column}.navmeta{display:none}}
+
+/* Operator Control Center 3.0 – restrained, legible aerospace design */
+:root{--bg:#060d19;--panel:#111d2c;--panel2:#17283d;--line:#28435a;--text:#edf4fc;--muted:#9cb3c8;--accent:#52c9eb;--accent2:#89aaff;--good:#56d9a9;--shadow:0 8px 28px rgba(0,0,0,.24)}
+body{background:linear-gradient(148deg,#0a1628 0%,#050a14 56%,#0a1020 100%);font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}
+.shell{grid-template-columns:276px minmax(0,1fr)}
+nav{width:276px;background:#091423;border-right:1px solid #243b53}
+.ogl-brand{border-bottom:1px solid #253c52}
+.navgroup summary{color:#9db4ca;letter-spacing:.08em}
+.navbtn{font-size:13px}.navbtn.active{box-shadow:inset 3px 0 #4fcbed;color:#ebfaff;background:#162f43}
+main{max-width:1900px;width:100%;margin:0 auto}
+.hero{border-radius:14px;background:linear-gradient(108deg,#152c43,#101d31 64%,#10182b);box-shadow:none;border:1px solid #2b4962;min-height:145px}
+.hero:before{opacity:.25}
+.ogl-status-card,.ogl-release-card,.section,.card{background:#111f31;border:1px solid #2c4358;box-shadow:none;border-radius:12px}
+.ogl-status-card:before{background:#4fcbed;opacity:.55}
+.ogl-command-bar h2{font-size:26px}.ogl-opcard{background:#0d1929;border:1px solid #2d455c}
+.ogl-opcard:hover{background:#172d43}
+.ogl-log-list{display:grid;gap:9px}
+.ogl-day{background:#0b192a;border:1px solid #2c455c;border-radius:10px;overflow:hidden}
+.ogl-day summary{cursor:pointer;padding:17px 18px;display:flex;align-items:center;gap:10px;justify-content:space-between;font-weight:700}
+.ogl-day summary:hover{background:#122b42}
+.ogl-log-body{padding:14px;border-top:1px solid #29435e}
+.ogl-logs-pre{font:12px/1.65 ui-monospace,SFMono-Regular,Consolas,monospace;max-height:560px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;background:#06111e;color:#bdd6e6;padding:16px;border-radius:9px;border:1px solid #20384d}
+.ogl-audit-line{padding:12px;border-bottom:1px solid #294052;display:grid;grid-template-columns:178px 160px 1fr;gap:12px;color:#cad9e9;overflow-wrap:anywhere}
+.ogl-action-surface{border:1px solid #3c6e86;border-radius:12px;background:#10273a;padding:19px;margin:16px 0}
+.ogl-action-surface h3{margin:0 0 8px;font-size:17px}
+.ogl-action-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:11px;margin:14px 0}
+.ogl-action-field{display:flex;flex-direction:column;gap:6px;min-width:0}
+.ogl-action-field label{color:#a9c7df;font-size:12px}
+.ogl-action-surface textarea{min-height:145px;width:100%;font-family:ui-monospace,monospace}
+.ogl-action-surface pre{font-size:12px;max-height:420px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;background:#061321;border-radius:8px;padding:14px}
+.ogl-action-buttonrow{display:flex;gap:9px;flex-wrap:wrap;margin-top:11px}
+.ogl-inline-admin{display:flex;flex-wrap:wrap;gap:10px;margin:16px 0}
+.ogl-inline-admin input{flex:1;min-width:140px}
+.ogl-user-results{display:grid;gap:8px;margin:10px 0}
+.ogl-user-row{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;background:#0b1b2d;border:1px solid #31475b;border-radius:9px;padding:11px}
+.ogl-user-row small{color:#a1bacf}
+@media(max-width:900px){.ogl-audit-line{grid-template-columns:1fr}.ogl-action-grid{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -1039,8 +1076,129 @@ function oglFilterKeys(){
     card.hidden=!(matching&&(filter==='all'||(filter==='active'&&active)||(filter==='disabled'&&!active)));
   });
 }
+
+/* Direct operators: all changes go to existing server-side authorized APIs. */
+const oglLogState=new Map();
+let oglAuditOffset=0,oglAuditEvents=[];
+function oglAdminHeaders(body=false){
+  const token=adminAuthToken();
+  if(!token)throw Error('UserLevel-200-Administrator-Anmeldung erforderlich.');
+  const headers={Accept:'application/json',Authorization:'Bearer '+token};
+  if(body)headers['Content-Type']='application/json';
+  return headers;
+}
+async function oglRequest(path,options={}){
+  if(!path.startsWith('/api/v1/')||path.startsWith('//')||path.includes('\\'))throw Error('Nur lokale World-API-Routen sind erlaubt.');
+  const response=await fetch(path,{...options,headers:{...oglAdminHeaders(!!options.body),...(options.headers||{})},credentials:'same-origin',cache:'no-store'});
+  const raw=await response.text();let json;
+  try{json=JSON.parse(raw)}catch{json={message:raw.slice(0,6000)}}
+  if(!response.ok)throw Error('HTTP '+response.status+' · '+(json.error||json.message||'API-Anfrage fehlgeschlagen'));
+  return json;
+}
+function oglCleanDate(timestamp){
+  const value=new Date(timestamp);
+  return Number.isNaN(value.getTime())?'Unbekanntes Datum':value.toLocaleDateString('de-DE',{year:'numeric',month:'2-digit',day:'2-digit'});
+}
+function oglPlain(tag,cls,value){
+  const e=document.createElement(tag);if(cls)e.className=cls;e.textContent=String(value??'');return e;
+}
+async function oglLoadLogIndex(){
+  $('oglLogsStatus').textContent='Lade Archive…';$('oglLogsDot').className='dot';
+  try{
+    const data=await oglRequest('/api/v1/admin/logs');
+    const chosen=$('oglLogsService').value;
+    const files=(data.files||[]).filter(x=>chosen==='all'||x.service===chosen)
+      .sort((a,b)=>String(b.date).localeCompare(String(a.date))||String(a.service).localeCompare(String(b.service)));
+    const host=$('oglLogArchiveList');host.replaceChildren();oglLogState.clear();
+    $('oglLogsCount').textContent=files.length+' Tagesarchive';
+    if(!files.length)host.append(oglPlain('p','empty','Noch keine tagesweise protokollierten Dateien auf diesem Host.'));
+    for(const file of files){
+      const row=document.createElement('details');row.className='ogl-day';
+      const heading=document.createElement('summary');
+      const title=file.service+' Log vom '+oglCleanDate(file.date+'T12:00:00');
+      heading.append(oglPlain('span','',title),oglPlain('small','',Math.round((file.bytes||0)/1024)+' KiB'));
+      const body=document.createElement('div');body.className='ogl-log-body';
+      const pre=document.createElement('pre');pre.className='ogl-logs-pre';pre.textContent='Zum Laden aufklappen.';
+      const more=document.createElement('button');more.className='action';more.type='button';more.textContent='Weitere Logzeilen';more.hidden=true;
+      body.append(pre,more);row.append(heading,body);host.append(row);
+      const state={file,lines:[],offset:0,more:false,loading:false,loaded:false};
+      oglLogState.set(row,state);
+      const render=()=>{
+        const q=$('oglLogsSearch').value.trim().toLowerCase();
+        pre.textContent=state.lines.filter(x=>!q||x.toLowerCase().includes(q)).join('\\n')||'Keine passenden Logzeilen.';
+        more.hidden=!state.more;
+      };
+      const load=async()=>{
+        if(state.loading||(!state.more&&state.loaded))return;
+        state.loading=true;more.disabled=true;
+        pre.textContent=state.loaded?'Lade weitere Zeilen…':'Lese Tagesarchiv…';
+        try{
+          const endpoint='/api/v1/admin/logs/'+file.service+'/'+file.date+'/entries?offset='+state.offset+'&limit=500';
+          const result=await oglRequest(endpoint);
+          state.lines.push(...(result.lines||[]));state.offset=result.next_offset;
+          state.more=Boolean(result.has_more);state.loaded=true;render();
+        }catch(e){pre.textContent='Log konnte nicht geladen werden: '+e.message}
+        finally{state.loading=false;more.disabled=false}
+      };
+      row.addEventListener('toggle',()=>{if(row.open&&!state.loaded)load()});
+      more.addEventListener('click',load);
+    }
+    $('oglLogsStatus').textContent=files.length+' Tagesarchive';$('oglLogsDot').className='dot good';
+  }catch(error){$('oglLogsStatus').textContent=error.message;$('oglLogsDot').className='dot bad'}
+}
+function oglFilterLogLines(){
+  for(const [row,state] of oglLogState.entries()){
+    if(!state.loaded)continue;
+    const pre=row.querySelector('pre'),q=$('oglLogsSearch').value.trim().toLowerCase();
+    pre.textContent=state.lines.filter(x=>!q||x.toLowerCase().includes(q)).join('\\n')||'Keine passenden Logzeilen.';
+  }
+}
+async function oglLoadAudit(next=false){
+  if(!next){oglAuditOffset=0;oglAuditEvents=[]}
+  $('oglAuditStatus').textContent='Lade Audit…';$('oglAuditDot').className='dot';
+  const p=new URLSearchParams({limit:'100',offset:String(oglAuditOffset)});
+  for(const [id,param] of [['oglAuditActor','actor'],['oglAuditAction','action'],['oglAuditResource','resource']]){
+    const val=$(id).value.trim();if(val)p.set(param,val);
+  }
+  try{
+    const data=await oglRequest('/api/v1/audit?'+p.toString());
+    oglAuditEvents.push(...(data.events||[]));
+    oglAuditOffset+=data.events?.length||0;
+    const buckets=new Map();
+    for(const event of oglAuditEvents){
+      const day=oglCleanDate(event.timestamp);
+      if(!buckets.has(day))buckets.set(day,[]);
+      buckets.get(day).push(event);
+    }
+    const host=$('oglAuditEntries');host.replaceChildren();
+    for(const [day,events] of buckets){
+      const fold=document.createElement('details');fold.className='ogl-day';fold.open=true;
+      const heading=document.createElement('summary');heading.textContent='Audit vom '+day+' · '+events.length+' Ereignisse';
+      const body=document.createElement('div');body.className='ogl-log-body';
+      for(const event of events){
+        const row=document.createElement('div');row.className='ogl-audit-line';
+        row.append(oglPlain('time','',String(event.timestamp||'').replace('T',' ').slice(0,19)),
+          oglPlain('strong','',event.action||'Unbekannte Aktion'),
+          oglPlain('span','',String(event.actor||'–')+' · '+String(event.resource||'–')));
+        const detail=document.createElement('details');detail.className='ogl-audit-detail';
+        detail.append(oglPlain('summary','','Details / Korrelation anzeigen'),oglPlain('pre','ogl-logs-pre',JSON.stringify({event_id:event.event_id,correlation_id:event.correlation_id,details:event.details},null,2)));
+        body.append(row,detail);
+      }
+      fold.append(heading,body);host.append(fold);
+    }
+    if(!buckets.size)host.append(oglPlain('p','empty','Keine Auditereignisse gefunden.'));
+    $('oglAuditMore').hidden=!data.pagination?.has_more;
+    $('oglAuditStatus').textContent=oglAuditEvents.length+' Einträge geladen';
+    $('oglAuditDot').className='dot good';
+  }catch(error){$('oglAuditStatus').textContent=error.message;$('oglAuditDot').className='dot bad'}
+}
+$('oglLogsRefresh').addEventListener('click',oglLoadLogIndex);
+$('oglLogsService').addEventListener('change',oglLoadLogIndex);
+$('oglLogsSearch').addEventListener('input',oglFilterLogLines);
+$('oglAuditRefresh').addEventListener('click',()=>oglLoadAudit(false));
+$('oglAuditMore').addEventListener('click',()=>oglLoadAudit(true));
 function showPage(name){
-  if(['secrets','nodes','grid','security','console'].includes(name)&&!adminIsActive()){
+  if(['secrets','nodes','grid','security','console','logs','audit','users','groups','inventory','economy','profiles','marketplace','estates','experiences','discovery'].includes(name)&&!adminIsActive()){
     adminNextPage=name;
     name='adminlogin';
     adminUpdateStatus('Anmeldung mit UserLevel >= 200 erforderlich.',null);
@@ -1048,6 +1206,8 @@ function showPage(name){
   document.querySelectorAll('.page').forEach(x=>x.classList.toggle('active',x.id==='page-'+name));
   document.querySelectorAll('.navbtn').forEach(x=>{x.classList.toggle('active',x.dataset.page===name);if(x.dataset.page===name)x.closest('details')?.setAttribute('open','');});
   if(name==='repository')oglLoadGithub();
+  if(name==='logs')oglLoadLogIndex();
+  if(name==='audit')oglLoadAudit(false);
   if(oglWorkspaceGroups[name])oglRenderWorkspaces();
   window.scrollTo({top:0,behavior:'smooth'});
 }
