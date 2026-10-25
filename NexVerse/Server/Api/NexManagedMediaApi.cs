@@ -3,6 +3,8 @@
 using System;
 using System.IO;
 using System.Net;
+using System.Drawing;
+using OpenMetaverse.Imaging;
 using System.Text.Json;
 using log4net;
 using NexVerse.Core.Security;
@@ -282,10 +284,41 @@ namespace NexVerse.Server.Api
                 Error(response, HttpStatusCode.ServiceUnavailable, "media_asset_service_unavailable");
                 return;
             }
+            // Avatar/group/Viewer textures MUST be JPEG2000, not PNG/JPEG
+            // bytes mislabeled as OpenSim AssetType.Texture.
+            byte[] texture;
+            try
+            {
+                using MemoryStream source = new MemoryStream(data, false);
+                using Image original = Image.FromStream(source, false, true);
+                if (original.Width <= 0 || original.Height <= 0 ||
+                    original.Width > 2048 || original.Height > 2048)
+                {
+                    Error(response, HttpStatusCode.RequestEntityTooLarge, "media_dimensions_exceeded");
+                    return;
+                }
+                using Bitmap bitmap = new Bitmap(original);
+                texture = OpenJPEG.EncodeFromImage(bitmap, false);
+                if (texture == null || texture.Length < 8 || texture.Length > MaxUploadBytes)
+                {
+                    Error(response, HttpStatusCode.UnsupportedMediaType, "media_transcode_failed");
+                    return;
+                }
+            }
+            catch (Exception e) when (e is ArgumentException ||
+                                       e is PlatformNotSupportedException ||
+                                       e is TypeInitializationException ||
+                                       e is DllNotFoundException)
+            {
+                // Never store corrupt non-JPEG2000 bytes for the Viewer.
+                s_Log.Warn("[OGL-MEDIA]: PNG/JPEG to JPEG2000 encoder unavailable or invalid (" +
+                           e.GetType().Name + ")");
+                Error(response, HttpStatusCode.ServiceUnavailable, "media_encoder_unavailable");
+                return;
+            }
             UUID id = UUID.Random();
             AssetBase asset = new AssetBase(id, "OpenGenesisLINK Media",
-                (sbyte)(mime == "image/png" ? AssetType.Texture : AssetType.ImageJPEG),
-                owner.ToString()) { Data = data };
+                (sbyte)AssetType.Texture, owner.ToString()) { Data = texture };
             string storedId = assets.Store(asset);
             if (!UUID.TryParse(storedId, out UUID committed) || committed.IsZero())
             {
