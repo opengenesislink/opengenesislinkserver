@@ -23,7 +23,7 @@ namespace NexVerse.Server.Api
             @"^(Robust|OpenSim)_(\d{2})_(\d{2})_(\d{4})\.log$",
             RegexOptions.CultureInvariant | RegexOptions.Compiled);
         private static readonly Regex s_Secret = new Regex(
-            @"(?i)(authorization\s*[:=]\s*bearer\s+|x-nexverse-api-key\s*[:=]\s*|password(?:hash|salt)?\s*[:=]\s*|token\s*[:=]\s*)([^\s,;\"""]+)",
+            @"(?i)(authorization\\s*[:=]\\s*bearer\\s+|x-nexverse-api-key\\s*[:=]\\s*|password(?:hash|salt)?\\s*[:=]\\s*|token\\s*[:=]\\s*)([^\\s,;]+)",
             RegexOptions.CultureInvariant | RegexOptions.Compiled);
         private readonly NexApiAuthenticator m_Auth;
         private readonly string m_LogDirectory;
