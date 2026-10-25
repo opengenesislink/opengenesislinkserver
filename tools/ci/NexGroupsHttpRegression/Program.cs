@@ -99,6 +99,25 @@ internal static class Program
             typeof(SimpleStreamMethod), api, handle);
     }
 
+
+    private static SimpleStreamMethod MediaRoute(
+        GroupsService groups, UserAccountService users,
+        HmacNexAccessTokenService tokens, INexApiKeyStore keys,
+        IAssetService assetService)
+    {
+        Assembly assembly = Assembly.Load("NexVerse.Server.Api");
+        Type authType = assembly.GetType("NexVerse.Server.Api.NexApiAuthenticator", true);
+        Type mediaType = assembly.GetType("NexVerse.Server.Api.NexMediaApi", true);
+        object auth = Construct(authType, users, new NexAuthorizationService(),
+            tokens, null, keys, 200);
+        object api = Construct(mediaType, users, null, groups,
+            new Func<IAssetService>(() => assetService), auth);
+        MethodInfo handle = mediaType.GetMethod("Handle", BindingFlags.Instance | BindingFlags.Public);
+        Check(handle != null, "NexMediaApi.Handle missing");
+        return (SimpleStreamMethod)Delegate.CreateDelegate(
+            typeof(SimpleStreamMethod), api, handle);
+    }
+
     private static async System.Threading.Tasks.Task Verify(
         HttpClient client, string path, string token,
         HttpStatusCode expected, string jsonProperty = null,
@@ -196,10 +215,23 @@ internal static class Program
             var groupsOnlyKey = keyStore.Create("Group Land Service",
                 new[] { NexScopes.GroupsRead });
             var handler = Route(groups, users, tokens, () => activeEconomy, keyStore);
+            UUID insignia = UUID.Random();
+            IAssetService mediaAssetService = DispatchProxy.Create<IAssetService, GroupMediaAssetProxy>();
+            ((GroupMediaAssetProxy)mediaAssetService).Asset = new AssetBase(
+                insignia, "CI group insignia", (sbyte)AssetType.Texture,
+                owner.PrincipalID.ToString())
+            {
+                Data = Convert.FromBase64String(
+                    "iVBORw0KGgoAAAANSUhEUgAAABAAAAAMCAIAAADkharW" +
+                    "AAAAF0lEQVR4nGMUMQpgIAUwkaR6VMMI0gAAdQsArnr0MVEAAAAASUVORK5CYII=")
+            };
+            var mediaHandler = MediaRoute(groups, users, tokens, keyStore, mediaAssetService);
             int port = FindPort();
             server = new BaseHttpServer((uint)port) { ListenIPAddress = IPAddress.Loopback };
             server.AddSimpleStreamHandler(
                 new SimpleStreamHandler("/api/v1/groups", handler, "Groups HTTP CI"), true);
+            server.AddSimpleStreamHandler(
+                new SimpleStreamHandler("/api/v1/media", mediaHandler, "Media HTTP CI"), true);
             server.Start();
             using var http = new HttpClient { BaseAddress =
                 new Uri("http://127.0.0.1:" + port + "/"),
@@ -207,7 +239,7 @@ internal static class Program
 
             UUID group = groups.CreateGroup(owner.PrincipalID.ToString(),
                 "HTTP-CI-" + Guid.NewGuid().ToString("N"), "HTTP fixture",
-                false, UUID.Zero, 0, false, false, false,
+                false, insignia, 0, false, false, false,
                 owner.PrincipalID, out string reason);
             Check(!group.IsZero(), "fixture group creation failed: " + reason);
             UUID otherGroup = groups.CreateGroup(owner.PrincipalID.ToString(),
@@ -252,6 +284,30 @@ internal static class Program
                 Check(insert.ExecuteNonQuery() == 1,
                     "failed seeding remote land fixture");
             }
+            string mediaPath = "/api/v1/media/groups/" + group + "/image";
+            await Verify(http, mediaPath, null, HttpStatusCode.Unauthorized, "error");
+            await Verify(http, mediaPath, narrowToken, HttpStatusCode.Forbidden, "error");
+            await Verify(http, mediaPath + "?size=999", ownerToken,
+                HttpStatusCode.BadRequest, "error");
+            await Verify(http, "/api/v1/media/assets/" + insignia,
+                ownerToken, HttpStatusCode.NotFound, "error");
+            using (var mediaRequest = new HttpRequestMessage(HttpMethod.Get, mediaPath))
+            {
+                mediaRequest.Headers.Authorization =
+                    new AuthenticationHeaderValue("Bearer", ownerToken);
+                using var imageReply = await http.SendAsync(mediaRequest);
+                Check(imageReply.StatusCode == HttpStatusCode.OK,
+                    "authorized group logo did not return HTTP 200");
+                Check(imageReply.Content.Headers.ContentType?.MediaType == "image/png",
+                    "group logo did not return browser-readable PNG");
+                byte[] bytes = await imageReply.Content.ReadAsByteArrayAsync();
+                Check(bytes.Length > 8 && bytes[0] == 0x89 && bytes[1] == 0x50,
+                    "group logo bytes corrupted");
+                Check(imageReply.Headers.CacheControl?.NoStore == true,
+                    "group logo must not enter public/shared cache");
+            }
+            // Image variant must also pass through MIME and bounded image scaler.
+            await Verify(http, mediaPath + "?size=64", ownerToken, HttpStatusCode.OK);
             string accounting = "/api/v1/groups/" + group + "/accounting";
 
             Check(groups.AddAgentToGroup(owner.PrincipalID.ToString(),
@@ -446,3 +502,15 @@ internal class GroupGridProxy : DispatchProxy
         throw new NotSupportedException(method.Name);
     }
 }
+
+internal class GroupMediaAssetProxy : DispatchProxy
+{
+    public AssetBase Asset { get; set; }
+
+    protected override object Invoke(MethodInfo method, object[] args)
+    {
+        if (method.Name == "Get" && args != null && args.Length == 1 &&
+            args[0] is string id)
+            return id == Asset?.ID ? Asset : null;
+        throw new NotSupportedException("Unexpected asset service access: " + method.Name);
+    }
