@@ -375,7 +375,17 @@ main{max-width:1900px;width:100%;margin:0 auto}
 </div>
 <div class="section"><div class="ogl-section-flex"><div><h2>Repository-Verbindung</h2><p class="sectionlead" id="githubUpdated">Die Daten werden ausschließlich lesend von der offiziellen GitHub-API geladen.</p></div><button class="action" id="githubRefresh" type="button">Jetzt aktualisieren</button></div><div class="ogl-mini-status" id="githubLastCommit">Kein Commit geladen.</div><div class="ogl-mini-status" id="githubReleaseNotes">Keine Release-Informationen geladen.</div><p class="authnote">Hinweis: Eine GitHub-Freigabe ist nicht identisch mit der momentan auf diesem ROBUST-Host installierten Version. Der lokale Build steht im Dashboard unter „Server“.</p></div>
 </section>
-<section class="page" id="page-users">
+<section class="page" id="page-users"><div class="section"><h2>Benutzerverwaltung</h2><p class="sectionlead">Einwohner direkt erstellen, suchen und deaktivieren. Serverprüfungen und Audit sind aktiv.</p>
+<form id="oglUserCreate" class="ogl-action-surface"><h3>Neues Benutzerkonto</h3><div class="ogl-action-grid">
+<label class="ogl-action-field">Vorname<input id="oglFirstName" required maxlength="64"></label>
+<label class="ogl-action-field">Nachname<input id="oglLastName" required maxlength="64"></label>
+<label class="ogl-action-field">E-Mail-Adresse<input id="oglUserEmail" type="email"></label>
+<label class="ogl-action-field">Initialpasswort<input id="oglUserPassword" type="password" autocomplete="new-password" required minlength="8"></label>
+<label class="ogl-action-field">Startregion<input id="oglHomeRegion" required placeholder="Magdeburg"></label></div>
+<button type="submit" class="action">Benutzer jetzt anlegen</button><pre id="oglUserCreateResult" class="ogl-logs-pre" hidden></pre></form>
+<div class="ogl-action-surface"><h3>Benutzer suchen / verwalten</h3><div class="ogl-inline-admin"><input id="oglUserQuery" placeholder="Mindestens zwei Zeichen"><button id="oglUserSearch" class="action" type="button">Suchen</button></div><p id="oglUserSearchStatus" class="authnote"></p><div id="oglUserResults" class="ogl-user-results"></div></div>
+</div>
+
 <div class="hero"><div><div class="eyebrow">OGL CONTROL PLANE · USERS</div><h1>Benutzer &amp; Avatare</h1><p>Einwohnerkonten, Registrierung, Profile, Aktivität und Sperr-/Löschabläufe.</p></div><div class="pill"><span class="dot good"></span><span>Autoritative API</span></div></div>
 <div class="section"><h2>Verfügbare Verwaltungsoperationen</h2><p class="sectionlead">Aus dem aktiven OpenAPI-Vertrag dieses Servers. Ein Klick öffnet die echte Operation mit Parametern, Berechtigungen und Ausführung im API-Explorer; nicht vorhandene Funktionen werden nicht simuliert.</p><div class="ogl-workspace-tools"><input aria-label="Operationen filtern" data-workspace-search="users" placeholder="Operation oder Pfad filtern…"><span id="workspace-count-users">–</span></div><div class="ogl-operation-grid" id="workspace-users"><div class="empty">API-Vertrag wird geladen…</div></div></div>
 </section>
@@ -1004,11 +1014,105 @@ function oglRenderWorkspaces(){
       const path=document.createElement('code');path.textContent=entry.path;
       const summary=document.createElement('small');summary.textContent=entry.op.summary||'API-Operation';
       const scope=document.createElement('small');scope.textContent='Scope: '+(entry.op['x-nexverse-scope']||'laut OpenAPI-Vertrag');
-      b.append(badge,path,summary,scope);b.addEventListener('click',()=>oglWorkspaceOpen(entry));host.append(b);
+      b.append(badge,path,summary,scope);b.addEventListener('click',()=>oglActionEditor(domain,entry));host.append(b);
     }
   }
 }
 document.querySelectorAll('[data-workspace-search]').forEach(input=>input.addEventListener('input',oglRenderWorkspaces));
+
+/* Inline API editor. No permission shortcut: every action uses the signed
+ * administrator bearer token and the existing server-side World API. */
+function oglActionEditor(domain,entry){
+ const host=$('workspace-'+domain);if(!host)return;
+ let panel=$('oglAction-'+domain);
+ if(!panel){panel=document.createElement('div');panel.id='oglAction-'+domain;panel.className='ogl-action-surface';host.parentNode.insertBefore(panel,host)}
+ panel.replaceChildren();
+ panel.append(oglPlain('h3','',entry.method+' '+entry.path),oglPlain('p','sectionlead',entry.op.summary||'World API'));
+ const form=document.createElement('form'), fields=document.createElement('div');fields.className='ogl-action-grid';
+ const params=[];
+ const pathNames=[...entry.path.matchAll(/\{([^}]+)\}/g)].map(m=>m[1]);
+ const queryNames=(entry.op.parameters||[]).filter(x=>x.in==='query');
+ for(const param of [...pathNames.map(name=>({name,in:'path',required:true})),...queryNames]){
+   const wrapper=document.createElement('label');wrapper.className='ogl-action-field';wrapper.textContent=param.name+(param.in==='path'?' · UUID / ID':' · Query');
+   const input=document.createElement('input');input.required=param.required===true;input.placeholder=param.description||param.name;
+   wrapper.append(input);fields.append(wrapper);params.push({def:param,input});
+ }
+ if(params.length)form.append(fields);
+ let bodyInput=null;const schema=requestSchema(entry.op);
+ if(schema){
+   const label=oglPlain('label','label2','Anfragedaten (JSON)');
+   bodyInput=document.createElement('textarea');bodyInput.setAttribute('aria-label','JSON-Anfrage');bodyInput.spellcheck=false;bodyInput.value=JSON.stringify(exampleFor(schema),null,2);
+   form.append(label,bodyInput);
+ }
+ const bar=document.createElement('div');bar.className='ogl-action-buttonrow';
+ const run=document.createElement('button');run.type='submit';run.className='action';run.textContent=entry.method+' ausführen';
+ const detail=document.createElement('button');detail.type='button';detail.className='action';detail.textContent='API-Details';
+ detail.addEventListener('click',()=>oglWorkspaceOpen(entry));
+ bar.append(run,detail);form.append(bar);
+ const status=oglPlain('p','authnote','Authentifizierte World-API-Operation; Rechteprüfung erfolgt serverseitig.');
+ const output=document.createElement('pre');output.className='ogl-logs-pre';output.hidden=true;
+ panel.append(form,status,output);
+ form.addEventListener('submit',async e=>{
+   e.preventDefault();if(!adminIsActive()){status.textContent='Bitte als Administrator anmelden.';return}
+   let url=entry.path;const query=new URLSearchParams();
+   for(const {def,input} of params){const v=input.value.trim();if(!v&&def.required){status.textContent=def.name+' fehlt';return}
+     if(def.in==='path')url=url.replace('{'+def.name+'}',encodeURIComponent(v));
+     else if(v)query.set(def.name,v);
+   }
+   if(query.toString())url+='?'+query.toString();
+   if(!url.startsWith('/api/v1/')||url.includes('{')){status.textContent='Ungültige World-API-URL';return}
+   const body=bodyInput?.value.trim()||'';if(body){try{JSON.parse(body)}catch{status.textContent='JSON-Anfrage ist ungültig';return}}
+   if(entry.method!=='GET'&&entry.method!=='HEAD'){
+     const destructive=entry.method==='DELETE'||/reset|revoke|ban|purge|delete/i.test(entry.path);
+     if(destructive){if(prompt('Zur Bestätigung AUSFÜHREN eintippen: '+entry.method+' '+url)!=='AUSFÜHREN')return}
+     else if(!confirm(entry.method+' '+url+' wirklich ausführen?'))return;
+   }
+   run.disabled=true;status.textContent='Anfrage läuft…';output.hidden=false;output.textContent='';
+   try{
+     const options={method:entry.method};if(body&&entry.method!=='GET')options.body=body;
+     const result=await oglRequest(url,options);
+     output.textContent=JSON.stringify(result,null,2);status.textContent='Server meldet Erfolg';
+   }catch(error){status.textContent='Fehler: '+error.message}
+   finally{run.disabled=false}
+ });
+ panel.scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+async function oglCreateUser(event){
+ event.preventDefault();const out=$('oglUserCreateResult');out.hidden=false;out.textContent='Benutzer wird angelegt…';
+ try{
+   const json=await oglRequest('/api/v1/users',{method:'POST',body:JSON.stringify({
+     first_name:$('oglFirstName').value.trim(),last_name:$('oglLastName').value.trim(),
+     email:$('oglUserEmail').value.trim(),password:$('oglUserPassword').value,
+     home_region:{name:$('oglHomeRegion').value.trim()}
+   })});
+   out.textContent='Benutzer angelegt: '+JSON.stringify(json,null,2);
+ }catch(error){out.textContent=error.message}finally{$('oglUserPassword').value=''}
+}
+async function oglSearchUsers(){
+ const q=$('oglUserQuery').value.trim(),host=$('oglUserResults');host.replaceChildren();
+ if(q.length<2){$('oglUserSearchStatus').textContent='Mindestens 2 Zeichen benötigt';return}
+ try{
+   const data=await oglRequest('/api/v1/users?q='+encodeURIComponent(q)+'&limit=50');
+   const users=data.users||data.results||data.items||[];
+   $('oglUserSearchStatus').textContent=users.length+' Ergebnisse';
+   for(const user of users){
+     const id=user.principal_id||user.principalId||user.user_id||user.id;
+     const row=document.createElement('div');row.className='ogl-user-row';
+     row.append(oglPlain('strong','',(user.first_name||user.firstName||'')+' '+(user.last_name||user.lastName||'')),
+       oglPlain('small','',id||'Keine ID'));
+     const buttons=document.createElement('div');buttons.className='ogl-action-buttonrow';
+     const view=document.createElement('button');view.className='action';view.textContent='Details';view.type='button';
+     view.onclick=async()=>{try{const data=await oglRequest('/api/v1/users/'+encodeURIComponent(id));row.append(oglPlain('pre','ogl-logs-pre',JSON.stringify(data,null,2)))}catch(e){$('oglUserSearchStatus').textContent=e.message}};
+     const remove=document.createElement('button');remove.className='action';remove.textContent='Deaktivieren';remove.type='button';
+     remove.onclick=async()=>{if(prompt('Benutzer deaktivieren (Soft-Delete)? Bitte DEAKTIVIEREN eingeben: '+id)!=='DEAKTIVIEREN')return;
+       try{await oglRequest('/api/v1/users/'+encodeURIComponent(id),{method:'DELETE'});$('oglUserSearchStatus').textContent='Konto deaktiviert';await oglSearchUsers()}catch(e){$('oglUserSearchStatus').textContent=e.message}};
+     buttons.append(view,remove);row.append(buttons);host.append(row);
+   }
+   if(!users.length)host.append(oglPlain('p','empty','Keine Benutzer gefunden.'));
+ }catch(error){$('oglUserSearchStatus').textContent=error.message}
+}
+$('oglUserCreate').addEventListener('submit',oglCreateUser);
+$('oglUserSearch').addEventListener('click',oglSearchUsers);
 function oglGithubText(id,text){const element=$(id);if(element)element.textContent=String(text||'–')}
 async function oglLoadGithub(force=false){
   if(oglGitPending)return oglGitPending;
