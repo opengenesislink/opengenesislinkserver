@@ -273,6 +273,12 @@ namespace NexVerse.Server.Api
                     AuthenticatedOperations(("patch", "Eigene 11 editierbare userprofile-Spalten ändern; useruuid, profileImage und profileFirstImage bleiben gesperrt", "profile:write", "200"))),
                 ["/api/v1/profiles/{principalId}/image"] = GetOperation(
                     "Browserfähige Profilbild-Bytes der aktuell verknüpften Avatar-Textur; privat nur Owner/Admin"),
+                ["/api/v1/media/profiles/{principalId}/image"] = GetOperation(
+                    "Browserfähiges Avatar-Profilbild über die gemeinsame Media API; privat nur Owner/Admin"),
+                ["/api/v1/media/profiles/{principalId}/first-life"] = AuthenticatedOperations(
+                    ("get", "First-Life-Bild nur für Avatar-Owner oder Administrator; kein öffentlicher Assetzugriff", "profile:read", "200")),
+                ["/api/v1/media/groups/{groupId}/image"] = AuthenticatedOperations(
+                    ("get", "Gruppeninsignie aus der aktuellen Gruppenreferenz als PNG/JPEG; nur autorisiert", "groups:read", "200")),
                 ["/api/v1/relationships/{principalId}"] = AuthenticatedOperations(
                     ("get", "Eigene Freundesliste mit Anfragezustand, Online-Sichtbarkeit und Rechten lesen", "relationships:read", "200")),
                 ["/api/v1/relationships/{principalId}/{targetId}"] = AuthenticatedOperations(
@@ -719,6 +725,51 @@ namespace NexVerse.Server.Api
                     ["503"] = new { description = "Assetdienst oder Codec nicht verfuegbar" }
                 };
             }
+            // Entity-bound Media API 1.0: group/avatar IDs are looked up via
+            // authoritative records. No direct /media/assets/{assetId} route.
+            string[] mediaRoutes = {
+                "/api/v1/media/groups/{groupId}/image",
+                "/api/v1/media/profiles/{principalId}/image",
+                "/api/v1/media/profiles/{principalId}/first-life"
+            };
+            foreach (string route in mediaRoutes)
+            {
+                bool isGroupImage = route.Contains("/groups/");
+                AddOperationParameters(paths, route, "get",
+                    PathParameter(isGroupImage ? "groupId" : "principalId",
+                        isGroupImage ? "Gruppen-UUID" : "Avatar-UUID"));
+                AddOperationParameters(paths, route, "get",
+                    QueryParameter("size", false,
+                        "Optionale maximale Bildkante: 64, 128, 256 oder 512 Pixel; kein Upscaling."));
+                if (paths[route] is Dictionary<string, object> mediaPath &&
+                    mediaPath["get"] is Dictionary<string, object> mediaOperation)
+                {
+                    mediaOperation["x-nexverse-ai-instruction"] =
+                        "Nur das aktuell am Avatar-/Gruppendatensatz referenzierte Bild. " +
+                        "Keine fremden Asset-UUIDs. First-Life ausschliesslich Owner/Admin; " +
+                        "Gruppen brauchen groups:read.";
+                    mediaOperation["responses"] = new Dictionary<string, object>
+                    {
+                        ["200"] = new
+                        {
+                            description = "Browserfaehige Bilddaten, keine JSON-Antwort",
+                            content = new Dictionary<string, object>
+                            {
+                                ["image/png"] = new { schema = new { type = "string", format = "binary" } },
+                                ["image/jpeg"] = new { schema = new { type = "string", format = "binary" } }
+                            }
+                        },
+                        ["400"] = new { description = "Ungueltige Groesse" },
+                        ["401"] = new { description = "Authentifizierung erforderlich" },
+                        ["403"] = new { description = "Berechtigung fehlt" },
+                        ["404"] = new { description = "Bild fehlt oder ist nicht sichtbar" },
+                        ["413"] = new { description = "Bild zu gross" },
+                        ["415"] = new { description = "Bildformat nicht dekodierbar" },
+                        ["503"] = new { description = "Gruppen-, Profil- oder Assetdienst nicht verfuegbar" }
+                    };
+                }
+            }
+
             ApplyJsonContract(paths, "/api/v1/experiences", "get", null, "ExperienceSearchResponse", "200");
             ApplyJsonContract(paths, "/api/v1/experiences", "post", "NexExperienceCreateRequest", "ExperienceDetailsResponse", "201");
             ApplyJsonContract(paths, "/api/v1/experiences/{experienceId}", "get", null, "ExperienceDetailsResponse", "200");
