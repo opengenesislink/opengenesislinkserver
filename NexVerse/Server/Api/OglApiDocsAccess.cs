@@ -245,31 +245,38 @@ body:before{opacity:.28}
 @media(max-width:1000px){.stage{grid-template-columns:1fr;max-width:630px}.window{max-width:none;justify-self:stretch}.showcase{text-align:left}.ogl-showcase-logo{width:110px;height:110px}.ogl-showcase-logo img{width:110px;height:110px}}
 @media(prefers-reduced-motion:reduce){.showcase:before,.ogl-showcase-logo{animation:none!important}}
 
-/* AdminLTE-inspired OGL secure login – cohesive with the operator console */
-body{background:linear-gradient(136deg,#13283e 0%,#0c1b2b 52%,#172d46 100%);color:#f4f9ff}
-body:before{opacity:.06}
-.top{background:#152639;border-bottom:1px solid #30495f;min-height:75px}
-.top .brand strong{font-size:19px}
-.sigil{border-radius:9px;background:#20405a;border:1px solid #386b90;box-shadow:none}
-.stage{max-width:1220px;grid-template-columns:minmax(0,1fr) minmax(350px,450px);gap:5vw}
-.showcase:before{opacity:.24}
-.showcase h1{font-size:clamp(38px,4.3vw,62px)}
-.showcase .intro{color:#b9cddd;font-size:16px}
-.ogl-showcase-logo{width:126px;height:126px;border-radius:20px;background:#15334a;border:1px solid #315875;box-shadow:0 16px 38px #050f1c45}
+/* Operator Control Center 5.0 — login matches the dark admin workspace */
+:root{color-scheme:dark;--paper:#e9f3fc;--muted:#9db5c9;--line:#294258;--a:#56c2ed;--v:#86b5f7}
+html,body{background:#0b1420;color:#eaf3fb}
+body{background:radial-gradient(ellipse at 68% 3%,rgba(33,88,131,.24),transparent 43%),#0b1420}
+body:before{opacity:.08}
+.top{background:#0f1d2c;border-bottom:1px solid #2a4257;min-height:76px}
+.top .brand strong{font-size:19px;color:#f0f7ff}
+.top .brand span{color:#a2b9ce}
+.sigil{border-radius:11px;background:#173149;border:1px solid #396383;box-shadow:none}
+.stage{max-width:1220px;grid-template-columns:minmax(0,1fr) minmax(340px,455px);gap:clamp(26px,5vw,76px)}
+.showcase:before{opacity:.16}
+.showcase h1{font-size:clamp(38px,4.3vw,62px);color:#f4f9ff}
+.showcase h1 em{background:linear-gradient(105deg,#65d3f6,#9cc7ff);background-clip:text;color:transparent}
+.showcase .intro{color:#a8c2d6;font-size:16px}
+.ogl-showcase-logo{width:124px;height:124px;border-radius:18px;background:#142c43;border:1px solid #325979;box-shadow:0 15px 36px #040b1655}
 .ogl-showcase-logo img{width:122px;height:122px}
-.highlights .highlight{background:#1c3449;border:1px solid #34536b;border-radius:8px;color:#c9e0f0}
-.window{background:#fff;color:#263c53;border:1px solid #dfe7ef;box-shadow:0 20px 65px #06111e88;border-radius:12px}
-.login{padding:38px 36px}
-.login h2{color:#24364a;font-size:27px}
-.login .loginkicker{color:#1b84ba;letter-spacing:.09em}
-.login p,.login .authnote,.login .label{color:#63788f}
-.login label{color:#354e68}
-.login input{background:#fff;border:1px solid #cad7e4;color:#233d55;min-height:46px;border-radius:7px}
-.login input::placeholder{color:#95a4b3}
-.login input:focus-visible{outline:2px solid #228ed2}
-.submit{background:#1689c2;color:#fff;box-shadow:none;font-size:14px;min-height:46px}
-.submit:hover{background:#0e72a6}
-.bottom{background:#122236;color:#afc3d5;border-color:#2c445d}
+.highlights .highlight{background:#152a40;border:1px solid #32516a;border-radius:9px;color:#c4dcee}
+.window{background:#142338;color:#e5f1fc;border:1px solid #34516a;box-shadow:0 24px 62px #02071077;border-radius:15px}
+.login{padding:38px 36px;background:transparent;color:#e6f2fc}
+.login h2{color:#f0f7ff;font-size:27px}
+.login .loginkicker{color:#6fcaf0;letter-spacing:.09em}
+.login p,.login .authnote,.login .label,.login .fieldhelp,.login .footnote{color:#a2bbd0}
+.login label{color:#d1e2f1}
+.login input{background:#0c1b2d;border:1px solid #38566f;color:#eef7ff;min-height:46px;border-radius:8px}
+.login input::placeholder{color:#819fb6}
+.login input:focus-visible{outline:2px solid #5bc8f2;outline-offset:2px;border-color:#5bc8f2}
+.login input:-webkit-autofill{-webkit-text-fill-color:#f0f8ff;-webkit-box-shadow:0 0 0 1000px #102338 inset;box-shadow:0 0 0 1000px #102338 inset}
+.submit{background:#20638b;color:#f5fbff;box-shadow:none;border:1px solid #4596bc;font-size:14px;min-height:48px;border-radius:8px}
+.submit:hover{background:#287ba5}
+.submit:focus-visible{outline:2px solid #71d9ff;outline-offset:2px}
+.status{color:#b8d0e2}
+.bottom{background:#0d1927;color:#90adc2;border-color:#253d53}
 @media(max-width:1000px){.stage{grid-template-columns:1fr;max-width:650px}.window{max-width:none}}
 </style>
 </head>
