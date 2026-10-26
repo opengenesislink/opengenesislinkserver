@@ -77,6 +77,25 @@ namespace NexVerse.Server.Api
                 return;
             }
 
+            if(p.Length==6 && UUID.TryParse(p[4],out UUID publicPost) &&
+               p[5].Equals("comments",StringComparison.OrdinalIgnoreCase) &&
+               Is(request,"GET"))
+            {
+                if(!AllowRead(request,response,ownerId,profile.PublishProfile))return;
+                if(!m_Store.IsPostOwned(ownerId,publicPost))
+                {
+                    Json(response,HttpStatusCode.NotFound,new {error="post_not_found"});
+                    return;
+                }
+                Json(response,HttpStatusCode.OK,new {
+                    post_id=publicPost.ToString(),
+                    comments=m_Store.ListComments(publicPost).Select(c=>new {
+                        id=c.Id,author_id=c.AuthorId,text=c.Text,created_at=c.CreatedAt
+                    }).ToArray()
+                });
+                return;
+            }
+
             // Non-GET operations are never authorized through query parameters,
             // Viewer web session cookies or simulator machine keys.
             string permission=p.Length==4 && Is(request,"POST")
