@@ -661,18 +661,29 @@ namespace OpenSim.Framework.Servers.HttpServer
 
                 if (request.UriPath.Equals("/"))
                 {
-                    // A browser requesting the root should see OpenGenesisLINK,
-                    // not a legacy XML-RPC error. Never intercept protocol
-                    // clients: POST, JSON-RPC, LLSD and method-query traffic
-                    // continue below through their unchanged handlers.
+                    // Display the public, self-contained OGL landing page for
+                    // browser GET / on whichever listener/port is configured.
+                    // Standard curl/wget GET requests use Accept: */*: allow
+                    // those only when no explicit root GET handler is installed.
+                    // Preserve query-based GridInfo/datasnapshot methods and all
+                    // XML-RPC, LLSD, JSON-RPC and viewer POST traffic unchanged.
+                    string accept = request.Headers["Accept"];
+                    bool acceptsHtml = accept?.IndexOf("text/html",
+                        StringComparison.OrdinalIgnoreCase) >= 0;
+                    bool acceptsWildcardOnly = m_RootDefaultGET is null &&
+                        string.Equals(accept?.Trim(), "*/*", StringComparison.Ordinal);
                     if (request.HttpMethod.Equals("GET", StringComparison.OrdinalIgnoreCase) &&
                         request.QueryString.Count == 0 &&
-                        request.Headers["Accept"]?.IndexOf("text/html",
-                            StringComparison.OrdinalIgnoreCase) >= 0)
+                        (acceptsHtml || acceptsWildcardOnly))
                     {
                         response.ContentType = "text/html; charset=utf-8";
                         response.StatusCode = (int)HttpStatusCode.OK;
                         response.AddHeader("X-Content-Type-Options", "nosniff");
+                        response.AddHeader("X-Frame-Options", "DENY");
+                        response.AddHeader("Referrer-Policy", "no-referrer");
+                        response.AddHeader("Content-Security-Policy",
+                            "default-src 'none'; style-src 'unsafe-inline'; img-src data:; " +
+                            "script-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'");
                         response.AddHeader("Cache-Control", "public, max-age=300");
                         response.RawBuffer = OglServerWelcomePage.Html;
                         if (request.InputStream is not null && request.InputStream.CanRead)
@@ -2347,7 +2358,8 @@ namespace OpenSim.Framework.Servers.HttpServer
 
             if (httpRequest.QueryString.Count == 0)
             {
-                httpResponse.Redirect("http://opensimulator.org");
+                // Queryless legacy index.php is informational, not a Grid API.
+                httpResponse.Redirect("/");
                 return;
             }
             if (httpRequest.QueryFlags.Contains("about"))

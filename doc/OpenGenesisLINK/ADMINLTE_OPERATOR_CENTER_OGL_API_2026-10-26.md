@@ -47,9 +47,56 @@ Die zugehörige Verwaltungsseite **Viewer & Versionen** zeigt Zeitraum, Gesamtan
 
 Im Prebuild ist das API-Projekt jetzt `OGL.API`; die Namespaces bleiben bewusst unter `NexVerse.Server.Api` stabil, damit Quellcode, Einbettung und bestehende Serialisierungsbeziehungen nicht unnötig brechen. Die ROBUST-`ServiceList`-Einträge verwenden die neue **Datei** `OGL.API.dll`. Tests, CI-Checks und generierte Projektverweise sind darauf angepasst. Beim Deployment ist der alte `NexVerse.Server.Api.dll`-Build nicht mehr zu verwenden; vor dem Austausch Services stoppen, Konfigurationen sichern und sämtliche ServiceList-/Deploymentreferenzen aktualisieren. **Niemals** die alte DLL als zweite aktive Plugin-Assembly parallel laden.
 
-## Public HTTP-Startseite (alle Ports)
+## Public HTTP-Startseite (alle Ports) – OpenGenesisLINK Promo
 
-Wenn ein Browser einen HTTP-`GET /` mit `Accept: text/html` absetzt, rendert `BaseHttpServer` jetzt eine neutrale OpenGenesisLINK-Informationsseite mit Projektlink. Sie gibt bewusst keine Administrator- oder internen Grid-Daten preis. XML-RPC, LLSD, Simulator- und Viewer-Protokolle auf `/` sowie andere API-Routen behalten den bisherigen Dispatch. Die alte „Hippo“-404-Fallbackmeldung wurde ersetzt. Ein vorhandenes `http_404.html` kann die Fallback-404 weiterhin wie bisher übersteuern; für die Browser-Root-Seite ist das irrelevant.
+**Modernisiert am 26.10.2026:** Der bereits vorhandene serverinterne
+Root-Handler liefert jetzt eine hochwertige, vollständig lokale
+OpenGenesisLINK-Produktstartseite in Dark Mode mit responsive Hero,
+illustrativem Grid-/Region-/World-API-/Viewer-Schaubild, Feature-Karten,
+Links auf Projektwebseite und GitHub sowie barrierearmen
+Navigationselementen. Keine externe CSS-/JS-/Bild-/Schrift-Abhängigkeit,
+kein Tracking, keine Grid- oder Betriebsgeheimnisse.
+
+Der `BaseHttpServer` liefert **unabhängig vom eingestellten HTTP-Port**
+auf exaktem `GET /` ohne Querystring die Seite bei
+`Accept: text/html` (Browser) oder `Accept: */*` (curl/wget,
+sofern kein eigener Root-GET-Handler registriert ist). Die Seite ist
+somit auf ROBUST-Port `8002`, `80` oder Simulator-HTTP-Ports
+verfügbar, **sofern dieser TCP-Port wirklich zu OpenGenesisLINK führt**
+und ein vorgeschalteter Proxy den Root-Pfad weiterleitet. Sie
+konfiguriert keine Firewall und keinen Reverse Proxy.
+
+Unverändert bleiben: Root-`POST` mit XML-RPC/LLSD/JSON-RPC,
+`?method=...`-Abfragen, spezielle HTTP-Routen, CAPS,
+Hypergrid und Viewer-Login. `/index.php` ohne Querystring leitet
+auf `/` um; `/index.php?method=...` behält seine bisherige Funktion.
+Andere nicht vorhandene URLs liefern **weiterhin HTTP 404**.
+Ein vorhandenes `bin/http_404.html` kann weiterhin das 404-Design
+übersteuern. Die öffentliche Seite ist weder Admin-Login noch
+Statusmonitor.
+
+Die Seite erhält `Cache-Control: public, max-age=300`,
+`X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`,
+`Referrer-Policy: no-referrer` und eine restriktive CSP,
+die nur eingebettetes CSS erlaubt. Es werden **keine**
+API-Schlüssel, Node-IDs, Benutzer-/Regionsdaten oder dynamischen
+Versionsinformationen eingebettet.
+
+Schnellprüfung nach kontrolliertem Update / Neustart:
+
+```bash
+# Port je nach tatsächlicher ROBUST-/Simulator-Konfiguration:
+curl -i -H 'Accept: text/html' http://127.0.0.1:8002/
+curl -i http://127.0.0.1:8002/
+# Erwartet: HTTP 200, HTML-Titel OpenGenesisLINK und CSP-Header.
+# Ein falscher Port oder Proxy ohne Root-Weiterleitung bleibt unerreichbar.
+```
+
+CI-Gate: `tools/ci/verify_ogl_public_server_home.py` prüft
+eingebettetes HTML, externe Ressourcen, Responsive-/Accessibility-
+Grundlagen, Sicherheit und die unveränderten Viewer-Protokoll-Handler.
+Eine visuelle Prüfung im Desktop- und Smartphone-Browser und ein
+Firestorm-Login-/Hypergrid-Staging-Test sind vor Produktivfreigabe nötig.
 
 ## Deployment und Abnahme
 

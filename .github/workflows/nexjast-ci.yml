@@ -89,6 +89,10 @@ jobs:
       - name: Verify World API Sci-Fi admin dashboard navigation and GitHub releases
         shell: bash
         run: python3 tools/ci/verify_worldapi_scifi_admin_center.py
+      - name: Verify OpenGenesisLINK public HTTP promo landing and protocol compatibility
+        shell: bash
+        run: python3 tools/ci/verify_ogl_public_server_home.py
+
       - name: Verify OGL.API canonical build, AdminLTE control center and viewer metrics
         shell: bash
         run: python3 tools/ci/verify_ogl_api_adminlte_viewers.py
