@@ -661,7 +661,7 @@ jobs:
         shell: bash
         run: |
           test -f bin/NexVerse.Core.dll
-          test -f bin/NexVerse.Server.Api.dll
+          test -f bin/OGL.API.dll
           test -f bin/NexVerse.RegionModules.dll
 
       - name: Runtime smoke test NV dollar Robust bootstrap
