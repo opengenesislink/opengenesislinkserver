@@ -98,7 +98,8 @@ namespace NexVerse.Server.Api
 
             // Non-GET operations are never authorized through query parameters,
             // Viewer web session cookies or simulator machine keys.
-            string permission=p.Length==4 && Is(request,"POST")
+            string permission=(p.Length==4 && Is(request,"POST")) ||
+                (p.Length==5 && Is(request,"DELETE"))
                 ? NexScopes.ProfileWrite
                 : NexScopes.RelationshipsWrite;
             if(!m_Auth.TryAuthenticate(request,permission,out NexPrincipal principal,
