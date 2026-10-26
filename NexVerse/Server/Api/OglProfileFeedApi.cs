@@ -127,12 +127,12 @@ namespace NexVerse.Server.Api
                     Json(response,HttpStatusCode.BadRequest,new {error="invalid_post_text"});
                     return;
                 }
-                if(!m_Store.CreatePost(ownerId,text,out UUID postId))
+                if(!m_Store.CreatePost(ownerId,text,out UUID createdPostId))
                 {
                     Json(response,(HttpStatusCode)429,new {error="post_rate_limited"});
                     return;
                 }
-                Json(response,HttpStatusCode.Created,new {id=postId.ToString()});
+                Json(response,HttpStatusCode.Created,new {id=createdPostId.ToString()});
                 return;
             }
 
@@ -180,12 +180,12 @@ namespace NexVerse.Server.Api
                             Json(response,HttpStatusCode.BadRequest,new {error="invalid_comment_text"});
                             return;
                         }
-                        if(!m_Store.AddComment(postId,actorId,text,out UUID commentId))
+                        if(!m_Store.AddComment(postId,actorId,text,out UUID createdCommentId))
                         {
                             Json(response,(HttpStatusCode)429,new {error="comment_rate_limited"});
                             return;
                         }
-                        Json(response,HttpStatusCode.Created,new {id=commentId.ToString()});
+                        Json(response,HttpStatusCode.Created,new {id=createdCommentId.ToString()});
                         return;
                     }
                 }
