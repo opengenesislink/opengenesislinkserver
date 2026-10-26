@@ -280,116 +280,204 @@ main{max-width:1900px;width:100%;margin:0 auto}
 .ogl-user-row small{color:#a1bacf}
 @media(max-width:900px){.ogl-audit-line{grid-template-columns:1fr}.ogl-action-grid{grid-template-columns:1fr}}
 
-/* OGL Control Center 4 – AdminLTE-inspired operational shell */
-:root{--bg:#eff3f8;--panel:#fff;--panel2:#f6f8fc;--line:#dce4ee;--text:#24364a;--muted:#657a92;--accent:#168dcc;--accent2:#476fe6;--good:#17af77;--shadow:0 4px 16px rgba(28,48,78,.055)}
+/* OGL Control Center 5.0 — coherent dark operations workspace.
+   Single authoritative skin: no light theme or runtime CDN. */
+:root{
+ --bg:#0a101a;--panel:#121e2d;--panel2:#1a2b40;--line:#293e53;
+ --text:#e9f1f8;--muted:#9bb0c4;--accent:#48b9ec;--accent2:#679ae9;
+ --good:#3ed2a4;--warn:#f1b65d;--danger:#f17e8c;
+ --shadow:0 12px 34px rgba(0,0,0,.22);color-scheme:dark;
+}
 html,body{height:100%;overflow:hidden}
-body{background:#eff3f8;color:#24364a;font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif}
-.shell{display:grid;grid-template-columns:256px minmax(0,1fr);grid-template-rows:63px minmax(0,1fr);height:100vh;overflow:hidden;background:#eff3f8}
-nav{grid-column:1;grid-row:1/3;width:256px;height:100vh;background:#182838;border-right:0;box-shadow:2px 0 14px rgba(15,30,52,.1);padding:0 11px}
-.ogl-brand{background:#172637;border-bottom:1px solid #354657;margin:0 -11px;padding:11px 18px;min-height:83px}
-.ogl-brand strong{font-size:15px;color:#f6faff}.ogl-brand span{color:#a8bfd0;font-size:10px}
-.ogl-brand .ogl-logo{width:50px;height:50px;flex:0 0 50px;background:#203a50;border-color:#335d7b;border-radius:9px;box-shadow:none}
-.ogl-brand .ogl-logo img{width:48px;height:48px;object-fit:contain}
-.navsection-label{color:#96aebf;padding:15px 10px 9px;font-size:10px}
-.nav-scroll{scrollbar-color:#52657b transparent}
-.navgroup{border-bottom:1px solid #314153}
-.navgroup summary{padding:14px 12px 9px;color:#acc0ce;font-size:11px;letter-spacing:.055em}
-.navbtn{color:#cbd8e5;min-height:38px;padding:10px 12px;border-radius:6px;font-size:13px}
-.navbtn:hover{background:#2e4054;color:#fff}
-.navbtn.active{background:#2672a0;color:#fff;border:0;box-shadow:inset 3px 0 #77d1ff;font-weight:680}
-.navmeta{border-color:#364b5b;background:#182838;color:#a9b9c8}
-.ogl-admin-header{grid-column:2;grid-row:1;display:flex;justify-content:space-between;align-items:center;gap:15px;padding:0 30px;background:#fff;border-bottom:1px solid #dce4ee;color:#2c3d50;min-width:0;box-shadow:0 1px 8px #172d4911;z-index:2}
-.ogl-header-left,.ogl-header-right{display:flex;align-items:center;gap:11px;white-space:nowrap}
-.ogl-header-left strong{font-size:15px}.ogl-header-sub{color:#8e9caf}
-.ogl-admin-header button{cursor:pointer;border:1px solid #e0e8ef;background:#f6f8fb;color:#4a6179;border-radius:7px;padding:7px 11px}
-.ogl-header-right{font-size:12px;color:#71859b}.ogl-header-dot{width:8px;height:8px;border-radius:50%;background:#21bd83}
-.ogl-header-sep{color:#bcc8d4}
-main{grid-column:2;grid-row:2;width:100%;height:100%;overflow-y:auto;overflow-x:hidden;max-width:none;margin:0;padding:29px clamp(18px,3vw,44px) 42px;background:#eff3f8;color:#25374b;scrollbar-color:#bac9da #eff3f8}
-.page{width:100%;max-width:1650px;margin:auto;color:#25374b}
-.hero{background:#fff;border:1px solid #dce4ee;min-height:118px;border-radius:9px;padding:22px 26px;box-shadow:0 3px 13px #213d5c0b;color:#25374b}
-.hero:before{display:none}.hero h1{font-size:clamp(22px,2.3vw,30px);letter-spacing:-.035em;margin:4px 0;color:#24364a}
-.hero p,.sectionlead,.authnote,.ogl-command-bar p{color:#6b7d91}
-.hero .eyebrow,.ogl-overline{color:#248bc1;font-weight:750;letter-spacing:.09em;font-size:10px}
-.hero .pill{background:#ecf8fd;border:1px solid #c8e5f3;color:#39657e}
-#page-overview .hero{min-height:95px;padding:15px 24px}
-#page-overview .hero h1{font-size:23px}
-#page-overview .hero h1 em{color:#168dcc;font-style:normal}
-#page-overview .hero p{font-size:12px}
-.ogl-command-bar{margin:17px 0 14px}
-.ogl-command-bar h2{font-size:20px;color:#24374a}
-.section,.card,.ogl-status-card,.ogl-release-card{background:#fff;border:1px solid #dfe6ee;box-shadow:0 3px 14px rgba(35,65,96,.055);border-radius:9px;color:#26374b}
-.section{padding:22px 24px;margin-top:17px}
-.section h2,.section h3,.ogl-section-flex h2{color:#26374b;font-size:17px}
-.ogl-status-grid{gap:13px}
-.ogl-status-card{min-height:108px;padding:16px 20px;gap:5px}
-.ogl-status-card:before{height:3px;background:#3ca4d1;opacity:.8}
-.ogl-status-card small,.ogl-release-type{color:#5e7d93;font-size:10px}
-.ogl-status-card strong{color:#243c52;font-size:21px}
-.ogl-status-card span,.ogl-release-card p{color:#71869a}
-.ogl-mini-status{background:#f5f8fc;border:1px solid #e0e9f2;color:#526a7e}
-.ogl-release-card{min-height:165px}
-.ogl-release-card strong{color:#25364b}.ogl-release-card a{color:#227cae}
-.ogl-shortcuts button,.ogl-opcard{background:#f7fafd;border:1px solid #dde6ef;color:#344a60}
-.ogl-shortcuts button:hover,.ogl-opcard:hover{border-color:#96c5e1;background:#eaf5fc;color:#1e4f72}
-.ogl-opcard code{color:#316994}
-.ogl-opcard small,.ogl-opbadge{color:#667d92}
-.ogl-opbadge{background:#e6f3f9;color:#197da5}.ogl-opbadge.write{background:#fff2d9;color:#a7660e}
-.navbtn:focus-visible,button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible,a:focus-visible{outline:2px solid #1c92cd;outline-offset:2px}
-button.action,.action{background:#188abd;color:white;border:1px solid #197eac;border-radius:6px;box-shadow:none;font-weight:650}
-button.action:hover,.action:hover{background:#176f9a}
-button.action:disabled{opacity:.58}
-input,select,textarea{background:#fff!important;color:#273e55!important;border:1px solid #cad7e4!important;border-radius:6px!important;min-height:36px}
-input::placeholder,textarea::placeholder{color:#8da0b3!important}
-.section .authnote,.ogl-action-surface p{color:#718398}
-.ogl-action-surface{background:#f8fafc;border:1px solid #dfe7ef;border-radius:9px}
-.ogl-action-surface h3{color:#2d4054}
-.ogl-console-output{padding:15px;background:#0e2033;color:#d1e5f3;border:1px solid #244058;border-radius:7px;font:12px/1.65 ui-monospace,monospace;white-space:pre-wrap;overflow-wrap:anywhere}
-.ogl-command-help{margin-top:14px;border:1px solid #dbe5ed;border-radius:8px;background:#fff}
-.ogl-command-help summary{padding:16px;cursor:pointer;color:#276084;font-weight:680}
-.ogl-help-list{max-height:400px;overflow:auto;padding:5px 15px;font:12px/1.7 ui-monospace,monospace;color:#3e5971}
-.ogl-help-list>div{padding:6px 0;border-bottom:1px solid #edf0f4}
-.ogl-datatable{width:100%;border-collapse:collapse;font-size:13px;color:#2d455e}
-.ogl-datatable th{background:#f1f5f9;text-align:left;color:#5a738a;font-size:11px;text-transform:uppercase;letter-spacing:.04em}
-.ogl-datatable th,.ogl-datatable td{padding:12px 14px;border-bottom:1px solid #e5ebf1}
-.ogl-datatable tbody tr:hover{background:#f7fafd}
+body{background:var(--bg);color:var(--text);font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif}
+body:before{display:none}
+.shell{display:grid;grid-template-columns:282px minmax(0,1fr);grid-template-rows:66px minmax(0,1fr);height:100dvh;overflow:hidden;background:var(--bg)}
+nav{
+ grid-column:1;grid-row:1/3;display:flex;flex-direction:column;
+ position:relative;top:auto;width:282px;height:100%;min-height:0;overflow:hidden;
+ background:linear-gradient(180deg,#0d1b2a 0%,#0b1725 58%,#0a1521 100%);
+ border-right:1px solid #263b4f;box-shadow:8px 0 34px #02060d38;padding:0 13px;
+}
+nav:before{height:0;box-shadow:none;background:none}
+.ogl-brand{
+ display:flex;align-items:center;gap:12px;min-height:86px;padding:15px 12px;
+ margin:0 -13px 0;border-bottom:1px solid #24394a;background:#0e1d2d;
+}
+.ogl-brand .ogl-logo{display:grid;place-items:center;flex:0 0 52px;width:52px;height:52px;
+ background:#132b42;border:1px solid #355a75;border-radius:12px;box-shadow:none}
+.ogl-brand .ogl-logo img{width:50px;height:50px;object-fit:contain;filter:none}
+.ogl-brand strong{font-size:15px;color:#f1f7fd;letter-spacing:-.02em;font-weight:750}
+.ogl-brand span{display:block;color:#90aeca;font-size:9px;letter-spacing:.105em}
+.navsection-label{padding:21px 13px 9px;font-size:10px;font-weight:750;letter-spacing:.17em;color:#7796b2}
+.nav-scroll{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:0 1px 22px;scrollbar-width:thin;scrollbar-color:#34506c transparent}
+.nav-home{padding:0 4px 11px;margin-bottom:6px;border-bottom:1px solid #25394d}
+.navgroup{padding:4px 4px 10px;margin:0 0 6px;border-bottom:1px solid #243648}
+.navgroup summary{
+ display:flex;align-items:center;justify-content:space-between;gap:8px;list-style:none;
+ cursor:pointer;min-height:39px;padding:9px 10px;color:#8fa9bf;
+ font-size:10px;font-weight:800;letter-spacing:.10em;text-transform:uppercase;
+ border-radius:8px;user-select:none;transition:color .16s,background .16s;
+}
+.navgroup summary:hover{background:#16283b;color:#d5e6f4}
+.navgroup summary::-webkit-details-marker{display:none}
+.navgroup summary:after{content:"";width:7px;height:7px;flex:0 0 7px;
+ border-right:1.7px solid #86a6c1;border-bottom:1.7px solid #86a6c1;
+ transform:rotate(45deg);transition:transform .16s}
+.navgroup[open] summary:after{transform:rotate(225deg)}
+.navbtn{
+ display:flex;align-items:center;gap:12px;width:100%;min-height:42px;
+ padding:10px 12px;margin:2px 0;color:#abc0d4;background:transparent;
+ border:1px solid transparent;border-radius:9px;text-align:left;
+ font-size:12.5px;font-weight:540;line-height:1.2;letter-spacing:0;
+ cursor:pointer;transition:background .15s,border-color .15s,color .15s;
+}
+.navbtn:before{display:none!important;content:none!important}
+.navbtn .ogl-nav-icon{width:18px;height:18px;flex:0 0 18px;stroke-width:1.8;color:#7e9eb7}
+.navbtn:hover{background:#182e44;border-color:#284762;color:#f2f9ff;transform:none}
+.navbtn:hover .ogl-nav-icon{color:#6bcdf6}
+.navbtn.active{background:#173b56;border:1px solid #286284;box-shadow:inset 3px 0 #5ad2f7;color:#f3faff;font-weight:720}
+.navbtn.active .ogl-nav-icon{color:#69d5ff}
+.navbtn:focus-visible,.navgroup summary:focus-visible{outline:2px solid #59c9f3;outline-offset:2px}
+.navmeta{position:static;flex:0 0 auto;max-height:72px;overflow:hidden;margin:0 -13px;padding:12px 18px;
+ border-top:1px solid #273b50;background:#0b1826;color:#7896ae;font-size:10px;line-height:1.55}
+.ogl-admin-header{
+ grid-column:2;grid-row:1;min-width:0;display:flex;align-items:center;
+ justify-content:space-between;gap:15px;padding:0 clamp(18px,2.5vw,38px);
+ background:#0f1c2b;border-bottom:1px solid #293e53;box-shadow:0 4px 20px #02081225;
+ color:#e9f2fb;z-index:2;
+}
+.ogl-header-left,.ogl-header-right{display:flex;align-items:center;gap:12px;white-space:nowrap}
+.ogl-header-left strong{font-size:13px;font-weight:750;letter-spacing:.01em}
+.ogl-header-sub{color:#819ab2;font-size:12px}
+.ogl-header-right{font-size:11px;color:#95aec3}
+.ogl-header-dot{width:8px;height:8px;border-radius:50%;background:#3dd4a2;box-shadow:0 0 0 4px #31cda31b}
+.ogl-header-sep{color:#48677e}
+.ogl-admin-header button{cursor:pointer;border:1px solid #35536b;background:#172b40;color:#c7e4f4;border-radius:8px;padding:8px 13px}
+.ogl-admin-header button:hover{background:#203b55;border-color:#5295c0}
+#oglSideToggle{font-size:19px;line-height:1;border:1px solid transparent;background:transparent;padding:8px 10px;color:#a9c7d9}
+#oglSideToggle:hover{background:#1c354d}
+main{grid-column:2;grid-row:2;width:100%;height:100%;min-width:0;max-width:none;margin:0;
+ overflow-y:auto;overflow-x:hidden;padding:28px clamp(18px,2.8vw,43px) 55px;
+ background:radial-gradient(ellipse at 80% -17%,#15324b44,transparent 44%),#0b1420;color:var(--text);
+ scrollbar-color:#385573 #101f30}
+.page{width:100%;max-width:1640px;margin:0 auto;color:var(--text)}
+.hero{position:relative;overflow:hidden;min-height:122px;padding:24px 28px;
+ background:linear-gradient(111deg,#172d43,#112236 65%,#101f31);
+ border:1px solid #2a4d68;border-radius:13px;box-shadow:0 8px 24px #030a1229;color:var(--text)}
+.hero:before{display:none}
+.hero:after{height:2px;background:linear-gradient(90deg,#4bbceb,transparent 65%);box-shadow:none}
+.hero h1{font-size:clamp(24px,2.3vw,31px);margin:5px 0;color:#f1f7ff;letter-spacing:-.035em}
+.hero h1 em,#page-overview .hero h1 em{font-style:normal;color:#63cbf4;background:none}
+.hero p{font-size:12px;color:#a7bdd0;line-height:1.55}
+.hero .eyebrow,.ogl-overline{font-size:10px;font-weight:780;letter-spacing:.13em;color:#6ecbf1}
+.hero .pill,.pill{background:#142f42;border:1px solid #35617a;color:#b8e0f3;border-radius:24px;padding:8px 13px;box-shadow:none}
+#page-overview .hero{min-height:106px;padding:20px 26px}
+#page-overview .hero h1{font-size:clamp(23px,2.2vw,30px)}
+#page-overview .hero p{font-size:12px;margin:0}
+.ogl-command-bar{margin:24px 0 15px;align-items:center}
+.ogl-command-bar h2{font-size:23px;color:#eaf4fc;margin:2px 0}
+.ogl-command-bar p,.sectionlead,.authnote{color:#92a9be}
+.section,.card,.ogl-status-card,.ogl-release-card{
+ background:#142235;border:1px solid #294057;
+ border-radius:12px;color:#e9f2f9;box-shadow:0 8px 23px #0309111c;
+}
+.section{margin-top:17px;padding:23px 25px}
+.section h2,.section h3,.ogl-section-flex h2{color:#e6f1f9;font-size:18px}
+.section .sectionlead{font-size:12px;line-height:1.6}
+.ogl-status-grid{gap:13px;margin-bottom:18px}
+.ogl-status-card{min-height:121px;gap:7px;padding:19px 21px}
+.ogl-status-card:before{height:2px;background:linear-gradient(90deg,#43bde9,#4a8bbd 60%,transparent);opacity:1}
+.ogl-status-card small,.ogl-release-type{font-size:10px;font-weight:770;letter-spacing:.12em;color:#8caac2}
+.ogl-status-card strong{font-size:clamp(22px,1.8vw,29px);font-weight:760;line-height:1.2;color:#f0f8ff;overflow-wrap:anywhere}
+.ogl-status-card span,.ogl-release-card p{font-size:11px;color:#92adc2}
+.ogl-panel-split{gap:16px}
+.ogl-section-flex{align-items:start}
+.ogl-release-card{min-height:170px}
+.ogl-release-card strong{color:#eef6ff}
+.ogl-release-card a{color:#74d4fa}
+.ogl-mini-status{background:#101e2e;border:1px solid #2c4660;border-radius:9px;color:#adc5d9}
+.ogl-shortcuts button,.ogl-opcard{background:#182a3e;border:1px solid #35526b;color:#d0e5f4;border-radius:9px}
+.ogl-shortcuts button{position:relative;padding:13px 35px 13px 14px;font-weight:610}
+.ogl-shortcuts button:after{content:"›";position:absolute;right:14px;color:#7ed3f5;font-size:22px;top:50%;transform:translateY(-53%)}
+.ogl-shortcuts button:hover,.ogl-opcard:hover{background:#203a54;border-color:#538bb0;color:#fff}
+.ogl-opcard code{color:#97dafa}.ogl-opcard small{color:#9bb1c6}
+.ogl-opbadge{background:#204663;color:#a7e5fc}.ogl-opbadge.write{background:#503b20;color:#ffd69c}
+.ogl-section-head{color:#e3eef7}
+.card{min-height:135px;padding:23px}
+.card .value{color:#f2f9ff}
+.card .label{color:#93b4cd}
+.card:hover{transform:none;border-color:#466d8c}
+.ogl-live-strip{background:#122a38;border:1px solid #28516b;color:#d3e6f3}
+.ogl-live-strip .live-version{color:#a8c9db}
+.action,button.action,.filter{background:#1b5075!important;color:#effaff!important;border:1px solid #327fac!important;border-radius:8px!important;box-shadow:none;font-weight:660}
+.action:hover,button.action:hover,.filter:hover{background:#24658d!important;border-color:#61bde9!important}
+.action:disabled{opacity:.55}
+.filter.active{border-color:#71d4fb!important;color:#fff!important}
+input,textarea,select,.search{background:#0d1c2d!important;color:#eaf4ff!important;border:1px solid #3b566e!important;border-radius:8px!important;min-height:38px}
+input::placeholder,textarea::placeholder{color:#8da5ba!important}
+input:focus-visible,textarea:focus-visible,select:focus-visible,button:focus-visible,a:focus-visible{outline:2px solid #67c9f2;outline-offset:2px}
+.ogl-action-surface{background:#102235;border:1px solid #31536d;border-radius:11px}
+.ogl-action-surface h3{color:#e1f1fc}
+.ogl-action-field label,.section .authnote,.ogl-action-surface p{color:#a3bdd2}
+.ogl-user-row{background:#102335;border-color:#2d4b62}
+.ogl-console-output,.ogl-logs-pre,pre{background:#0b1726;color:#d3e3ef;border:1px solid #2c4359;border-radius:9px}
+.ogl-command-help{background:#112235;border:1px solid #304960;border-radius:9px}
+.ogl-command-help summary{color:#91d8f5}
+.ogl-help-list{color:#bad3e7}
+.ogl-help-list>div{border-color:#2a4054}
+.ogl-datatable{width:100%;border-collapse:collapse;font-size:13px;color:#d7e8f5}
+.ogl-datatable th{background:#1c3044;color:#9ebbd2;text-align:left;font-size:11px;letter-spacing:.06em;text-transform:uppercase}
+.ogl-datatable th,.ogl-datatable td{padding:13px 14px;border-bottom:1px solid #29445b}
+.ogl-datatable tbody tr:hover{background:#20364b}
 .ogl-table-scroll{overflow-x:auto}
-.ogl-kpi-row{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:15px 0}
-.ogl-kpi-row>div{display:flex;flex-direction:column;gap:7px;border:1px solid #e0e8f0;border-radius:8px;background:#f7fafd;padding:15px}
-.ogl-kpi-row strong{font-size:25px;color:#216c99}.ogl-kpi-row small{color:#687c90}
-.ogl-day{background:#fff;border:1px solid #d9e4ee;border-radius:8px;box-shadow:0 1px 5px #1834550a}
-.ogl-day summary{color:#2b4158;font-size:13px}
-.ogl-day summary:hover{background:#f5f8fb}
-.ogl-log-body{border-top:1px solid #dce6ef;background:#fafcff}
-.ogl-logs-pre{display:block;background:#0e1b2a;color:#d3e4ef;border:1px solid #24354a;padding:0;border-radius:7px;font:12px/1.5 ui-monospace,"SFMono-Regular",Consolas,monospace;white-space:normal;max-height:620px;overflow:auto}
-.ogl-log-line{display:grid;grid-template-columns:64px minmax(0,1fr);gap:12px;padding:7px 11px;border-bottom:1px solid #233449;overflow-wrap:anywhere}
-.ogl-log-line:nth-child(even){background:#142338}
-.ogl-log-line .ogl-level-label{font-weight:770;color:#8eafc6;font-size:10px;align-self:start;padding:3px 2px}
+.datatable th{background:#1a3044;color:#aac6d9}
+.datatable td{border-color:#2b4156}
+.ogl-kpi-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:11px;margin:16px 0}
+.ogl-kpi-row>div{display:flex;flex-direction:column;gap:8px;border:1px solid #32506b;border-radius:10px;background:#182d42;padding:16px}
+.ogl-kpi-row strong{font-size:27px;color:#d7f1ff}
+.ogl-kpi-row small{color:#a0b8cb}
+.ogl-day{background:#132437;border:1px solid #304d65;border-radius:10px;box-shadow:none}
+.ogl-day summary{color:#e6f2fb}
+.ogl-day summary:hover{background:#20364b}
+.ogl-log-body{border-top:1px solid #2a465b;background:#101d2c}
+.ogl-logs-pre{display:block;padding:0;font:12px/1.55 ui-monospace,"SFMono-Regular",Consolas,monospace;white-space:normal;max-height:620px;overflow:auto}
+.ogl-log-line{display:grid;grid-template-columns:65px minmax(0,1fr);gap:12px;padding:8px 12px;border-bottom:1px solid #24384d;overflow-wrap:anywhere}
+.ogl-log-line:nth-child(even){background:#15263a}
+.ogl-log-line .ogl-level-label{font-weight:770;color:#a7bbc8;font-size:10px;align-self:start;padding:3px 2px}
 .ogl-log-line>span:last-child{white-space:pre-wrap;overflow-wrap:anywhere}
-.ogl-log-line.level-error{background:#452b35;color:#ffd7dd}
-.ogl-log-line.level-error .ogl-level-label{color:#ff91a1}
-.ogl-log-line.level-warn{background:#383225;color:#fbe4ba}
-.ogl-log-line.level-warn .ogl-level-label{color:#ffd185}
-.ogl-log-line.level-info .ogl-level-label{color:#74c6f1}
-.ogl-log-line.level-debug .ogl-level-label{color:#94a1ad}
-.ogl-audit-line{border-color:#e1e9f0;color:#3f5269}
-.ogl-action-field label{color:#536b80}
-#oglSideToggle{font-size:18px;background:none;border:0}
+.ogl-log-line.level-error{background:#462733;color:#ffe0e6}
+.ogl-log-line.level-error .ogl-level-label{color:#ff9ba9}
+.ogl-log-line.level-warn{background:#413524;color:#ffe8c3}
+.ogl-log-line.level-warn .ogl-level-label{color:#ffd18a}
+.ogl-log-line.level-info .ogl-level-label{color:#83cef3}
+.ogl-log-line.level-debug .ogl-level-label{color:#9aa9b7}
+.ogl-audit-line{border-color:#2c4358;color:#cddfeb}
+#oglSideToggle:focus-visible{outline:2px solid #67c9f2}
 body.ogl-sidebar-collapsed .shell{grid-template-columns:0 minmax(0,1fr)}
 body.ogl-sidebar-collapsed nav{visibility:hidden;width:0;overflow:hidden}
 body.ogl-sidebar-collapsed .ogl-admin-header,body.ogl-sidebar-collapsed main{grid-column:2}
-@media(max-width:900px){
- .shell{grid-template-columns:1fr;grid-template-rows:58px minmax(0,1fr)}
- nav{position:fixed;z-index:10;top:58px;bottom:0;width:256px;height:calc(100vh - 58px);box-shadow:4px 0 18px #0e1b2750}
- .ogl-admin-header{grid-column:1;grid-row:1;padding:0 14px}
- main{grid-column:1;grid-row:2;padding:16px 12px}
- body.ogl-sidebar-collapsed nav{visibility:hidden}
- body.ogl-sidebar-collapsed .shell{grid-template-columns:1fr}
- body:not(.ogl-sidebar-collapsed) main{pointer-events:none}
+@media(max-width:1170px){
  .ogl-status-grid,.ogl-release-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .ogl-panel-split{grid-template-columns:1fr}
+}
+@media(max-width:900px){
+ .shell{grid-template-columns:minmax(0,1fr);grid-template-rows:60px minmax(0,1fr)}
+ nav{position:fixed;z-index:12;top:60px;bottom:0;width:min(282px,90vw);height:calc(100dvh - 60px);box-shadow:12px 0 30px #02070dac}
+ .ogl-admin-header{grid-column:1;grid-row:1;padding:0 14px}
+ main{grid-column:1;grid-row:2;padding:19px 14px 45px}
+ body.ogl-sidebar-collapsed .shell{grid-template-columns:minmax(0,1fr)}
+ body.ogl-sidebar-collapsed nav{visibility:hidden;pointer-events:none}
+ body.ogl-sidebar-collapsed .ogl-admin-header,body.ogl-sidebar-collapsed main{grid-column:1}
+ body:not(.ogl-sidebar-collapsed) main{pointer-events:none}
  .ogl-kpi-row{grid-template-columns:1fr}
  .ogl-header-right{display:none}
 }
-@media(max-width:600px){.ogl-status-grid,.ogl-release-grid,.ogl-panel-split,.ogl-operation-grid{grid-template-columns:1fr}.section{padding:15px}.hero{padding:16px}.ogl-log-line{grid-template-columns:50px minmax(0,1fr)}}
+@media(max-width:600px){
+ .ogl-status-grid,.ogl-release-grid,.ogl-operation-grid,.ogl-panel-split{grid-template-columns:1fr}
+ .section{padding:17px}.hero{padding:20px}.ogl-log-line{grid-template-columns:48px minmax(0,1fr)}
+ .ogl-header-sub{display:none}
+}
+@media(prefers-reduced-motion:reduce){.navbtn,.navgroup summary{transition:none}}
 
 </style>
 </head>
@@ -397,41 +485,41 @@ body.ogl-sidebar-collapsed .ogl-admin-header,body.ogl-sidebar-collapsed main{gri
 <div class="shell">
 <nav aria-label="World API Verwaltung">
 <div class="brand ogl-brand"><div class="ogl-logo"><img src="OGL_LOGO_DATA_URI" width="56" height="56" alt="OpenGenesisLINK World API Logo"></div><div class="brand-copy"><strong>OpenGenesisLINK</strong><span>WORLD API · CONTROL CENTER</span></div></div>
-<div class="navsection-label">CONTROL CENTER · BEREICHE</div>
+<div class="navsection-label">ARBEITSBEREICHE</div>
 <div class="nav-scroll">
-<details class="navgroup" open><summary>Übersicht &amp; Monitoring</summary>
-<button class="navbtn active" data-page="overview">Dashboard</button>
-<button class="navbtn" data-page="statistics">Statistik &amp; Aktivität</button>
-<button class="navbtn" data-page="viewers">Viewer &amp; Versionen</button>
-<button class="navbtn" data-page="diagnostics">Systemdiagnose</button>
-<button class="navbtn" data-page="repository">GitHub &amp; Releases</button></details>
-<details class="navgroup" open><summary>Grid &amp; Simulatoren</summary>
-<button class="navbtn" data-page="grid">Grid-Planer &amp; Regionen</button>
-<button class="navbtn" data-page="nodes">Simulator-Nodes</button>
-<button class="navbtn" data-page="estates">Estates &amp; Land</button>
-<button class="navbtn" data-page="console">Konsole &amp; Aufträge</button>
-<button class="navbtn" data-page="logs">ROBUST / OpenSim Logs</button></details>
+<div class="nav-home"><button type="button" class="navbtn active" data-page="overview"><svg class="ogl-nav-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg><span>Dashboard</span></button></div>
+<details class="navgroup" open><summary>Monitoring &amp; Status</summary>
+<button type="button" class="navbtn" data-page="statistics"><svg class="ogl-nav-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18M8 16v-5M13 16V7M18 16v-9"/></svg><span>Statistik &amp; Aktivität</span></button>
+<button type="button" class="navbtn" data-page="viewers"><svg class="ogl-nav-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg><span>Viewer &amp; Versionen</span></button>
+<button type="button" class="navbtn" data-page="diagnostics"><svg class="ogl-nav-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l3-7 4 14 3-7h4"/></svg><span>Systemdiagnose</span></button>
+<button type="button" class="navbtn" data-page="logs"><svg class="ogl-nav-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg><span>Server-Logs</span></button></details>
+<details class="navgroup" open><summary>Grid &amp; Infrastruktur</summary>
+<button type="button" class="navbtn" data-page="grid"><svg class="ogl-nav-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="m3 6 6-3 6 3 6-3v15l-6 3-6-3-6 3zM9 3v15M15 6v15"/></svg><span>Regionen &amp; Grid-Planer</span></button>
+<button type="button" class="navbtn" data-page="nodes"><svg class="ogl-nav-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="8" rx="2"/><rect x="3" y="13" width="18" height="8" rx="2"/><path d="M7 7h.01M7 17h.01M11 7h7M11 17h7"/></svg><span>Simulator-Nodes</span></button>
+<button type="button" class="navbtn" data-page="estates"><svg class="ogl-nav-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="m3 17 6-8 5 6 3-4 4 6M4 20h16M5 7l4-4 4 4"/></svg><span>Estates &amp; Land</span></button>
+<button type="button" class="navbtn" data-page="console"><svg class="ogl-nav-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="m7 9 3 3-3 3M13 16h4"/></svg><span>ROBUST-Konsole &amp; Jobs</span></button></details>
 <details class="navgroup"><summary>Einwohner &amp; Communities</summary>
-<button class="navbtn" data-page="users">Benutzer &amp; Avatare</button>
-<button class="navbtn" data-page="groups">Gruppen &amp; Rollen</button>
-<button class="navbtn" data-page="inventory">Inventar &amp; Assets</button>
-<button class="navbtn" data-page="profiles">Profile &amp; Media</button></details>
-<details class="navgroup"><summary>Wirtschaft &amp; Content</summary>
-<button class="navbtn" data-page="economy">Economy / NV$</button>
-<button class="navbtn" data-page="marketplace">Marketplace &amp; Medien</button>
-<button class="navbtn" data-page="discovery">Orte, Suche &amp; Events</button>
-<button class="navbtn" data-page="experiences">Experiences</button></details>
+<button type="button" class="navbtn" data-page="users"><svg class="ogl-nav-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3"/><path d="M3 20v-2a6 6 0 0 1 12 0v2M17 5a3 3 0 0 1 0 6M18 15a5 5 0 0 1 3 5"/></svg><span>Benutzer &amp; Avatare</span></button>
+<button type="button" class="navbtn" data-page="groups"><svg class="ogl-nav-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="6" r="3"/><circle cx="5" cy="16" r="2"/><circle cx="19" cy="16" r="2"/><path d="M12 9v4M7 15l5-2 5 2"/></svg><span>Gruppen &amp; Rollen</span></button>
+<button type="button" class="navbtn" data-page="inventory"><svg class="ogl-nav-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="m3 7 9-4 9 4v10l-9 4-9-4zM3 7l9 4 9-4M12 11v10"/></svg><span>Inventar &amp; Assets</span></button>
+<button type="button" class="navbtn" data-page="profiles"><svg class="ogl-nav-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="12" cy="10" r="3"/><path d="M6 20v-2a6 6 0 0 1 12 0v2"/></svg><span>Profile &amp; Medien</span></button></details>
+<details class="navgroup"><summary>Wirtschaft &amp; Inhalte</summary>
+<button type="button" class="navbtn" data-page="economy"><svg class="ogl-nav-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="15" rx="2"/><path d="M3 8V5a2 2 0 0 1 2-2h13M16 12h6v5h-6a2 2 0 0 1 0-5"/></svg><span>Economy / NV$</span></button>
+<button type="button" class="navbtn" data-page="marketplace"><svg class="ogl-nav-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9h18l-2-6H5zM5 9v12h14V9M9 21v-7h6v7"/></svg><span>Marketplace &amp; Medien</span></button>
+<button type="button" class="navbtn" data-page="discovery"><svg class="ogl-nav-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 11-8 11S4 16 4 10a8 8 0 1 1 16 0z"/><circle cx="12" cy="10" r="2"/></svg><span>Orte, Suche &amp; Events</span></button>
+<button type="button" class="navbtn" data-page="experiences"><svg class="ogl-nav-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="m12 2 2 7 7 3-7 2-2 8-2-8-7-2 7-3z"/></svg><span>Experiences</span></button></details>
 <details class="navgroup"><summary>API &amp; Sicherheit</summary>
-<button class="navbtn" data-page="secrets">API-Schlüssel &amp; Scopes</button>
-<button class="navbtn" data-page="security">Sicherheit</button>
-<button class="navbtn" data-page="audit">Audit-Protokoll</button>
-<button class="navbtn" data-page="explorer">API-Explorer</button>
-<button class="navbtn" data-page="chatgpt">Portale &amp; Integration</button>
-<button class="navbtn" data-page="adminlogin">Admin-Anmeldung</button></details>
-<details class="navgroup"><summary>Software &amp; Planung</summary>
-<button class="navbtn" data-page="changes">Changelog</button>
-<button class="navbtn" data-page="versions">Versionshistorie</button>
-<button class="navbtn" data-page="roadmap">Roadmap &amp; Meilensteine</button></details>
+<button type="button" class="navbtn" data-page="secrets"><svg class="ogl-nav-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="15" r="5"/><path d="m12 11 9-9M16 6l2 2M18 4l2 2"/></svg><span>API-Schlüssel &amp; Scopes</span></button>
+<button type="button" class="navbtn" data-page="security"><svg class="ogl-nav-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 20 6v6c0 5-4 8-8 10-4-2-8-5-8-10V6z"/><path d="m9 12 2 2 4-4"/></svg><span>Sicherheitsverwaltung</span></button>
+<button type="button" class="navbtn" data-page="audit"><svg class="ogl-nav-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l4 2"/></svg><span>Audit-Protokoll</span></button>
+<button type="button" class="navbtn" data-page="explorer"><svg class="ogl-nav-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="m8 7-5 5 5 5m8-10 5 5-5 5m-3-14-2 18"/></svg><span>API-Explorer</span></button>
+<button type="button" class="navbtn" data-page="adminlogin"><svg class="ogl-nav-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg><span>Admin-Anmeldung</span></button></details>
+<details class="navgroup"><summary>Entwicklung &amp; Integration</summary>
+<button type="button" class="navbtn" data-page="repository"><svg class="ogl-nav-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="3" r="2"/><circle cx="18" cy="9" r="2"/><circle cx="6" cy="21" r="2"/><path d="M6 5v14M6 12a6 6 0 0 0 12-2"/></svg><span>GitHub &amp; Releases</span></button>
+<button type="button" class="navbtn" data-page="changes"><svg class="ogl-nav-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2h8l5 5v15H6zM14 2v6h5M9 12h7M9 16h7"/></svg><span>Changelog</span></button>
+<button type="button" class="navbtn" data-page="versions"><svg class="ogl-nav-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-7M3 4v5h5M12 7v5l4 2"/></svg><span>Versionshistorie</span></button>
+<button type="button" class="navbtn" data-page="roadmap"><svg class="ogl-nav-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21 10 3h4l7 18M11 11h2M10 16h4"/></svg><span>Roadmap</span></button>
+<button type="button" class="navbtn" data-page="chatgpt"><svg class="ogl-nav-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a15 15 0 0 1 0 18M12 3a15 15 0 0 0 0 18"/></svg><span>Portale &amp; Integration</span></button></details>
 </div>
 <div class="navmeta" id="navmeta">Live-Daten werden geladen…</div>
 </nav>
@@ -1527,8 +1615,10 @@ function showPage(name){
   if(name==='console')oglLoadConsoleHelp();
   if(name==='audit')oglLoadAudit(false);
   if(oglWorkspaceGroups[name])oglRenderWorkspaces();
-  window.scrollTo({top:0,behavior:'smooth'});
+  document.querySelector('main')?.scrollTo({top:0,behavior:'auto'});
+  if(window.matchMedia('(max-width:900px)').matches)document.body.classList.add('ogl-sidebar-collapsed');
 }
+if(window.matchMedia('(max-width:900px)').matches)document.body.classList.add('ogl-sidebar-collapsed');
 document.querySelectorAll('.navbtn').forEach(x=>x.addEventListener('click',()=>showPage(x.dataset.page)));
 document.querySelectorAll('[data-goto]').forEach(x=>x.addEventListener('click',()=>showPage(x.dataset.goto)));
 
