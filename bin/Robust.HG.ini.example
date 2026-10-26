@@ -743,6 +743,9 @@
     ; Only the Stadtportal BACKEND with a dedicated users:register API key
     ; may register avatars. Enable after publishing Benjamin/Luna models.
     PortalAvatarRegistrationEnabled = false
+    ; Optional profile wall / Firestorm web feed (creates 4 InnoDB tables).
+    ; Requires [UserProfilesService] enabled with MariaDB.
+    EnableProfileFeed = false
     ; P0 #301: keep disabled until the portal has migrated to World-owned
     ; one-time challenges. Backend must hold separate recovery-only API key.
     ; Challenges are stored in a new InnoDB table (ogl_password_recovery)
@@ -869,6 +872,8 @@
     ; optional web page for profiles
     ;[AGENT_NAME] will be converted to Firstname.LastName by viewers
     ; web_profile_url = http://webprofilesurl:ItsPort?name=[AGENT_NAME]
+    ; For OGL Profile Feed (opt-in):
+    ; web_profile_url = https://world.stadt-nexverse.de/feed?name=[AGENT_NAME]
 
 [GatekeeperService]
     LocalServiceModule = "OpenSim.Services.HypergridService.dll:GatekeeperService"

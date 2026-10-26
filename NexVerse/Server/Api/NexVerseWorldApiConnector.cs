@@ -1236,6 +1236,38 @@ namespace NexVerse.Server.Api
                             "NexVerse WebProfileV3"),
                         true);
 
+                    // Optional, server-owned social feed. Explicit opt-in avoids
+                    // changing production schemas without operator approval.
+                    if (apiConfig.GetBoolean("EnableProfileFeed", false))
+                    {
+                        if (string.IsNullOrWhiteSpace(profileConnectionString) ||
+                            (profileStorageProvider.IndexOf("MySQL", StringComparison.OrdinalIgnoreCase) < 0 &&
+                             profileStorageProvider.IndexOf("MariaDB", StringComparison.OrdinalIgnoreCase) < 0))
+                        {
+                            m_Log.Error("[OGL-FEED]: Profile feed requires the existing MariaDB UserProfilesService provider; disabled.");
+                        }
+                        else
+                        {
+                            try
+                            {
+                                OglProfileFeedStore feedStore = new OglProfileFeedStore(profileConnectionString);
+                                OglProfileFeedApi feedApi = new OglProfileFeedApi(
+                                    userAccounts, profilesData, authenticator, feedStore);
+                                server.AddSimpleStreamHandler(
+                                    new SimpleStreamHandler("/api/v1/feed", apiGate.Wrap(feedApi.HandleApi),
+                                        "OpenGenesisLINK profile activity feed"), true);
+                                server.AddSimpleStreamHandler(
+                                    new SimpleStreamHandler("/feed", apiGate.Wrap(feedApi.HandleWeb),
+                                        "OpenGenesisLINK Firestorm web profile feed"));
+                                m_Log.Info("[OGL-FEED]: Profile feed enabled for published local avatars.");
+                            }
+                            catch (Exception feedError)
+                            {
+                                m_Log.Error("[OGL-FEED]: Could not initialize profile feed; service disabled.", feedError);
+                            }
+                        }
+                    }
+
                     m_Log.Info("[NEX-WEBPROFILE-V3]: Avatarprofile über den maßgeblichen UserProfilesService-Datenspeicher aktiviert.");
                 }
 

@@ -278,6 +278,21 @@ namespace NexVerse.Server.Api
                     ("post", "Destination-Aufruf für Popularitätsranking registrieren", "200")),
                 ["/api/v1/destinations/{destinationId}/moderation"] = AuthenticatedOperations(
                     ("post", "Destination freigeben oder ablehnen", "discovery:manage", "200")),
+                ["/api/v1/feed/{principalId}"] = MergeOperations(
+                    GetOperation("Profil-Feed eines veröffentlichten lokalen Avatars lesen; private Feeds nur mit Eigentümer-Token"),
+                    AuthenticatedOperations(("post", "Eigene Statusmeldung mit Text veröffentlichen", "profile:write", "201"))),
+                ["/api/v1/feed/{principalId}/{postId}"] = AuthenticatedOperations(
+                    ("delete", "Eigene Statusmeldung entfernen", "profile:write", "200")),
+                ["/api/v1/feed/{principalId}/{postId}/comments"] = AuthenticatedOperations(
+                    ("post", "Kommentar in veröffentlichtem oder eigenem Feed erstellen", "relationships:write", "201")),
+                ["/api/v1/feed/{principalId}/{postId}/comments/{commentId}"] = AuthenticatedOperations(
+                    ("delete", "Eigenen Kommentar oder Kommentar auf eigenem Feed löschen", "relationships:write", "200")),
+                ["/api/v1/feed/{principalId}/{postId}/likes"] = AuthenticatedOperations(
+                    ("put", "Beitrag mit Gefällt mir markieren", "relationships:write", "200"),
+                    ("delete", "Eigene Gefällt-mir-Markierung entfernen", "relationships:write", "200")),
+                ["/api/v1/feed/{principalId}/following"] = AuthenticatedOperations(
+                    ("put", "Öffentlichem Profil folgen", "relationships:write", "200"),
+                    ("delete", "Öffentlichem Profil nicht mehr folgen", "relationships:write", "200")),
                 ["/api/v1/profiles/{principalId}"] = MergeOperations(
                     GetOperation("Öffentlich sichtbares Avatarprofil lesen; private Profile nur für Eigentümer oder Admin"),
                     AuthenticatedOperations(("patch", "Eigene 11 editierbare userprofile-Spalten ändern; useruuid, profileImage und profileFirstImage bleiben gesperrt", "profile:write", "200"))),
