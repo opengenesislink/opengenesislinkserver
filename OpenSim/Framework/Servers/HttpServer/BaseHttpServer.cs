@@ -661,6 +661,25 @@ namespace OpenSim.Framework.Servers.HttpServer
 
                 if (request.UriPath.Equals("/"))
                 {
+                    // A browser requesting the root should see OpenGenesisLINK,
+                    // not a legacy XML-RPC error. Never intercept protocol
+                    // clients: POST, JSON-RPC, LLSD and method-query traffic
+                    // continue below through their unchanged handlers.
+                    if (request.HttpMethod.Equals("GET", StringComparison.OrdinalIgnoreCase) &&
+                        request.QueryString.Count == 0 &&
+                        request.Headers["Accept"]?.IndexOf("text/html",
+                            StringComparison.OrdinalIgnoreCase) >= 0)
+                    {
+                        response.ContentType = "text/html; charset=utf-8";
+                        response.StatusCode = (int)HttpStatusCode.OK;
+                        response.AddHeader("X-Content-Type-Options", "nosniff");
+                        response.AddHeader("Cache-Control", "public, max-age=300");
+                        response.RawBuffer = OglServerWelcomePage.Html;
+                        if (request.InputStream is not null && request.InputStream.CanRead)
+                            request.InputStream.Dispose();
+                        response.Send();
+                        return;
+                    }
                     response.StatusCode = (int)HttpStatusCode.NotFound; // default
 
                     if (m_RootDefaultGET is not null && request.HttpMethod.Equals("GET"))
@@ -2215,7 +2234,7 @@ namespace OpenSim.Framework.Servers.HttpServer
         // Fallback HTTP responses in case the HTTP error response files don't exist
         private static string getDefaultHTTP404()
         {
-            return "<HTML><HEAD><TITLE>404 Page not found</TITLE><BODY><BR /><H1>Ooops!</H1><P>The page you requested has been obsconded with by knomes. Find hippos quick!</P></BODY></HTML>";
+            return "<!doctype html><html lang=\"de\"><head><meta charset=\"utf-8\"><title>OpenGenesisLINK – 404</title></head><body style=\"font-family:system-ui;background:#091522;color:#eaf2fa;padding:3rem\"><h1>OpenGenesisLINK</h1><p>Die angeforderte Ressource existiert nicht.</p></body></html>";
         }
 
         public void SetHTTP404()
