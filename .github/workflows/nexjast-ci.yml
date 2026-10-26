@@ -439,6 +439,10 @@ jobs:
         shell: bash
         run: python3 tools/ci/verify_citizen_social_profile.py
 
+      - name: Verify OpenGenesisLINK profile feed privacy and Firestorm web route
+        shell: bash
+        run: python3 tools/ci/verify_ogl_profile_feed.py
+
       - name: Verify bidirectional opt-in portal IM inbox
         shell: bash
         run: python3 tools/ci/verify_portal_im_inbox.py
