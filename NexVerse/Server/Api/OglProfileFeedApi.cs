@@ -153,10 +153,6 @@ namespace NexVerse.Server.Api
                 }
                 if(p.Length==6 && p[5].Equals("comments",StringComparison.OrdinalIgnoreCase))
                 {
-                    if(Is(request,"GET"))
-                    {
-                        // GET is implemented below before authentication.
-                    }
                     if(Is(request,"POST"))
                     {
                         if(!TryText(request,"text",800,out string text))
@@ -202,7 +198,7 @@ namespace NexVerse.Server.Api
             string name=(request.QueryString?["name"] ?? "").Trim();
             // Firestorm expands [AGENT_NAME] to First.Last or First.Resident.
             // Do not infer identity or permission from the URL alone.
-            name=name.Replace(' ',' .'.Trim()[0]); // convert whitespace-name alias to dotted form
+            name=name.Replace(' ','.'); // convert whitespace-name alias to dotted form
             string[] names=name.Split('.',StringSplitOptions.RemoveEmptyEntries);
             if(name.Length>128 || names.Length!=2 || names.Any(x=>x.Length>64))
             {
