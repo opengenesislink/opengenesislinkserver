@@ -78,7 +78,7 @@ assert 'NEXVERSE_IM_RELAY_SIGNING_KEY = ""' in grid_common
 assert 'NEXVERSE_IM_RELAY_IMAP_PASSWORD = ""' in grid_common
 
 prebuild = read("prebuild.xml")
-api = prebuild.split('<Project name="NexVerse.Server.Api"', 1)[1].split("</Project>", 1)[0]
+api = prebuild.split('<Project name="OGL.API"', 1)[1].split("</Project>", 1)[0]
 assert '<Reference name="MailKit"/>' in api
 assert '<Reference name="MimeKit"/>' in api
 
