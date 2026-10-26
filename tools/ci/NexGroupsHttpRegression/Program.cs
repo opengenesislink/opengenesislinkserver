@@ -72,7 +72,7 @@ internal static class Program
         UserAccountService users, HmacNexAccessTokenService tokens,
         Func<NexEconomyService> economy, INexApiKeyStore keys)
     {
-        Assembly assembly = Assembly.Load("NexVerse.Server.Api");
+        Assembly assembly = Assembly.Load("OGL.API");
         Type authType = assembly.GetType("NexVerse.Server.Api.NexApiAuthenticator", true);
         Type groupsType = assembly.GetType("NexVerse.Server.Api.NexGroupsApi", true);
         var auth = Construct(authType, users, new NexAuthorizationService(),
@@ -105,7 +105,7 @@ internal static class Program
         HmacNexAccessTokenService tokens, INexApiKeyStore keys,
         IAssetService assetService, string connection, UUID assetId, UUID ownerId)
     {
-        Assembly assembly = Assembly.Load("NexVerse.Server.Api");
+        Assembly assembly = Assembly.Load("OGL.API");
         Type authType = assembly.GetType("NexVerse.Server.Api.NexApiAuthenticator", true);
         Type mediaType = assembly.GetType("NexVerse.Server.Api.NexMediaApi", true);
         Type catalogType = assembly.GetType("NexVerse.Server.Api.NexMediaCatalogStore", true);
