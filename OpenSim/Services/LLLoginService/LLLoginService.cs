@@ -794,6 +794,18 @@ namespace OpenSim.Services.LLLoginService
 
                     m_log.DebugFormat("[LLOGIN SERVICE]: All clear. Sending login response to {0} {1}", firstName, lastName);
 
+                    // Successful viewer handshake metadata only: no avatar
+                    // identity, IP, device ID or credentials in statistics.
+                    // Viewers self-report these two strings. Newlines, control
+                    // chars and excessive lengths are discarded for logging.
+                    string safeViewerVersion = SanitizeViewerMetric(clientVersion);
+                    string safeViewerChannel = SanitizeViewerMetric(channel);
+                    m_log.Info("[OGL-VIEWER-STATS] " +
+                        System.Text.Json.JsonSerializer.Serialize(new
+                        {
+                            viewer = safeViewerChannel,
+                            version = safeViewerVersion
+                        }));
                     return response;
                }
             catch (Exception e)
@@ -802,6 +814,13 @@ namespace OpenSim.Services.LLLoginService
                 m_PresenceService?.LogoutAgent(session);
                 return LLFailedLoginResponse.InternalError;
             }
+        }
+
+        private static string SanitizeViewerMetric(string raw)
+        {
+            if (string.IsNullOrWhiteSpace(raw)) return "Unbekannt";
+            string value = new string(raw.Where(c => !char.IsControl(c)).Take(96).ToArray()).Trim();
+            return string.IsNullOrEmpty(value) ? "Unbekannt" : value;
         }
 
         private void EnsureFirestormBridgeInventory(UUID principalID)
