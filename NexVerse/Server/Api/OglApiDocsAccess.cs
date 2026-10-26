@@ -244,6 +244,33 @@ body:before{opacity:.28}
 .bottom{border-top:1px solid rgba(61,134,185,.22);background:#060f1d;color:#9bacc4}
 @media(max-width:1000px){.stage{grid-template-columns:1fr;max-width:630px}.window{max-width:none;justify-self:stretch}.showcase{text-align:left}.ogl-showcase-logo{width:110px;height:110px}.ogl-showcase-logo img{width:110px;height:110px}}
 @media(prefers-reduced-motion:reduce){.showcase:before,.ogl-showcase-logo{animation:none!important}}
+
+/* AdminLTE-inspired OGL secure login – cohesive with the operator console */
+body{background:linear-gradient(136deg,#13283e 0%,#0c1b2b 52%,#172d46 100%);color:#f4f9ff}
+body:before{opacity:.06}
+.top{background:#152639;border-bottom:1px solid #30495f;min-height:75px}
+.top .brand strong{font-size:19px}
+.sigil{border-radius:9px;background:#20405a;border:1px solid #386b90;box-shadow:none}
+.stage{max-width:1220px;grid-template-columns:minmax(0,1fr) minmax(350px,450px);gap:5vw}
+.showcase:before{opacity:.24}
+.showcase h1{font-size:clamp(38px,4.3vw,62px)}
+.showcase .intro{color:#b9cddd;font-size:16px}
+.ogl-showcase-logo{width:126px;height:126px;border-radius:20px;background:#15334a;border:1px solid #315875;box-shadow:0 16px 38px #050f1c45}
+.ogl-showcase-logo img{width:122px;height:122px}
+.highlights .highlight{background:#1c3449;border:1px solid #34536b;border-radius:8px;color:#c9e0f0}
+.window{background:#fff;color:#263c53;border:1px solid #dfe7ef;box-shadow:0 20px 65px #06111e88;border-radius:12px}
+.login{padding:38px 36px}
+.login h2{color:#24364a;font-size:27px}
+.login .loginkicker{color:#1b84ba;letter-spacing:.09em}
+.login p,.login .authnote,.login .label{color:#63788f}
+.login label{color:#354e68}
+.login input{background:#fff;border:1px solid #cad7e4;color:#233d55;min-height:46px;border-radius:7px}
+.login input::placeholder{color:#95a4b3}
+.login input:focus-visible{outline:2px solid #228ed2}
+.submit{background:#1689c2;color:#fff;box-shadow:none;font-size:14px;min-height:46px}
+.submit:hover{background:#0e72a6}
+.bottom{background:#122236;color:#afc3d5;border-color:#2c445d}
+@media(max-width:1000px){.stage{grid-template-columns:1fr;max-width:650px}.window{max-width:none}}
 </style>
 </head>
 <body>
