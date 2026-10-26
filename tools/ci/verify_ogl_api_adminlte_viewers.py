@@ -51,6 +51,24 @@ for token in ['id="page-viewers"','id="oglViewerTable"','function oglLoadViewerS
               'function oglKeepSupportedHistory(raw)','id="oglSideToggle"',
               'class="ogl-admin-header"','ogl-datatable']:
     assert token in ui,token
+# Keep the final, authoritative theme dark: earlier legacy styles must not
+# be allowed to override the operational shell with white backgrounds again.
+dark=re.search(r"/\* OGL Control Center 5\.0.*?</style>",ui,re.S)
+assert dark, "missing final dark operator theme"
+final_css=dark.group(0)
+for light_token in ("--bg:#eff3f8", "background:#fff", "background:#eff3f8",
+                    "background:#f7fafd", "background:#f5f8fc"):
+    assert light_token not in final_css, "light theme regression: "+light_token
+for token in ("color-scheme:dark", ".ogl-admin-header", ".ogl-status-card",
+              ".ogl-datatable", ".ogl-logs-pre", ".navbtn .ogl-nav-icon",
+              ".ogl-sidebar-collapsed", "@media(max-width:900px)"):
+    assert token in final_css, "dark UI component missing: "+token
+assert ui.count('class="ogl-nav-icon"') == 27, "sidebar icon mismatch"
+assert ui.count('<details class="navgroup"') == 6, "sidebar navigation structure changed"
+assert ui.count('<button type="button" class="navbtn') == 27, "sidebar entries missing"
+assert "document.querySelector('main')?.scrollTo" in ui
+login_dark=re.search(r"/\* Operator Control Center 5\.0.*?</style>",login,re.S)
+assert login_dark and ".window{background:#142338" in login_dark.group(0), "login must be dark"
 assert "0.9.3.10" in docs
 assert "NexOglBranding.DataUri" in login
 assert "class=\"window\"" in login
