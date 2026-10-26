@@ -574,6 +574,10 @@ jobs:
           chmod +x runprebuild.sh
           ./runprebuild.sh
 
+      - name: Verify 0.9.3.13 extended multi-region visibility and release gates
+        shell: bash
+        run: python3 tools/ci/verify_ogl_extended_region_visibility.py
+
       - name: Verify FastMap updater config and update staging safety
         shell: bash
         run: |
