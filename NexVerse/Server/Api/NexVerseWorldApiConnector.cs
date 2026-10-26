@@ -621,6 +621,14 @@ namespace NexVerse.Server.Api
                 server.AddSimpleStreamHandler(new SimpleStreamHandler(
                     "/api/v1/admin/logs", apiGate.Wrap(operatorLogs.Handle),
                     "OpenGenesisLINK operator daily log archives"), true);
+                OglViewerStatisticsApi viewerStatistics = new OglViewerStatisticsApi(authenticator);
+                server.AddSimpleStreamHandler(new SimpleStreamHandler(
+                    "/api/v1/admin/viewers", apiGate.Wrap(viewerStatistics.Handle),
+                    "OpenGenesisLINK viewer usage statistics"));
+                OglOperatorConsoleApi robustConsole = new OglOperatorConsoleApi(authenticator);
+                server.AddSimpleStreamHandler(new SimpleStreamHandler(
+                    "/api/v1/admin/console", apiGate.Wrap(robustConsole.Handle),
+                    "OpenGenesisLINK authenticated ROBUST command console"));
 
                 // Attach the existing, server-side native admin authenticator
                 // once privileged services are available. No duplicate routing.
