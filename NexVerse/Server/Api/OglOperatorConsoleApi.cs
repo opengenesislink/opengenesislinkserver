@@ -3,6 +3,7 @@
 // never /bin/sh, a subprocess, or an arbitrary filesystem operation.
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 using System.Text.Json;
 using System.Threading;
@@ -115,8 +116,12 @@ namespace NexVerse.Server.Api
 
             // The log contains the command but never the bearer token or body.
             // Console output remains in the existing daily ROBUST log viewer.
+            // Command arguments may contain secrets (e.g. passwords).
+            // Record the job/operation without persisting the full input.
+            string commandFamily = command.Split(' ', StringSplitOptions.RemoveEmptyEntries)
+                .FirstOrDefault() ?? "unknown";
             s_Log.Warn("[OGL-OPERATOR-AUDIT]: Local administrator issued ROBUST console command job=" +
-                id + " command=" + command);
+                id + " family=" + commandFamily);
             _ = Task.Run(() =>
             {
                 try
