@@ -89,6 +89,10 @@ jobs:
       - name: Verify World API Sci-Fi admin dashboard navigation and GitHub releases
         shell: bash
         run: python3 tools/ci/verify_worldapi_scifi_admin_center.py
+      - name: Verify OGL.API canonical build, AdminLTE control center and viewer metrics
+        shell: bash
+        run: python3 tools/ci/verify_ogl_api_adminlte_viewers.py
+
       - name: Verify operator CRUD, Audit and NodeId daily log relay
         shell: bash
         run: python3 tools/ci/verify_ogl_operator_logs_admin.py
@@ -661,7 +665,7 @@ jobs:
         shell: bash
         run: |
           test -f bin/NexVerse.Core.dll
-          test -f bin/NexVerse.Server.Api.dll
+          test -f bin/OGL.API.dll
           test -f bin/NexVerse.RegionModules.dll
 
       - name: Runtime smoke test NV dollar Robust bootstrap

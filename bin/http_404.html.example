@@ -1,1 +1,16 @@
-<HTML><HEAD><TITLE>404 Page not found</TITLE><BODY><BR /><H1>Ooops!</H1><P>The page you requested has been obsconded with by knomes. Find hippos quick!</P></BODY></HTML>
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>OpenGenesisLINK · 404</title>
+<style>
+:root{font-family:system-ui,sans-serif;color:#e8f5ff;background:#0a1625}
+body{margin:0;min-height:100vh;display:grid;place-items:center;background:linear-gradient(145deg,#0b1e31,#06111f)}
+main{max-width:660px;margin:25px;padding:38px;border:1px solid #31546a;border-radius:14px;background:#12283d}
+small{letter-spacing:.12em;color:#71d6f6}h1{font-size:38px;margin:13px 0}
+p{color:#b6cbd9;line-height:1.75}a{color:#7de0ff}
+</style>
+</head>
+<body><main><small>OPEN GENESIS LINK · SERVER ENDPOINT</small><h1>404 – Seite nicht gefunden</h1><p>Die angeforderte Serverressource ist nicht vorhanden. Diese Adresse gehört zu einer OpenGenesisLINK-Infrastruktur. Für allgemeine Informationen besuchen Sie die Projektwebseite.</p><p><a href="/">Zur Server-Startseite</a> · <a href="https://opengenesislink.de/">OpenGenesisLINK</a></p></main></body>
+</html>

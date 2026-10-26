@@ -1984,7 +1984,7 @@
       </Files>
     </Project>
 
-    <Project name="NexVerse.Server.Api" path="NexVerse/Server/Api" type="Library">
+    <Project name="OGL.API" path="NexVerse/Server/Api" type="Library">
       <Configuration name="Debug">
         <Options>
           <OutputPath>../../../bin/</OutputPath>

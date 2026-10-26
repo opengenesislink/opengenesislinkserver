@@ -14,7 +14,7 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../../../NexVerse/Core/NexVerse.Core.csproj" />
-    <ProjectReference Include="../../../NexVerse/Server/Api/NexVerse.Server.Api.csproj" />
+    <ProjectReference Include="../../../NexVerse/Server/Api/OGL.API.csproj" />
     <ProjectReference Include="../../../OpenSim/Addons/Groups/OpenSim.Addons.Groups.csproj" />
     <ProjectReference Include="../../../OpenSim/Framework/OpenSim.Framework.csproj" />
     <ProjectReference Include="../../../OpenSim/Framework/Console/OpenSim.Framework.Console.csproj" />
