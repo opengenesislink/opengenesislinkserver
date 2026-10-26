@@ -8,6 +8,29 @@ Das geschützte World-API-Adminpanel verwendet jetzt ein konsistentes, an AdminL
 
 Alte Einträge aus dem Versionsverlauf vor `0.9.3.10` werden **in der UI ausgefiltert**. Historische DB-Migrationen, alte Asset-IDs, bestehende Viewer-Protokolle, Backups und kompatibilitätsrelevanter Servercode werden ausdrücklich nicht blind entfernt.
 
+## Operator Control Center 5.0 – Dark Mode (26.10.2026)
+
+Die helle AdminLTE-4-Skin wurde durch einen konsistenten Dark-Operator-Look ersetzt:
+Anthrazit-Blau für die Hauptfläche, dunkle Header-/Sidebar-/Karten-/Formular- und
+Tabellenflächen, Cyan ausschließlich als Funktions- und Statusakzent. Auch die
+vorher helle sichere Login-Karte wird dunkel ausgegeben. Ein Light-Mode ist für
+dieses Control Center nicht vorgesehen; es wird kein Theme aus dem CDN geladen.
+
+Die Sidebar enthält 27 bestehende Seitenziele, neu nach Betriebsaufgaben sortiert,
+mit einheitlichen lokalen SVG-Icons, aufklappbaren Sektionen, Tastatur-Fokusmarkierung
+und responsivem Öffnen/Schließen. Bestehende data-page-Kennungen bleiben erhalten;
+API-Endpunkte, Berechtigungsprüfungen und Konsolenfunktionen sind unverändert.
+
+Die bisherige AdminLTE-Light-CSS-Schicht ist ersetzt, nicht durch ein weiteres
+optionales Theme überdeckt. Die CI-Prüfung
+tools/ci/verify_ogl_api_adminlte_viewers.py überprüft auch die finale Dark-Skin,
+die Sidebar-Einträge und die Anmeldeseite. Responsive Prüfungen empfohlen bei
+Desktop >= 1280 px, Tablet 900 px und Mobile 390 px.
+
+Deployment: Admin und Login gehören zur OGL.API.dll. ROBUST aktualisieren,
+Browserseite hart neu laden (z. B. Strg+F5), sämtliche Seiten-/Sidebar-Pfade und
+Firestorm-Login im Staging prüfen. Keine Datenbankmigration für dieses Redesign.
+
 ## ROBUST-Befehle
 
 `GET /api/v1/admin/console` listet die von ROBUST registrierten Konsolenbefehle via `MainConsole.Instance.Commands.GetHelp(...)` und den aktuellen Ausführungsauftrag. `POST /api/v1/admin/console` nimmt `{"command":"show info","confirmation":"AUSFÜHREN"}` entgegen und dispatcht über `MainConsole.Instance.RunCommand(...)` – **kein OS-Shell-/SSH-Ersatz**. UserLevel mindestens 200, echtes lokales UserAccount, `admin:*`-Scope, explizite Browserbestätigung und maximal ein gleichzeitiger Auftrag sind notwendig. Der ausführende Prozess schreibt Ergebnisse in das normale tagesweise ROBUST-Log. Befehle, die interaktive Konsoleneingaben erwarten oder den Prozess beenden, können im Webinterface nicht vollständig synchron abgearbeitet werden; die lokale Konsole bleibt als Rückfallweg verfügbar. Ein Auftrag mit `running` ist nicht zwangsläufig beendet, wenn der Browser neu geladen wird. **Keine automatische Wiederholung** von Mutationen.
