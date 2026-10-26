@@ -50,6 +50,17 @@
     PrivatePort = "8003"
 
 [Startup]
+    ; OGL 0.9.3.13: erweiterte Sicht auf mehr als das bisherige 3x3-Raster.
+    ; Opt-in: angepasste Defaults MaxDrawDistance=1024 und
+    ; MaxRegionsViewDistance=768; Standard bleibt 512 / 255.
+    ; Firestorm muss eine ausreichend hohe Sichtweite (z. B. 512 m) einstellen.
+    ; Hohe Sichtweite steigert Child-Agent-, Netzwerk- und Renderlast.
+    ; Erst nach Firestorm-/VarRegion-/Hypergrid-Staging-Abnahme aktivieren!
+    OGLExtendedRegionVisibility = false
+    ; MaxDrawDistance = 1024
+    ; MaxRegionsViewDistance = 768
+    ; MinRegionsViewDistance = 96
+
     ; IAR-Fortschritt live neben der lokalen Konsolen-Eingabe anzeigen.
     ; Remote-Konsole: show iar progress (manuelle Live-Abfrage).
     OGLIarLiveProgress = true
