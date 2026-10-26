@@ -637,6 +637,13 @@ namespace NexVerse.Server.Api
             AppendCatalogGroup(md, requestedAudience, "shared", "Places",
                 "/api/v1/places",
                 "/api/v1/places/{placeId}");
+            AppendCatalogGroup(md, requestedAudience, "shared", "OpenGenesisLINK Avatar Feed – Beiträge, Likes, Kommentare und Folgen",
+                "/api/v1/feed/{principalId}",
+                "/api/v1/feed/{principalId}/{postId}",
+                "/api/v1/feed/{principalId}/{postId}/comments",
+                "/api/v1/feed/{principalId}/{postId}/comments/{commentId}",
+                "/api/v1/feed/{principalId}/{postId}/likes",
+                "/api/v1/feed/{principalId}/following");
             AppendCatalogGroup(md, requestedAudience, "shared", "Avatarprofile und Bildbytes",
                 "/api/v1/profiles/{principalId}",
                 "/api/v1/profiles/{principalId}/image");
