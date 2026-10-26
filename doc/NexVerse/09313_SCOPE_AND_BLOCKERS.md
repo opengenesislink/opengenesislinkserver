@@ -1,6 +1,6 @@
 # OpenGenesisLINK 0.9.3.13 — Implementierungsgrenzen und Freigabeblocker
 
-**Stand: 24.10.2026. Status: technischer Scope-Nachweis, keine Release-Freigabe.**
+**Stand: 26.10.2026. Status: technischer Scope-Nachweis, keine Release-Freigabe.**
 Siehe [Roadmap](ROADMAP.md), [Goal #294](https://github.com/opengenesislink/opengenesislinkserver/issues/294)
 und [Release-Gates](09313_RELEASE_ACCEPTANCE.md).
 
@@ -10,6 +10,13 @@ Die vom Betreiber bestätigten Roadmap-Punkte lauten:
 
 - **17.1 NexAsset / OGL AssetService**
 - **17.2 Modern material/content pipeline**
+- **17.3 Extended Region Visibility** (ergänzender Beschluss vom 26.10.2026,
+  Staging-Preset für mehr als 9 sichtbare Regionen, Firestorm/Last-Abnahme verpflichtend)
+
+**OGLSeasons wird bis einschließlich 0.9.3.13 eingefroren.** Ein
+kompletter Ersatz wird **erst nach** Stable 0.9.3.13 in einem gesonderten
+Projekt entwickelt. Das Alt-Addon bleibt aus Kompatibilitätsgründen erhalten
+und wird nicht automatisch auf Produktivregionen entfernt.
 
 NexMarketplace und NexMedia gehören ausdrücklich nicht mehr dazu. Dieses Dokument
 entfernt **keine** weiteren Anforderungen aus der Roadmap. Nicht nachgewiesene
@@ -48,6 +55,19 @@ glTF-Mesh-Importer und keine erfolgreiche produktive AssetService-Umstellung.
   Rollback-Übung, Release Candidate auf exaktem Commit und unterschriebene
   Betreiberfreigabe.
 - Relevant gebliebene offene 0.9.3.12-Gates erneut auf dem Kandidaten prüfen.
+
+## Zusatzblock 17.3 – Regionssichtweite / Firestorm
+
+- Das bestehende 255-m-RegionView-Limit (ungefähr 3×3 Sims) wird durch
+  ein **opt-in**-Preset auf 768 m angehoben; MaxDrawDistance 1024 m.
+  Explizite INI-Werte überschreiben das Preset, Viewer-Sichtweite bleibt relevant.
+- Die GetNeighbors-Grid-Abfrage ist gegen uint-Unterlauf nahe Koordinate 0
+  abgesichert. Keine neue Viewer-Nachrichtenart und kein Hypergrid-Merge.
+- **Nicht produktiv freigegeben**: Erst V01–V04 (Terrain/Prims in mehr als
+  9 Sims, VAR-/Host-/Child-Agent-/HG-Tests, Last und Rollback) belegen.
+- Bestehende aktive Simulator-INI nicht ändern; Vorher-/Nachher-Messungen
+  separat auf Staging.
+- [Konfiguration und Testfälle](../OpenGenesisLINK/09313_EXTENDED_REGION_VISIBILITY.md).
 
 ## Sicherheitsgrenzen und Installation
 
