@@ -1,11 +1,13 @@
 # OpenGenesisLINK 0.9.3.13 — Release- und Goal-Abnahme
 
-**Stand: 24.10.2026. Status: IN ARBEIT, NICHT als Stable freigegeben.**
+**Stand: 26.10.2026. Status: IN ARBEIT, NICHT als Stable freigegeben.**
 
 Dieser Nachweisplan ergänzt [ROADMAP.md](ROADMAP.md) und das [Dokument zum belegten Implementierungsumfang und den offenen Releaseblockern](09313_SCOPE_AND_BLOCKERS.md). Nach der Betreiberentscheidung
-besteht der Meilenstein **0.9.3.13** ausschließlich aus **17.1 NexAsset / OGL
-AssetService** und **17.2 Modern material/content pipeline**. NexMarketplace
-und NexMedia sind keine Bestandteile dieses Meilensteins.
+umfasst 0.9.3.13 **17.1 NexAsset / OGL AssetService**,
+**17.2 Modern material/content pipeline** und nach dem zusätzlichen
+Betreiberbeschluss vom 26.10.2026 **17.3 Extended Region Visibility**.
+NexMarketplace, NexMedia und ein OGLSeasons-Neuaufbau sind **keine**
+Bestandteile dieses Meilensteins. OGLSeasons wird bis danach eingefroren.
 
 Ein grüner CI-Lauf oder ein Merge ist keine Produktionsfreigabe.
 FSAssets, SQL, UUIDs, Inventare, Berechtigungen und Hypergrid-Kompatibilität
@@ -83,6 +85,26 @@ abgenommener eigenständiger verteilter OGL-Assetdienst.
 Ein vorhandener Parser, ein Material-API-Endpunkt oder eine grüne Unit-Test-
 Suite sind kein vollständiger Nachweis der Viewer- und Materialpipeline.
 
+## 4a. Extended Region Visibility — verbindliche Zusatzgates (17.3)
+
+Opt-in-Implementation: `OGLExtendedRegionVisibility=false` bleibt Standard;
+bei `true` gelten als Preset-Defaults `MaxDrawDistance=1024` und
+`MaxRegionsViewDistance=768`. Die expliziten INI-Overrides und persönlichen
+Viewer-Distanzen behalten Vorrang. Keine automatische Aktivierung in Produktion.
+[Abnahme- und Rollback-Verfahren](../OpenGenesisLINK/09313_EXTENDED_REGION_VISIBILITY.md).
+
+| ID | Erforderlicher Nachweis | Stand |
+| --- | --- | --- |
+| V01 | Firestorm 7.2.4: >9 Regionen tatsächlich gleichzeitig als Terrain und Prims sichtbar; Draw-Distance-/3×3-Baseline-Vergleich | NOT_RUN |
+| V02 | Standard- und 512/1024-VAR-Regionen, mehrere Simulatoren/Hosts, nahe Grid-Nullpunkt, Online-/Offline-Wechsel | NOT_RUN |
+| V03 | Child-Agent/CAPS/UDP, Grenzübergang, Teleport, Relog und HG-Besucher fehlerfrei; keine zusätzlichen Loginfehler | NOT_RUN |
+| V04 | RAM, CPU, Netzwerk- und Child-Agent-Last, Viewer-FPS, mindestens 30-minütige Vergleichsprobe; Rollback erfolgreich | NOT_RUN |
+
+**OGLSeasons:** Alte Umsetzung unverändert belassen, keine neue
+Featureentwicklung in 0.9.3.13 und **keine** Abnahme als Release-Pflicht.
+Vollständiger Nachfolge-Neuentwurf beginnt nach Veröffentlichung von Stable
+0.9.3.13; keine vorgezogene Deinstallation auf aktiven Regionen.
+
 ## 5. Betrieb und Stable-Release
 
 | ID | Erforderlicher Nachweis | Stand |
@@ -113,6 +135,7 @@ auf dem jeweiligen 0.9.3.13-Kandidaten erneut geprüft werden.
 - [ ] AssetService-, Migration-, Fallback- und Restore-Gates nachweisen.
 - [ ] Modernen Material-/glTF-/PBR-Scope und Firestorm E2E abschließen.
 - [ ] RC/Stable-Testbelege und Betreiberfreigabe dokumentieren.
+- [ ] V01–V04 Extended Region Visibility auf Staging und in Firestorm nachweisen.
 
 **Keine Änderungen an produktiven INI-Dateien, FSAssets-Dateien oder Datenbanken.
 Kein automatischer Wechsel des AssetConnectors.**

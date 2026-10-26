@@ -1521,6 +1521,36 @@ Add or improve support for:
 
 Legacy Collada remains available for compatibility while glTF becomes the preferred future direction.
 
+### 17.3 Extended Region Visibility — zusätzlicher Scopebeschluss 26.10.2026
+
+- [x] Opt-in-Preset `[Startup] OGLExtendedRegionVisibility` implementieren:
+  1024 m maximales Draw Distance, 768 m maximale Regionssicht; bestehende
+  512/255-m-Defaults und explizite Operator-Overrides erhalten.
+- [x] Signierte und überlaufsichere Regionssuchgrenzen im
+  `EntityTransferModule.GetNeighbors` bei großer Sichtweite ergänzen.
+- [x] Regressionstest und Abschalt-/Rollback-Dokumentation ergänzen.
+- [ ] **Vor 0.9.3.13 RC/Stable**: Firestorm 7.2.4 mit >9 tatsächlich
+  sichtbaren Regionen, Child-Agents, CAPs, VAR-Regionen und mehreren
+  Simulatorprozessen abnehmen.
+- [ ] CPU/RAM/Netzwerk/Viewer-FPS und stabilen 30-Minuten-Betrieb
+  mit und ohne Opt-in messen; bei Problemen nicht produktiv aktivieren.
+
+Die Erweiterung ist ein **zusätzlicher, verbindlicher 0.9.3.13-
+Abnahmeblock**, ohne Änderung der bisherigen AssetService-/Material-Gates.
+Eine sichtbare 5×5-Regionen-Anordnung wird angestrebt, aber nicht allein
+durch den Server garantiert; Firestorm-Sichtweite und Grid-Topologie sind
+maßgeblich. Dokumentation: [Extended Region Visibility](../OpenGenesisLINK/09313_EXTENDED_REGION_VISIBILITY.md).
+
+### OGLSeasons — Nachfolge erst nach Stable 0.9.3.13
+
+Das bisherige OGLSeasons-Addon wird in 0.9.3.13 **eingefroren**:
+keine weiteren Feature-Änderungen, keine automatische Deinstallation und
+kein 0.9.3.13-Release-Gate. Nach der Veröffentlichung wird die bisherige
+Umsetzung im Rahmen eines gesonderten Projekts vollständig neu konzipiert.
+Eine Entfernung oder Migration erfolgt erst nach ausdrücklichem
+Kompatibilitäts- und Betreiberentscheid, damit bestehende Regionen nicht
+unbeabsichtigt beschädigt werden.
+
 ---
 
 # Milestone 0.9.3.14

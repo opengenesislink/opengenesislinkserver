@@ -2589,27 +2589,29 @@ namespace OpenSim.Region.CoreModules.Framework.EntityTransfer
             }
 
             Scene pScene = avatar.Scene;
-            uint dd = (uint)pScene.MaxRegionViewDistance;
-            if(dd <= 1)
+            float maxRange = pScene.MaxRegionViewDistance;
+            if (maxRange <= 1f || float.IsNaN(maxRange) || float.IsInfinity(maxRange))
                 return new List<GridRegion>();
 
             RegionInfo regionInfo = pScene.RegionInfo;
-            uint startX = regionInfo.WorldLocX;
-            uint endX = startX + regionInfo.RegionSizeX;
-            uint startY = regionInfo.WorldLocY;
-            uint endY = startY + regionInfo.RegionSizeY;
 
-            --dd;
-            startX -= dd;
-            startY -= dd;
-            endX += dd;
-            endY += dd;
+            // An expanded view range may cross the world origin. The legacy
+            // unsigned subtraction wrapped at zero, giving a negative signed
+            // GridService query after the cast. Calculate with signed wide
+            // coordinates and clamp to GridService's supported int range.
+            // This is a search envelope, not a 3x3 neighbour cap: the existing
+            // RegionsInSPView() subsequently applies each avatar's draw range.
+            long border = (long)Math.Ceiling(maxRange) - 1L;
+            int startX = (int)Math.Min(int.MaxValue, Math.Max(0L, (long)regionInfo.WorldLocX - border));
+            int startY = (int)Math.Min(int.MaxValue, Math.Max(0L, (long)regionInfo.WorldLocY - border));
+            int endX = (int)Math.Min(int.MaxValue, (long)regionInfo.WorldLocX + regionInfo.RegionSizeX + border);
+            int endY = (int)Math.Min(int.MaxValue, (long)regionInfo.WorldLocY + regionInfo.RegionSizeY + border);
 
             List<GridRegion> neighbours = avatar.Scene.GridService.GetRegionRange(
-                    regionInfo.ScopeID, (int)startX, (int)endX, (int)startY, (int)endY);
+                    regionInfo.ScopeID, startX, endX, startY, endY) ?? new List<GridRegion>();
 
             // The r.RegionFlags == null check only needs to be made for simulators before 2015-01-14 (pre 0.8.1).
-            neighbours.RemoveAll( r => r.RegionID.Equals(regionInfo.RegionID));
+            neighbours.RemoveAll(r => r.RegionID.Equals(regionInfo.RegionID));
             Neighbors = neighbours;
             LastNeighborsTime = DateTime.UtcNow;
             return neighbours;

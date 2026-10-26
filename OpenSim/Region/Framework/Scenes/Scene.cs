@@ -919,9 +919,17 @@ namespace OpenSim.Region.Framework.Scenes
 
                 StartDisabled = startupConfig.GetBoolean("StartDisabled", false);
 
+                // OGL 0.9.3.13: opt-in extended neighbour visibility for Firestorm/OpenSim.
+                // Retain the original 512m/255m defaults unless the operator opts in.
+                // Explicit MaxDrawDistance/MaxRegionsViewDistance values still override
+                // this preset. Increasing the server envelope never forces viewer
+                // draw distance and does not bypass the per-avatar range calculation.
+                bool oglExtendedRegionVisibility = startupConfig.GetBoolean("OGLExtendedRegionVisibility", false);
                 m_defaultDrawDistance = startupConfig.GetFloat("DefaultDrawDistance", m_defaultDrawDistance);
-                m_maxDrawDistance = startupConfig.GetFloat("MaxDrawDistance", m_maxDrawDistance);
-                m_maxRegionViewDistance = startupConfig.GetFloat("MaxRegionsViewDistance", m_maxRegionViewDistance);
+                m_maxDrawDistance = startupConfig.GetFloat("MaxDrawDistance",
+                    oglExtendedRegionVisibility ? 1024f : m_maxDrawDistance);
+                m_maxRegionViewDistance = startupConfig.GetFloat("MaxRegionsViewDistance",
+                    oglExtendedRegionVisibility ? 768f : m_maxRegionViewDistance);
                 m_minRegionViewDistance = startupConfig.GetFloat("MinRegionsViewDistance", m_minRegionViewDistance);
 
                 // old versions compatibility
@@ -937,6 +945,10 @@ namespace OpenSim.Region.Framework.Scenes
                     m_minRegionViewDistance = 96f;
                 if(m_minRegionViewDistance > m_maxRegionViewDistance)
                     m_minRegionViewDistance = m_maxRegionViewDistance;
+
+                if (oglExtendedRegionVisibility)
+                    m_log.InfoFormat("[OGL-REGION-VIEW]: Erweiterte Regionssicht in {0} aktiviert. Maximale Darstellungsdistanz={1}m, Regionssicht={2}m. Firestorm-Sichtweite und Regionsverbindungen weiterhin maßgeblich.",
+                        RegionInfo.RegionName, m_maxDrawDistance, m_maxRegionViewDistance);
 
                 UseBackup = startupConfig.GetBoolean("UseSceneBackup", UseBackup);
                 if (!UseBackup)
