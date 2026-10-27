@@ -32,7 +32,8 @@ for key in required_scene:
 assert "protected float m_maxRegionViewDistance = 255f" in scene
 assert "protected float m_maxDrawDistance = 512.0f" in scene
 assert "OGLExtendedRegionVisibility = false" in sample
-assert "OGLExtendedRegionVisibility = true" not in active
+# Operator deployment profile explicitly enables opt-in; generic templates stay off.
+assert "OGLExtendedRegionVisibility = true" in active
 assert "OGLExtendedRegionVisibility = true" not in defaults
 
 for key in [
@@ -80,4 +81,4 @@ assert new_bounds(1_000_000,256,768)==(999233,1001023)
 assert "17.3 Extended Region Visibility" in roadmap
 for key in ("V01", "V02", "V03", "V04"):
     assert key in acceptance, "Missing mandatory release gate: "+key
-print("OGL extended view: defaults unchanged, opt-in 768m >9-region fixture, safe world bounds, release gates OK")
+print("OGL extended view: operator profile opt-in, generic defaults unchanged, safe world bounds, release gates OK")

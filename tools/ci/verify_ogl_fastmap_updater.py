@@ -38,7 +38,10 @@ assert "mv -- \"$stage\" \"$final\"" in sh
 
 for path in ("bin/OpenSim.ini", "bin/OpenSim.ini.example", "bin/OpenSimDefaults.ini"):
     ini = read(path)
-    for setting in ("FastMapAsyncStartup = false", "FastMapStartupDelaySeconds = 45",
+    # The operator deployment opts in, while reusable defaults stay fail-safe.
+    expected_fastmap = ("FastMapAsyncStartup = true" if path == "bin/OpenSim.ini"
+                        else "FastMapAsyncStartup = false")
+    for setting in (expected_fastmap, "FastMapStartupDelaySeconds = 45",
                     "UpdateStagingEnabled = false", "UpdateStagingBuild = true"):
         assert setting in ini, (path, setting)
 
