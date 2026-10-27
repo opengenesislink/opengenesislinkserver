@@ -1,4 +1,6 @@
-# OpenGenesisLINK 0.9.3.13 RC1 — Abnahmekandidat, keine Stable-Veröffentlichung
+# OpenGenesisLINK 0.9.3.13 RC1 — historischer Abnahmeplan
+
+> **Aktualisierung vom 27.10.2026:** OpenGenesisLINK 0.9.3.13 wurde auf ausdrückliche Betreiberentscheidung als Stable freigegeben. Die frühere formale 30-Gates-Evidence-Sperre wurde durch eine dokumentierte Betreiber-Ausnahmeentscheidung übersteuert; fehlende Einzelbelege werden nicht als verifiziert dargestellt. Siehe [Stable-Freigabeentscheidung](09313_OPERATOR_RELEASE_DECISION.md) und [Release Notes](RELEASE_0.9.3.13.md). Dieser Abschnitt bleibt als historischer Plan erhalten.
 
 > **Statusaktualisierung 27.10.2026:** Auf ausdrücklichen Betreiberwunsch wurde der
 > bisherige RC1-Code für die interaktive Testphase wieder auf
