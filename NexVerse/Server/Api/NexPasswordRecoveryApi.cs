@@ -6,9 +6,12 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net;
+using System.Net.Mail;
 using System.Text;
 using System.Text.Json;
 using System.Security.Cryptography;
+using System.Threading;
+using System.Threading.Tasks;
 using NexVerse.Core.Security;
 using NexVerse.Core.Identity;
 using OpenMetaverse;
@@ -29,6 +32,15 @@ namespace NexVerse.Server.Api
         private readonly INexOAuthStore m_OAuth;
         private readonly NexPasswordRecoveryStore m_Store;
         private readonly bool m_Enabled;
+        // Optional keyless, recipient-verified flow: World owns token AND SMTP.
+        // This never returns a challenge token to an anonymous caller.
+        private readonly bool m_PublicEnabled;
+        private readonly string m_MailHost, m_MailUser, m_MailPassword, m_MailFrom;
+        private readonly int m_MailPort;
+        private readonly Dictionary<string, (long Hour, int Count)> m_PublicLimits = new();
+        // Bound SMTP concurrency. Never let a slow known-account SMTP call make
+        // an anonymous response slower than an unknown-account response.
+        private readonly SemaphoreSlim m_PublicMailSlots = new(2, 2);
         private readonly HashSet<string> m_TrustedProxies;
         private readonly HashSet<string> m_TrustedHttpPeers;
         private readonly object m_ThrottleSync = new();
@@ -38,7 +50,9 @@ namespace NexVerse.Server.Api
             IUserAccountService accounts, INexUserService users,
             INexOAuthStore oauth, NexPasswordRecoveryStore store,
             NexPasswordRecoveryAccountLookup lookup, bool enabled,
-            string trustedProxyIps, string trustedHttpPeers)
+            string trustedProxyIps, string trustedHttpPeers,
+            bool publicEnabled = false, string smtpHost = "", int smtpPort = 587,
+            string smtpUser = "", string smtpPassword = "", string smtpFrom = "")
         {
             m_Authenticator = authenticator ?? throw new ArgumentNullException(nameof(authenticator));
             m_Accounts = accounts ?? throw new ArgumentNullException(nameof(accounts));
@@ -47,6 +61,12 @@ namespace NexVerse.Server.Api
             m_Store = store;
             m_Lookup = lookup;
             m_Enabled = enabled;
+            m_PublicEnabled = publicEnabled;
+            m_MailHost = smtpHost?.Trim() ?? "";
+            m_MailPort = smtpPort;
+            m_MailUser = smtpUser ?? "";
+            m_MailPassword = smtpPassword ?? "";
+            m_MailFrom = smtpFrom?.Trim() ?? "";
             m_TrustedProxies = ParseIps(trustedProxyIps);
             m_TrustedHttpPeers = ParseIps(trustedHttpPeers);
         }
@@ -104,6 +124,104 @@ namespace NexVerse.Server.Api
                 m_Throttle[peer] = counter;
                 return counter.Count <= 30;
             }
+        }
+
+        private bool PublicEmailLimitAllowed(string email, long now)
+        {
+            // In-process hash counters hide account identity in memory keys.
+            // MariaDB's per-principal limit is authoritative across nodes.
+            string normalized = email.Trim().ToLowerInvariant();
+            string key = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(normalized)));
+            long hour = now / 3600;
+            lock (m_ThrottleSync)
+            {
+                if (m_PublicLimits.Count >= 2000)
+                {
+                    foreach (string expired in m_PublicLimits.Where(x => x.Value.Hour < hour)
+                                 .Select(x => x.Key).ToArray())
+                        m_PublicLimits.Remove(expired);
+                    if (m_PublicLimits.Count >= 2000 && !m_PublicLimits.ContainsKey(key))
+                        return false;
+                }
+                if (!m_PublicLimits.TryGetValue(key, out var slot) || slot.Hour != hour)
+                    slot = (hour, 0);
+                m_PublicLimits[key] = (hour, slot.Count + 1);
+                return slot.Count < 3;
+            }
+        }
+
+        private bool PublicMailReady => !string.IsNullOrWhiteSpace(m_MailHost) &&
+            m_MailPort > 0 && m_MailPort <= 65535 &&
+            !string.IsNullOrWhiteSpace(m_MailUser) &&
+            !string.IsNullOrWhiteSpace(m_MailPassword) &&
+            !string.IsNullOrWhiteSpace(m_MailFrom);
+
+        private void SendPublicRecoveryEmail(string address, string token)
+        {
+            // Never accept a recipient or URL that was supplied separately by a browser.
+            // The address comes ONLY from World’s verified local UserAccount.
+            string link = "https://stadt-nexverse.de/passwort-zuruecksetzen?token=" +
+                Uri.EscapeDataString(token);
+            using MailMessage message = new(new MailAddress(m_MailFrom),
+                new MailAddress(address));
+            message.Subject = "Stadt-NexVerse: Passwort zuruecksetzen";
+            message.Body = "Ein neues Passwort fuer dein Stadt-NexVerse-Konto wurde angefordert.\n\n" +
+                "Oeffne diesen einmal gueltigen Link innerhalb von 15 Minuten:\n" +
+                link + "\n\nFalls du die Anfrage nicht gestellt hast, ignoriere diese E-Mail.";
+            using SmtpClient smtp = new(m_MailHost, m_MailPort)
+            {
+                EnableSsl = true, // STARTTLS is mandatory: no plaintext SMTP credentials.
+                Credentials = new NetworkCredential(m_MailUser, m_MailPassword),
+                DeliveryMethod = SmtpDeliveryMethod.Network,
+                Timeout = 10000
+            };
+            smtp.Send(message);
+        }
+
+        private void PublicRequest(JsonElement data, IOSHttpResponse response,
+            long now, string correlation)
+        {
+            string email = Value(data, "email")?.Trim();
+            if (string.IsNullOrWhiteSpace(email) || email.Length > 64 ||
+                !email.Contains('@') || email.Any(c => c < 33 || c > 126 ||
+                    c == '\'' || c == '"' || c == ';'))
+            {
+                Reply(response, HttpStatusCode.BadRequest, "invalid_email", correlation);
+                return;
+            }
+            // A 202 response MUST be identical for known, unknown, throttled,
+            // ambiguous and SMTP-failing identities. Never expose World tokens.
+            if (PublicEmailLimitAllowed(email, now) && m_PublicMailSlots.Wait(0))
+            {
+                // Execute account lookup, MariaDB writes and SMTP AFTER the
+                // HTTP response has been prepared. Otherwise synchronous SMTP
+                // timing would reveal whether an account existed.
+                string queuedEmail = email;
+                _ = Task.Run(() =>
+                {
+                    try
+                    {
+                        UserAccount account = m_Lookup.FindUniqueLocalAccount(queuedEmail);
+                        if (account != null)
+                        {
+                            string token = m_Store.IssuePublic(account.PrincipalID.Guid,
+                                DateTimeOffset.UtcNow.ToUnixTimeSeconds());
+                            if (token != null)
+                                SendPublicRecoveryEmail(account.Email, token);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        s_Log.WarnFormat("[WORLD RECOVERY]: anonymous mail delivery or store failed ({0}), correlation={1}",
+                            ex.GetType().Name, correlation);
+                    }
+                    finally
+                    {
+                        m_PublicMailSlots.Release();
+                    }
+                });
+            }
+            Reply(response, HttpStatusCode.Accepted, "accepted", correlation);
         }
 
         private static void Reply(IOSHttpResponse response, HttpStatusCode code,
@@ -183,14 +301,32 @@ namespace NexVerse.Server.Api
                 StringComparison.OrdinalIgnoreCase);
             bool complete = path.Equals("/api/v1/auth/password-recovery/complete",
                 StringComparison.OrdinalIgnoreCase);
-            if (!issue && !complete)
+            bool publicRequest = path.Equals("/api/v1/auth/password-recovery/request",
+                StringComparison.OrdinalIgnoreCase);
+            bool publicComplete = path.Equals("/api/v1/auth/password-recovery/confirm",
+                StringComparison.OrdinalIgnoreCase);
+            if (!issue && !complete && !publicRequest && !publicComplete)
             {
                 Reply(response, HttpStatusCode.NotFound, "not_found", correlation);
                 return;
             }
-            if (!Authorize(request, response,
-                    issue ? NexScopes.PasswordRecoveryIssue : NexScopes.PasswordRecoveryComplete,
-                    correlation))
+            if (publicRequest || publicComplete)
+            {
+                if (!m_PublicEnabled || !m_Enabled || m_Store == null ||
+                    (publicRequest && (!PublicMailReady || m_Lookup == null)))
+                {
+                    Reply(response, HttpStatusCode.ServiceUnavailable, "recovery_disabled", correlation);
+                    return;
+                }
+                if (!HasSecureTransport(request))
+                {
+                    Reply(response, HttpStatusCode.Forbidden, "https_required", correlation);
+                    return;
+                }
+            }
+            else if (!Authorize(request, response,
+                         issue ? NexScopes.PasswordRecoveryIssue : NexScopes.PasswordRecoveryComplete,
+                         correlation))
                 return;
             long now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
             if (!RateAllowed(Peer(request), now))
@@ -225,10 +361,12 @@ namespace NexVerse.Server.Api
                     Reply(response, HttpStatusCode.BadRequest, "invalid_json", correlation);
                     return;
                 }
-                if (issue)
+                if (publicRequest)
+                    PublicRequest(doc.RootElement, response, now, correlation);
+                else if (issue)
                     Issue(doc.RootElement, response, now, correlation);
                 else
-                    Complete(doc.RootElement, response, now, correlation);
+                    Complete(doc.RootElement, response, now, correlation, publicComplete);
             }
             catch (JsonException)
             {
@@ -277,7 +415,8 @@ namespace NexVerse.Server.Api
             });
         }
 
-        private void Complete(JsonElement data, IOSHttpResponse response, long now, string correlation)
+        private void Complete(JsonElement data, IOSHttpResponse response, long now,
+            string correlation, bool publicOnly = false)
         {
             string token = Value(data, "token");
             string password = Value(data, "new_password");
@@ -286,7 +425,12 @@ namespace NexVerse.Server.Api
                 Reply(response, HttpStatusCode.BadRequest, "invalid_password", correlation);
                 return;
             }
-            if (!m_Store.TryClaim(token, now, out Guid principal, out string claim))
+            Guid principal;
+            string claim;
+            bool claimed = publicOnly
+                ? m_Store.TryClaimPublic(token, now, out principal, out claim)
+                : m_Store.TryClaim(token, now, out principal, out claim);
+            if (!claimed)
             {
                 Reply(response, HttpStatusCode.Gone, "invalid_or_expired_challenge", correlation);
                 return;
