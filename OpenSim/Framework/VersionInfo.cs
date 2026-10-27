@@ -31,11 +31,12 @@ namespace OpenSim
     {
         // NexVerse maintains its own version line from the OpenSimulator 0.9.3.0 baseline.
         public const string ProductName = "OpenGenesisLINK";
-        public const string VersionNumber = "0.9.3.12";
-        public const string AssemblyVersionNumber = "0.9.3.12";
+        public const string VersionNumber = "0.9.3.13";
+        public const string AssemblyVersionNumber = "0.9.3.13";
 
-        // Development test rollout: RC1 requires separate, evidence-backed approval.
-        public const Flavour VERSION_FLAVOUR = Flavour.Release;
+        // Release candidate only: 0.9.3.13 Stable requires 30 proven
+        // acceptance gates and a separate, explicitly approved release commit.
+        public const Flavour VERSION_FLAVOUR = Flavour.RC1;
 
         public enum Flavour
         {
