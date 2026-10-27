@@ -25,7 +25,7 @@ Wichtigster offener P0-Punkt: **Ein sicherer Simulator-Eventadapter für Bugmeld
 
 ## Entwicklungsstand
 
-Der Quellcode meldet derzeit **OpenGenesisLINK 0.9.3.12**. Der Versionsstring allein ist kein Nachweis einer veröffentlichten oder vollständig abgenommenen Stable-Version. Maßgeblich für freigegebene Pakete sind die [GitHub-Releases](https://github.com/opengenesislink/opengenesislinkserver/releases) und die jeweilige Betreiberabnahme.
+Der **main-Quellcode steht auf OpenGenesisLINK 0.9.3.14 Dev** (nächste Entwicklungslinie). Die letzte offiziell veröffentlichte Stable-Version ist **[0.9.3.13](https://github.com/opengenesislink/opengenesislinkserver/releases/tag/v0.9.3.13)**. Ein main-Quellcode-Stand ist kein Stable-Release; dafür sind die unveränderlichen GitHub-Release-Tags maßgeblich.
 
 Die Plattform wird weiterhin aktiv entwickelt. Insbesondere der **OGL AssetService** mit Cache-, Migrations- und Verwaltungsfunktionen befindet sich in gesonderter Integrations- und Abnahmeprüfung. Ein exklusiver Produktivwechsel von FSAssets auf OGL AssetService darf nicht aus einem erfolgreichen Build abgeleitet werden.
 
@@ -82,7 +82,7 @@ Availability depends on the deployed version, configuration and enabled modules.
 
 ### Current status
 
-The current source version string is **OpenGenesisLINK 0.9.3.12**. This does not by itself establish a published or fully accepted stable release. Consult [GitHub Releases](https://github.com/opengenesislink/opengenesislinkserver/releases) for published artifacts and release status.
+The **main source branch is OpenGenesisLINK 0.9.3.14 Dev** (next development cycle). The latest officially published stable release is **[0.9.3.13](https://github.com/opengenesislink/opengenesislinkserver/releases/tag/v0.9.3.13)**. The main branch is not a Stable artifact; use immutable GitHub release tags for production builds.
 
 The **OGL AssetService** is undergoing separate integration and acceptance work; successful compilation alone does not authorize a production cutover from FSAssets. OGLVoice, the future OGL viewer and advanced rendering, pathfinding and experience features follow separate development and validation tracks.
 

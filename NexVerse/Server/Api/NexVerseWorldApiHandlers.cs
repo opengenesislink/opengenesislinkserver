@@ -52,7 +52,7 @@ namespace NexVerse.Server.Api
                 milestone_codename = NexVersePlatform.MilestoneCodename,
                 milestone_title = NexVersePlatform.MilestoneTitle,
                 language = NexVersePlatform.UiLanguage,
-                status = "release",
+                status = "development",
                 health = m_PublicBaseUrl + "/api/v1/health",
                 version = m_PublicBaseUrl + "/api/v1/version",
                 capabilities = m_PublicBaseUrl + "/api/v1/capabilities",
@@ -1618,6 +1618,21 @@ namespace NexVerse.Server.Api
                     new
                     {
                         api_version = NexVersePlatform.ApiVersion,
+                        server_line = "0.9.3.14",
+                        codename = "OGL",
+                        status = "development",
+                        published = (string)null,
+                        compatibility = "OpenGenesisLINK 0.9.3.14 Dev – NexAds, Events und Notification Center als nächster Roadmap-Meilenstein; keine Stable-Freigabe.",
+                        highlights = new[]
+                        {
+                            "Entwicklungslinie 0.9.3.14 nach dem offiziellen 0.9.3.13 Stable-Release gestartet",
+                            "NexAds-Kampagnen, Events und Benachrichtigungen im geplanten Milestone-Scope",
+                            "0.9.3.13 bleibt die letzte offiziell veröffentlichte Stable-Version"
+                        }
+                    },
+                    new
+                    {
+                        api_version = NexVersePlatform.ApiVersion,
                         server_line = "0.9.3.13",
                         codename = "OGL",
                         status = "release",
@@ -1775,6 +1790,16 @@ namespace NexVerse.Server.Api
                 },
                 x_nexverse_changelog = new object[]
                 {
+                    new
+                    {
+                        date = "2026-10-27",
+                        version = "0.9.3.14",
+                        category = "server",
+                        status = "development",
+                        title = "OpenGenesisLINK 0.9.3.14 Dev – neue Entwicklungslinie",
+                        summary = "main folgt jetzt der nächsten Entwicklungsline 0.9.3.14. Roadmap: NexAds, Event-Verwaltung und Notification Center. Der veröffentlichte Stable-Tag v0.9.3.13 bleibt unverändert.",
+                        endpoints = Array.Empty<string>()
+                    },
                     new
                     {
                         date = "2026-10-27",
@@ -2141,7 +2166,7 @@ namespace NexVerse.Server.Api
                         new { version = "0.9.3.11", codename = "", title = "LSL-Parität I — Kernkonformität", status = "planned", checklist = (object)null, summary = "Maschinenlesbare LSL-Matrix, Konformitätstests und Härtung der Script-Sandbox.", evidence = Array.Empty<string>() },
                         new { version = "0.9.3.12", codename = "OGL", title = "OpenGenesisLINK 0.9.3.12 Stable — World API, IAR und LSL", status = "released", checklist = (object)null, summary = "Stable-Versionskennung auf Betreiberwunsch; LSL-/Touch- und Regionschat-Fixes, deutscher IAR-Fortschritt, World API Control Center und RC1-Evidence-Gate. Einzelne Security-/Restore-Live-Nachweise sind weiterhin offen.", evidence = new[] { "Release-Build und GitHub-CI", "IAR-Regression mit 11 Archiven", "UserLevel-200-GridUser-Login" } },
                         new { version = "0.9.3.13", codename = "OGL", title = "OpenGenesisLINK 0.9.3.13 Stable – AssetService, Mesh/PBR und Extended Region Visibility", status = "released", checklist = (object)null, summary = "Betreiberseitig freigegebenes Stable-Release mit dokumentierter Ausnahme von fehlenden 30-Gates-Einzelbelegen: opt-in AssetService, Materialpipeline, LLUDP und erweiterte Regionssicht; FSAssets bleibt autoritativ.", evidence = new[] { "doc/NexVerse/RELEASE_0.9.3.13.md", "doc/NexVerse/09313_OPERATOR_RELEASE_DECISION.md", "doc/NexVerse/09313_RELEASE_ACCEPTANCE.md" } },
-                        new { version = "0.9.3.14", codename = "", title = "NexAds, Veranstaltungen und Benachrichtigungen", status = "planned", checklist = (object)null, summary = "Plattformdienste für Werbung, Veranstaltungen und Benachrichtigungen.", evidence = Array.Empty<string>() },
+                        new { version = "0.9.3.14", codename = "", title = "NexAds, Veranstaltungen und Benachrichtigungen (Dev)", status = "active", checklist = (object)null, summary = "Aktuelle Entwicklungslinie nach 0.9.3.13 Stable. Geplante NexAds-Kampagnen, Events und Notification Center; noch keine fertiggestellten Module durch die Versionsumstellung.", evidence = new[] { "doc/NexVerse/ROADMAP.md", "VERSIONING.md" } },
                         new
                         {
                             version = "0.9.3.15",

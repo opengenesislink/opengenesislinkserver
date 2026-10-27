@@ -1485,7 +1485,7 @@ Provide API/web tooling for:
 
 # Milestone 0.9.3.13
 
-> **Goal-Status: in Arbeit, keine Stable-Freigabe.** [Release- und Nachweismatrix](09313_RELEASE_ACCEPTANCE.md); aktueller Code-/CI-Stand ersetzt keine Viewer-/Storage-Abnahme.
+> **Release-Status: 0.9.3.13 Stable am 27.10.2026 veröffentlicht.** Die formalen Live-Einzelbelege bleiben nach ausdrücklicher [Betreiber-Ausnahmeentscheidung](09313_OPERATOR_RELEASE_DECISION.md) gesondert zu dokumentieren; [Release- und Nachweismatrix](09313_RELEASE_ACCEPTANCE.md). FSAssets bleibt autoritativ.
 
 ## 17. Assets and Rendering
 
@@ -1554,6 +1554,8 @@ unbeabsichtigt beschädigt werden.
 ---
 
 # Milestone 0.9.3.14
+
+> **Status: aktuelle Entwicklungslinie (`0.9.3.14 Dev`) nach 0.9.3.13 Stable.** Die folgenden Funktionen sind geplant und werden durch den Versionswechsel nicht automatisch implementiert oder aktiviert.
 
 ## 18. NexAds, Events and Notifications
 

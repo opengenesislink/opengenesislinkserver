@@ -1,6 +1,7 @@
 # OpenGenesisLINK versioning
 
 Current stable release: **OpenGenesisLINK v0.9.3.13**, operator-approved on 27 October 2026.  
+Current main source line: **OpenGenesisLINK 0.9.3.14 Dev** (next development milestone, not yet a Stable release).  
 Release documentation: **doc/NexVerse/RELEASE_0.9.3.13.md**.  
 **Evidence notice:** Stable published by explicit operator decision despite missing independently verifiable 30-gate live test references. The formal exception and remaining evidence obligations are preserved in **doc/NexVerse/09313_OPERATOR_RELEASE_DECISION.md**; no automatic FSAssets migration is authorized.  
 Previous stable release: **OpenGenesisLINK v0.9.3.12** (14 October 2026).  
@@ -42,6 +43,7 @@ OpenGenesisLINK continues from the OpenSimulator 0.9.3.0 source baseline and the
 - `OpenGenesisLINK v0.9.3.10` — Stable Abschluss des Stabilisierungstrains nach ausdrücklicher Betreiberentscheidung (12.10.2026) for .NET runtime, local/HG logins, NV$ Economy/GRID SERVICES Masterbank, inventory/asset foundations and R287 World API. NexExperiences viewer integration is paused and disabled in shipped RC templates (security regressions remain); OGL Pathfinding 2.0, OGL My Outfits 2.0 and any Experiences 2.0 are deferred to the own viewer; OGLVoice is separate. Die 22 RC1-Funktionsprüfungen wurden vom Betreiber im Chat bestätigt, jedoch nicht mit einzeln referenzierbaren v2-Belegen eingereicht. Die 23/23-Formalprüfung einschließlich 24-h-Soak wurde nicht abgeschlossen; bewusste einmalige Ausnahme: `doc/NexVerse/09310_OPERATOR_RELEASE_DECISION.md`. Dies ist keine Empfehlung für spätere Releases. See `doc/NexVerse/RELEASE_TRAIN_0.9.3.10.md`.
 - `OpenGenesisLINK v0.9.3.12` — **stable release, 14 October 2026**, from the independent 0.9.3.12 line.
 - `OpenGenesisLINK v0.9.3.13` — **Stable, 27 October 2026, durch ausdrückliche Betreiberentscheidung**: 17.1 OGL AssetService (opt-in; FSAssets weiterhin autoritativ), 17.2 Mesh/PBR-Materialpipeline, 17.3 Extended Region Visibility, LLUDP-Fix, FastMap und World-API-Verbesserungen. Die formale 30-Gates-Evidence-Ausnahme ist dokumentiert in `doc/NexVerse/09313_OPERATOR_RELEASE_DECISION.md`. OGLSeasons-Neuentwicklung weiterhin verschoben.
+- `OpenGenesisLINK 0.9.3.14 Dev` — **aktuelle main-Entwicklungslinie ab 27. Oktober 2026**. Roadmap-Meilenstein 18: NexAds, Events und Notification Center. Der Versionswechsel allein schaltet keine neuen Module frei und verändert das Stable-Tag `v0.9.3.13` nicht.
 - `OpenGenesisLINK v0.9.4.0` — Generation 1 consolidation line for broader OGL branding, German administration surfaces and the native addon subsystem.
 
 The product-name transition does not rewrite provenance. OpenSimulator 0.9.3.0 remains the historical source baseline, and inherited licensing remains attached to inherited code until independently replaced.
