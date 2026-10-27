@@ -34,9 +34,9 @@ namespace OpenSim
         public const string VersionNumber = "0.9.3.13";
         public const string AssemblyVersionNumber = "0.9.3.13";
 
-        // Release candidate only: 0.9.3.13 Stable requires 30 proven
-        // acceptance gates and a separate, explicitly approved release commit.
-        public const Flavour VERSION_FLAVOUR = Flavour.RC1;
+        // Active development for operator testing. This is not an RC or Stable
+        // release; both require separate evidence and an approved release commit.
+        public const Flavour VERSION_FLAVOUR = Flavour.Dev;
 
         public enum Flavour
         {

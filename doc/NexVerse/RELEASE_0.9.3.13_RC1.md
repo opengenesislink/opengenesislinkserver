@@ -1,5 +1,14 @@
 # OpenGenesisLINK 0.9.3.13 RC1 — Abnahmekandidat, keine Stable-Veröffentlichung
 
+> **Statusaktualisierung 27.10.2026:** Auf ausdrücklichen Betreiberwunsch wurde der
+> bisherige RC1-Code für die interaktive Testphase wieder auf
+> **OpenGenesisLINK 0.9.3.13 Dev** gesetzt. Dieses Dokument bleibt als
+> historischer RC1-Vorbereitungsplan erhalten und belegt **keinen**
+> aktuell aktiven RC1. Für eine spätere Stable-Freigabe sind ein neuer
+> eingefrorener RC-Commit, erneute CI und alle 30 dokumentierten
+> Live-Gates erforderlich. Die jetzige Dev-Abnahme dient der
+> Fehlerfindung und Vorbereitung, nicht der endgültigen Stable-Freigabe.
+
 Stand 27.10.2026. Dieses Dokument **bereitet** die Abnahme vor;
 es bestätigt keine erfolgreichen Betreiber-, Firestorm- oder Storage-Tests.
 Quellquelle: `main` zum Zeitpunkt der RC1-Zusammenführung; der
