@@ -1618,6 +1618,23 @@ namespace NexVerse.Server.Api
                     new
                     {
                         api_version = NexVersePlatform.ApiVersion,
+                        server_line = "0.9.3.13",
+                        codename = "OGL",
+                        status = "rc1",
+                        published = (string)null,
+                        compatibility = "0.9.3.13 RC1 – OGL AssetService, Mesh/PBR und Extended Region Visibility; keine Stable-Freigabe vor 30 nachgewiesenen Gates.",
+                        highlights = new[]
+                        {
+                            "OGL AssetService als opt-in; FSAssets weiter autoritativ bis isolierter Migration und Freigabe",
+                            "Mesh-Upload-/PBR-/glTF-Material-Regressionskorrekturen im Servercode",
+                            "Extended Region Visibility mit opt-in 768 Meter Regionssicht",
+                            "OGLSeasons-Nachfolge auf nach Stable verschoben",
+                            "Releasekandidat: Firestorm-, Storage-, Restore- und Operator-Abnahme noch offen"
+                        }
+                    },
+                    new
+                    {
+                        api_version = NexVersePlatform.ApiVersion,
                         server_line = "0.9.3.12",
                         codename = "OGL",
                         status = "release",
@@ -1758,6 +1775,16 @@ namespace NexVerse.Server.Api
                 },
                 x_nexverse_changelog = new object[]
                 {
+                    new
+                    {
+                        date = "2026-10-27",
+                        version = "0.9.3.13",
+                        category = "server",
+                        status = "rc1",
+                        title = "OpenGenesisLINK 0.9.3.13 RC1 – Abnahmekandidat",
+                        summary = "Releasekandidat für OGL AssetService, Mesh-/PBR-/glTF-Materialkorrekturen und erweiterte Regionssicht; 30 Pflichtgates sind vor einer Stable-Veröffentlichung zu belegen. Keine automatische Asset-Migration.",
+                        endpoints = Array.Empty<string>()
+                    },
                     new
                     {
                         date = "2026-10-14",
@@ -2113,7 +2140,7 @@ namespace NexVerse.Server.Api
                         new { version = "0.9.3.10", codename = "", title = "Runtime-/Economy-/Inventar-/World-API-Stabilisierung", status = "released", checklist = (object)null, summary = "OpenGenesisLINK 0.9.3.10 Stable wurde am 12.10.2026 veröffentlicht. NexExperiences ist deaktiviert; OGL Pathfinding 2.0 und My Outfits 2.0 sind auf den eigenen Viewer verschoben. Die direkte Betreiber-Risikoübernahme statt vollständiger v2-Einzelbelege ist ausdrücklich dokumentiert.", evidence = new[] { "Stable-Release v0.9.3.10 auf GitHub", "CI-Release-Build und NV$-Datenbankmatrix erfolgreich", "doc/NexVerse/09310_OPERATOR_RELEASE_DECISION.md" } },
                         new { version = "0.9.3.11", codename = "", title = "LSL-Parität I — Kernkonformität", status = "planned", checklist = (object)null, summary = "Maschinenlesbare LSL-Matrix, Konformitätstests und Härtung der Script-Sandbox.", evidence = Array.Empty<string>() },
                         new { version = "0.9.3.12", codename = "OGL", title = "OpenGenesisLINK 0.9.3.12 Stable — World API, IAR und LSL", status = "released", checklist = (object)null, summary = "Stable-Versionskennung auf Betreiberwunsch; LSL-/Touch- und Regionschat-Fixes, deutscher IAR-Fortschritt, World API Control Center und RC1-Evidence-Gate. Einzelne Security-/Restore-Live-Nachweise sind weiterhin offen.", evidence = new[] { "Release-Build und GitHub-CI", "IAR-Regression mit 11 Archiven", "UserLevel-200-GridUser-Login" } },
-                        new { version = "0.9.3.13", codename = "", title = "Assets, Darstellung, Marktplatz und Medien", status = "planned", checklist = (object)null, summary = "NexAsset, moderne Material- und Inhaltspipeline, Marktplatz und Medien.", evidence = Array.Empty<string>() },
+                        new { version = "0.9.3.13", codename = "OGL", title = "OGL AssetService, Mesh/PBR und Extended Region Visibility (RC1)", status = "active", checklist = (object)null, summary = "RC1-Kandidat: AssetService mit FSAssets-Fallback, Materialpipeline und opt-in erweiterten Regionsverbindungen. 30 Releasegates, Firestorm-, Restore- und Operatorabnahme offen. Marketplace/Media nicht im Scope, OGLSeasons-Nachfolge danach.", evidence = new[] { "doc/NexVerse/09313_RELEASE_ACCEPTANCE.md", "doc/NexVerse/RELEASE_0.9.3.13_RC1.md" } },
                         new { version = "0.9.3.14", codename = "", title = "NexAds, Veranstaltungen und Benachrichtigungen", status = "planned", checklist = (object)null, summary = "Plattformdienste für Werbung, Veranstaltungen und Benachrichtigungen.", evidence = Array.Empty<string>() },
                         new
                         {
