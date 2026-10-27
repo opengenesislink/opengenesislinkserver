@@ -1245,7 +1245,7 @@ jobs:
               "content"]["application/json"]["schema"]["$ref"] == (
               "#/components/schemas/ExperiencePublicInfoResponse")
           assert "check_original" in schemas["ExperienceKvRequest"]["properties"]
-          assert doc["x_nexverse_version_history"][0]["status"] == "release"
+          assert doc["x_nexverse_version_history"][0]["status"] == "rc1"
           for path, required_methods in {
               "/api/v1/profiles/{principalId}/image": ("get",),
               "/api/v1/events/{eventId}": ("get", "patch", "delete"),
