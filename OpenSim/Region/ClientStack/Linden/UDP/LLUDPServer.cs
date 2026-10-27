@@ -1563,6 +1563,19 @@ namespace OpenSim.Region.ClientStack.LindenUDP
                 if (IsClientAuthorized(uccp, out AuthenticateResponse sessionInfo))
                 {
                     AgentCircuitData aCircuit = m_circuitManager.GetAgentCircuitData(uccp.CircuitCode.Code);
+                    if (aCircuit is null)
+                    {
+                        // Authorization can succeed just before a competing
+                        // connection removes this circuit. Reject the stale
+                        // handshake before accessing IPAddress or adding a client.
+                        m_log.WarnFormat(
+                            "[LLUDPSERVER]: Ignoring expired circuit {0} in region {1}",
+                            uccp.CircuitCode.Code, Scene.Name);
+                        lock (m_pendingCache)
+                            m_pendingCache.Remove(endPoint);
+                        return;
+                    }
+
                     if(!string.IsNullOrEmpty(aCircuit.IPAddress))
                     {
                         try
@@ -1587,16 +1600,6 @@ namespace OpenSim.Region.ClientStack.LindenUDP
 
                     if (client == null)
                     {
-                        lock (m_pendingCache)
-                            m_pendingCache.Remove(endPoint);
-                        return;
-                    }
-
-                    // This will be true if the client is new, e.g. not
-                    // an existing child agent, and there is no circuit data
-                    if (aCircuit == null)
-                    {
-                        Scene.CloseAgent(client.AgentId, true);
                         lock (m_pendingCache)
                             m_pendingCache.Remove(endPoint);
                         return;
@@ -1723,9 +1726,22 @@ namespace OpenSim.Region.ClientStack.LindenUDP
                     if (client.SceneAgent is not null &&
                             client.CircuitCode == circuitCode &&
                             client.SessionId == sessionID &&
-                            client.RemoteEndPoint == remoteEndPoint &&
                             client.SceneAgent.ControllingClient.SecureSessionId.Equals(sessionInfo.LoginInfo.SecureSession))
-                        return client;
+                    {
+                        if (client.RemoteEndPoint.Equals(remoteEndPoint))
+                            return client;
+
+                        // The same authenticated circuit can arrive from two
+                        // UDP source ports (seen with Radegast-ng). Do not
+                        // close the established session for a second endpoint:
+                        // closing it removes the circuit while the competing
+                        // AddNewAgent still needs it.
+                        m_log.WarnFormat(
+                            "[LLUDPSERVER]: Ignoring duplicate circuit {0} for {1} in {2} from a different UDP endpoint",
+                            circuitCode, agentID, Scene.Name);
+                        return null;
+                    }
+
                     Scene.CloseAgent(agentID, true);
                 }
 
@@ -1738,6 +1754,17 @@ namespace OpenSim.Region.ClientStack.LindenUDP
                 ((LLClientView)client).DisableFacelights = m_disableFacelights;
 
                 client.Start();
+                if (client.SceneAgent is null)
+                {
+                    // Scene.AddNewAgent rejects a circuit removed during the
+                    // handshake; clean up the unregistered UDP client without
+                    // advertising a successful login or region handshake.
+                    m_log.WarnFormat(
+                        "[LLUDPSERVER]: Discarding client for agent {0} with missing scene presence in {1}",
+                        agentID, Scene.Name);
+                    client.Close(false, true);
+                    return null;
+                }
             }
 
             return client;
