@@ -10,7 +10,7 @@ namespace NexVerse.Core
         public const string ProductName = "OpenGenesisLINK";
         public const string MilestoneVersion = "0.9.3.13";
         public const string MilestoneCodename = "";
-        public const string MilestoneTitle = "0.9.3.13 Dev – AssetService, Mesh/PBR und erweiterte Regionssicht (Abnahme offen)";
+        public const string MilestoneTitle = "0.9.3.13 Stable – AssetService, Mesh/PBR und erweiterte Regionssicht";
         public const string UiLanguage = "de-DE";
         public const string ApiVersion = "v1";
         public const string ProtocolVersion = "1";
