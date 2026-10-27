@@ -36,6 +36,14 @@ jobs:
         run: |
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "$RELEASE_SHA"
+          # This publisher is for an immutable historical tag. After the
+          # 0.9.3.13 RC1 version bump, new main CI must not fail while
+          # incorrectly attempting to republish the old 0.9.3.12 version.
+          if ! grep -Fq 'public const string VersionNumber = "0.9.3.12";' OpenSim/Framework/VersionInfo.cs; then
+            echo "::notice::Current main version is not 0.9.3.12; skip historical Stable publisher."
+            echo 'eligible=false' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           grep -Fq 'public const string ProductName = "OpenGenesisLINK";' OpenSim/Framework/VersionInfo.cs
           grep -Fq 'public const string VersionNumber = "0.9.3.12";' OpenSim/Framework/VersionInfo.cs
           grep -Fq 'public const string AssemblyVersionNumber = "0.9.3.12";' OpenSim/Framework/VersionInfo.cs
