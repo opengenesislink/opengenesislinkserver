@@ -578,6 +578,10 @@ jobs:
           chmod +x runprebuild.sh
           ./runprebuild.sh
 
+      - name: Verify duplicate UseCircuitCode and stale-circuit login guards
+        shell: bash
+        run: python3 tools/ci/verify_ogl_udp_duplicate_circuits.py
+
       - name: Verify 0.9.3.13 extended multi-region visibility and release gates
         shell: bash
         run: python3 tools/ci/verify_ogl_extended_region_visibility.py

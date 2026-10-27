@@ -3183,6 +3183,18 @@ namespace OpenSim.Region.Framework.Scenes
             // XXX: A race condition exists here where two simultaneous calls to AddNewAgent can interfere with
             // each other.  In practice, this does not currently occur in the code.
             AgentCircuitData aCircuit = m_authenticateHandler.GetAgentCircuitData(client.CircuitCode);
+            if (aCircuit is null)
+            {
+                // A duplicate or late UseCircuitCode packet can arrive after the
+                // original connection was closed and its circuit removed.
+                // A null circuit cannot be locked and must never create an
+                // unauthenticated scene presence.
+                m_log.WarnFormat(
+                    "[SCENE]: Rejecting new agent {0} in {1}: circuit {2} no longer exists",
+                    client.AgentId, RegionInfo.RegionName, client.CircuitCode);
+                StatsReporter.UpdateUsersLoggingIn(false);
+                return null;
+            }
 
             // We lock here on AgentCircuitData to prevent a race condition between the thread adding a new connection
             // and a simultaneous one that removes it (as can happen if the client is closed at a particular point
