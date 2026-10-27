@@ -1,6 +1,6 @@
 # OpenGenesisLINK 0.9.3.13 — Release- und Goal-Abnahme
 
-**Stand: 26.10.2026. Status: IN ARBEIT, NICHT als Stable freigegeben.**
+**Stand der Einzelbelege: 26.10.2026; 30-Fälle-Matrix nicht vollständig extern belegt. Stable-Freigabe am 27.10.2026 auf ausdrückliche Betreiberentscheidung mit [dokumentierter formaler Nachweisausnahme](09313_OPERATOR_RELEASE_DECISION.md). Die unten stehenden ursprünglichen NOT_RUN-Einträge bleiben historisch erhalten und stellen kein unabhängig belegtes PASS dar.**
 
 Dieser Nachweisplan ergänzt [ROADMAP.md](ROADMAP.md) und das [Dokument zum belegten Implementierungsumfang und den offenen Releaseblockern](09313_SCOPE_AND_BLOCKERS.md). Nach der Betreiberentscheidung
 umfasst 0.9.3.13 **17.1 NexAsset / OGL AssetService**,
