@@ -52,7 +52,7 @@ namespace NexVerse.Server.Api
                 milestone_codename = NexVersePlatform.MilestoneCodename,
                 milestone_title = NexVersePlatform.MilestoneTitle,
                 language = NexVersePlatform.UiLanguage,
-                status = "development",
+                status = "release",
                 health = m_PublicBaseUrl + "/api/v1/health",
                 version = m_PublicBaseUrl + "/api/v1/version",
                 capabilities = m_PublicBaseUrl + "/api/v1/capabilities",
@@ -1620,16 +1620,16 @@ namespace NexVerse.Server.Api
                         api_version = NexVersePlatform.ApiVersion,
                         server_line = "0.9.3.13",
                         codename = "OGL",
-                        status = "development",
-                        published = (string)null,
-                        compatibility = "0.9.3.13 Dev – OGL AssetService, Mesh/PBR und Extended Region Visibility; keine RC-/Stable-Freigabe vor 30 nachgewiesenen Gates.",
+                        status = "release",
+                        published = "2026-10-27",
+                        compatibility = "OpenGenesisLINK 0.9.3.13 Stable – OGL AssetService (opt-in), Mesh/PBR-Fixes und Extended Region Visibility; Freigabe durch Betreiber mit dokumentierter formaler Evidence-Ausnahme.",
                         highlights = new[]
                         {
                             "OGL AssetService als opt-in; FSAssets weiter autoritativ bis isolierter Migration und Freigabe",
                             "Mesh-Upload-/PBR-/glTF-Material-Regressionskorrekturen im Servercode",
                             "Extended Region Visibility mit opt-in 768 Meter Regionssicht",
                             "OGLSeasons-Nachfolge auf nach Stable verschoben",
-                            "Releasekandidat: Firestorm-, Storage-, Restore- und Operator-Abnahme noch offen"
+                            "Betreiberfreigabe 27.10.2026; formale 30-Gates-Einzelbelege separat dokumentiert"
                         }
                     },
                     new
@@ -1780,9 +1780,9 @@ namespace NexVerse.Server.Api
                         date = "2026-10-27",
                         version = "0.9.3.13",
                         category = "server",
-                        status = "development",
-                        title = "OpenGenesisLINK 0.9.3.13 Dev – Entwicklungs- und Abnahmebuild",
-                        summary = "Entwicklungsbuild für OGL AssetService, Mesh-/PBR-/glTF-Materialkorrekturen und erweiterte Regionssicht. Ein separater RC1 und 30 belegte Pflichtgates sind vor Stable erforderlich. Keine automatische Asset-Migration.",
+                        status = "released",
+                        title = "OpenGenesisLINK 0.9.3.13 Stable – AssetService, Mesh/PBR und Extended Region Visibility",
+                        summary = "Offizielle Betreiberfreigabe mit dokumentierter Evidence-Ausnahme: OGL AssetService als Opt-in, Mesh-/PBR-/glTF-Materialkorrekturen, erweiterte Regionssicht, FastMap Async und LLUDP-Handshakes. Kein automatischer FSAssets-Cutover.",
                         endpoints = Array.Empty<string>()
                     },
                     new
@@ -2140,7 +2140,7 @@ namespace NexVerse.Server.Api
                         new { version = "0.9.3.10", codename = "", title = "Runtime-/Economy-/Inventar-/World-API-Stabilisierung", status = "released", checklist = (object)null, summary = "OpenGenesisLINK 0.9.3.10 Stable wurde am 12.10.2026 veröffentlicht. NexExperiences ist deaktiviert; OGL Pathfinding 2.0 und My Outfits 2.0 sind auf den eigenen Viewer verschoben. Die direkte Betreiber-Risikoübernahme statt vollständiger v2-Einzelbelege ist ausdrücklich dokumentiert.", evidence = new[] { "Stable-Release v0.9.3.10 auf GitHub", "CI-Release-Build und NV$-Datenbankmatrix erfolgreich", "doc/NexVerse/09310_OPERATOR_RELEASE_DECISION.md" } },
                         new { version = "0.9.3.11", codename = "", title = "LSL-Parität I — Kernkonformität", status = "planned", checklist = (object)null, summary = "Maschinenlesbare LSL-Matrix, Konformitätstests und Härtung der Script-Sandbox.", evidence = Array.Empty<string>() },
                         new { version = "0.9.3.12", codename = "OGL", title = "OpenGenesisLINK 0.9.3.12 Stable — World API, IAR und LSL", status = "released", checklist = (object)null, summary = "Stable-Versionskennung auf Betreiberwunsch; LSL-/Touch- und Regionschat-Fixes, deutscher IAR-Fortschritt, World API Control Center und RC1-Evidence-Gate. Einzelne Security-/Restore-Live-Nachweise sind weiterhin offen.", evidence = new[] { "Release-Build und GitHub-CI", "IAR-Regression mit 11 Archiven", "UserLevel-200-GridUser-Login" } },
-                        new { version = "0.9.3.13", codename = "OGL", title = "OGL AssetService, Mesh/PBR und Extended Region Visibility (Dev)", status = "active", checklist = (object)null, summary = "Dev: AssetService mit FSAssets-Fallback, Materialpipeline und opt-in erweiterten Regionsverbindungen. Eigene RC-/Stable-Freigaben und 30 Releasegates bleiben offen. Marketplace/Media nicht im Scope, OGLSeasons-Nachfolge danach.", evidence = new[] { "doc/NexVerse/09313_RELEASE_ACCEPTANCE.md", "doc/NexVerse/RELEASE_0.9.3.13_RC1.md" } },
+                        new { version = "0.9.3.13", codename = "OGL", title = "OpenGenesisLINK 0.9.3.13 Stable – AssetService, Mesh/PBR und Extended Region Visibility", status = "released", checklist = (object)null, summary = "Betreiberseitig freigegebenes Stable-Release mit dokumentierter Ausnahme von fehlenden 30-Gates-Einzelbelegen: opt-in AssetService, Materialpipeline, LLUDP und erweiterte Regionssicht; FSAssets bleibt autoritativ.", evidence = new[] { "doc/NexVerse/RELEASE_0.9.3.13.md", "doc/NexVerse/09313_OPERATOR_RELEASE_DECISION.md", "doc/NexVerse/09313_RELEASE_ACCEPTANCE.md" } },
                         new { version = "0.9.3.14", codename = "", title = "NexAds, Veranstaltungen und Benachrichtigungen", status = "planned", checklist = (object)null, summary = "Plattformdienste für Werbung, Veranstaltungen und Benachrichtigungen.", evidence = Array.Empty<string>() },
                         new
                         {
