@@ -1398,7 +1398,7 @@ jobs:
           MARIADB_USER: ledger
           MARIADB_PASSWORD: ledgerpass
         ports:
-          - 33306:3306
+          - 3306
         options: >-
           --health-cmd="healthcheck.sh --connect --innodb_initialized"
           --health-interval=5s
@@ -1412,7 +1412,7 @@ jobs:
           POSTGRES_USER: ledger
           POSTGRES_PASSWORD: ledgerpass
         ports:
-          - 35432:5432
+          - 5432
         options: >-
           --health-cmd="pg_isready -U ledger -d ogl_ledger_ci"
           --health-interval=5s
@@ -1437,20 +1437,20 @@ jobs:
       - name: Run live NV dollar ledger matrix
         shell: bash
         env:
-          NEX_LEDGER_MARIADB: "Data Source=127.0.0.1;Port=33306;Database=ogl_ledger_ci;User ID=ledger;Password=ledgerpass;Old Guids=true;SslMode=None;"
-          NEX_LEDGER_POSTGRESQL: "Host=127.0.0.1;Port=35432;Database=ogl_ledger_ci;Username=ledger;Password=ledgerpass;SSL Mode=Disable;"
+          NEX_LEDGER_MARIADB: "Data Source=127.0.0.1;Port=${{ job.services.mariadb.ports[3306] }};Database=ogl_ledger_ci;User ID=ledger;Password=ledgerpass;Old Guids=true;SslMode=None;"
+          NEX_LEDGER_POSTGRESQL: "Host=127.0.0.1;Port=${{ job.services.postgres.ports[5432] }};Database=ogl_ledger_ci;Username=ledger;Password=ledgerpass;SSL Mode=Disable;"
         run: dotnet run --configuration Release --project tools/ci/NexLedgerSqlMatrixRegression/NexLedgerSqlMatrixRegression.csproj
 
       - name: Run real MariaDB NexPortalIM archive regression
         shell: bash
         env:
-          NEX_PORTAL_IM_MARIADB: "Data Source=127.0.0.1;Port=33306;Database=ogl_ledger_ci;User ID=ledger;Password=ledgerpass;Old Guids=true;SslMode=None;"
+          NEX_PORTAL_IM_MARIADB: "Data Source=127.0.0.1;Port=${{ job.services.mariadb.ports[3306] }};Database=ogl_ledger_ci;User ID=ledger;Password=ledgerpass;Old Guids=true;SslMode=None;"
         run: dotnet run --configuration Release --project tools/ci/NexPortalImMariaDbRegression/NexPortalImMariaDbRegression.csproj
 
       - name: Run real MariaDB NexGroups authorization and invitation regression
         shell: bash
         env:
-          NEX_GROUPS_MARIADB: "Data Source=127.0.0.1;Port=33306;Database=ogl_ledger_ci;User ID=ledger;Password=ledgerpass;Old Guids=true;SslMode=None;"
+          NEX_GROUPS_MARIADB: "Data Source=127.0.0.1;Port=${{ job.services.mariadb.ports[3306] }};Database=ogl_ledger_ci;User ID=ledger;Password=ledgerpass;Old Guids=true;SslMode=None;"
         run: |
           chmod +x runprebuild.sh
           ./runprebuild.sh
@@ -1459,5 +1459,5 @@ jobs:
       - name: Run signed bearer HTTP NexGroups authorization regression
         shell: bash
         env:
-          NEX_GROUPS_MARIADB: "Data Source=127.0.0.1;Port=33306;Database=ogl_ledger_ci;User ID=ledger;Password=ledgerpass;Old Guids=true;SslMode=None;"
+          NEX_GROUPS_MARIADB: "Data Source=127.0.0.1;Port=${{ job.services.mariadb.ports[3306] }};Database=ogl_ledger_ci;User ID=ledger;Password=ledgerpass;Old Guids=true;SslMode=None;"
         run: dotnet run --configuration Release --project tools/ci/NexGroupsHttpRegression/NexGroupsHttpRegression.csproj
