@@ -86,4 +86,5 @@ assert "bash addon-modules/OGLWeather/build.sh Release" not in prebuild, (
 assert 'dotnet build -c Release OpenSim.sln' in compile_script
 print("NexCity + OGLWeather solution bundling: all 4 DLLs checked")
 
+assert "Verify Generation-1 Inworld LSL companion scripts" in workflow
 print("NexCity addon contracts PASS: independent plugins, bounded wire, safe disabled defaults")

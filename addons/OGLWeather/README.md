@@ -1,5 +1,16 @@
 # OGLWeather – OpenGenesisLINK Generation 1
 
+## Alle passenden LSL-Skripte
+
+Die zusätzlichen Inworld-Skripte, Voraussetzungen, Prim-Linknamen und
+Einstellungen stehen im
+[Generation-1-LSL-Handbuch](../../doc/NexVerse/GEN1_INWORLD_LSL_PACKS.md).
+Das Handbuch beschreibt ausdrücklich, welche Anzeigen auf **reinem LSL**
+basieren und welche Bildtafeln `osSetDynamicTextureDataFace` benötigen.
+Die Wetter-Emitter selbst werden **automatisch vom Server** gesteuert,
+nicht durch eine manuell aufgestellte LSL-Rezzerbox.
+
+
 ## Automatischer Standard-Build (Generation 1)
 
 Dieses Addon wird zusammen mit OpenGenesisLINK automatisch über `./runprebuild.sh` und `dotnet build -c Release OpenSim.sln` erstellt. Die DLL `OpenGenesisLINK.Addons.OGLWeather.dll` wird dabei automatisch in `bin/` abgelegt, **ohne einen separaten Addon-Build oder Installationsschritt**. Das funktioniert auch über die automatisch erzeugte `compile.sh`. Die Build-Integration installiert keine Dateien auf fremden Servern und aktiviert das Addon nicht automatisch; `Enabled = false` bleibt die sichere Vorgabe.
