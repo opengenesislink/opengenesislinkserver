@@ -476,6 +476,7 @@
     <Compile Include="Scripting\DynamicTexture\DynamicTexture.cs">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="Scripting\DynamicTexture\DynamicTextureRetirementQueue.cs" />
     <Compile Include="Scripting\DynamicTexture\DynamicTextureModule.cs">
       <SubType>Code</SubType>
     </Compile>
