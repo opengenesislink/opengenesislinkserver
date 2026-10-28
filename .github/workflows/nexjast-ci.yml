@@ -436,6 +436,12 @@ jobs:
           dotnet run --configuration Release --project tools/ci/OglWeatherRegression/OglWeatherRegression.csproj
           bash addon-modules/OGLWeather/build.sh Release
 
+      - name: Verify Generation-1 Inworld LSL companion scripts
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/ci/verify_gen1_inworld_lsl_packs.py
+
       - name: Regression-test Nex city modules and build independent addons
         shell: bash
         run: |
