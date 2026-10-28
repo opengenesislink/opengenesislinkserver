@@ -9,7 +9,8 @@ namespace OpenGenesisLINK.Addons.OGLWeather
     public static class OglWeatherViewerState
     {
         public static string Serialize(string regionId, DateTimeOffset utc,
-            int seed, TimeZoneInfo timeZone, int cloudBaseMeters)
+            int seed, TimeZoneInfo timeZone, int cloudBaseMeters,
+            bool legacyParticleEmitters = false)
         {
             if (string.IsNullOrWhiteSpace(regionId))
                 throw new ArgumentException("Region ID required", nameof(regionId));
@@ -51,7 +52,8 @@ namespace OpenGenesisLINK.Addons.OGLWeather
                     cloud_base_m = cloudBaseMeters,
                     origin = "clouds",
                     rendering = "viewer_native",
-                    requires_viewer_support = true
+                    requires_viewer_support = true,
+                    legacy_prim_emitters_active = legacyParticleEmitters
                 },
                 forecast
             });
