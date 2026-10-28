@@ -29,14 +29,20 @@ internal static class Program
         for (int d = 0; d < 365; ++d)
         {
             DateTime day = start.AddDays(d);
-            WeatherDay prediction = OglWeatherModel.ForecastDay(day, seed);
+            WeatherDay prediction = OglWeatherModel.ForecastDay(day, seed, berlin);
             Require(prediction.MinC <= prediction.MaxC, "daily temperature limits");
             int countedWet = 0;
             bool sawRain = false, sawSnow = false;
             int min = int.MaxValue, max = int.MinValue;
-            for (int h = 0; h < 24; ++h)
+            DateTime dayStartUtc = TimeZoneInfo.ConvertTimeToUtc(
+                DateTime.SpecifyKind(day.Date, DateTimeKind.Unspecified), berlin);
+            DateTime dayEndUtc = TimeZoneInfo.ConvertTimeToUtc(
+                DateTime.SpecifyKind(day.Date.AddDays(1), DateTimeKind.Unspecified), berlin);
+            for (DateTime hourUtc = dayStartUtc; hourUtc < dayEndUtc;
+                 hourUtc = hourUtc.AddHours(1))
             {
-                WeatherReading observed = OglWeatherModel.AtLocal(day.AddHours(h), seed);
+                DateTime observedLocal = TimeZoneInfo.ConvertTimeFromUtc(hourUtc, berlin);
+                WeatherReading observed = OglWeatherModel.AtLocal(observedLocal, seed);
                 min = Math.Min(min, observed.TemperatureC);
                 max = Math.Max(max, observed.TemperatureC);
                 if (observed.Condition == "rain" || observed.Condition == "snow") countedWet++;
@@ -57,13 +63,19 @@ internal static class Program
                 "daily rain prediction must actually rain");
             Require(prediction.Condition != "snow" || sawSnow,
                 "daily snow prediction must actually snow");
-            Require(OglWeatherModel.DayWire(day, seed, d % 5).StartsWith("OGLWX|1|DAY|"),
+            Require(OglWeatherModel.DayWire(day, seed, d % 5, berlin).StartsWith("OGLWX|1|DAY|"),
                 "DAY LSL wire contract");
             if (countedWet > 0) wetDays++; else dryDays++;
             if (sawSnow) snowDays++;
         }
         Require(wetDays > 30 && dryDays > 5 && snowDays > 0,
             "plausible variety across all seasons");
+        Require((TimeZoneInfo.ConvertTimeToUtc(new DateTime(2027, 3, 29), berlin) -
+            TimeZoneInfo.ConvertTimeToUtc(new DateTime(2027, 3, 28), berlin)).TotalHours == 23,
+            "DST spring starts a 23-hour local calendar day");
+        Require((TimeZoneInfo.ConvertTimeToUtc(new DateTime(2027, 11, 1), berlin) -
+            TimeZoneInfo.ConvertTimeToUtc(new DateTime(2027, 10, 31), berlin)).TotalHours == 25,
+            "DST autumn starts a 25-hour local calendar day");
 
         // Berlin clock moves forward and back; the day-based simulator climate
         // remains stable under repeated queries and server restart.
