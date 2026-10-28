@@ -21,6 +21,15 @@ if [[ $# -eq 3 && "$2" != "--sim-bin" ]]; then
   exit 2
 fi
 
+# OpenGenesisLINK uses the classic Prebuild tool. Checked-in project
+# files may be stale or malformed until the normal project-generation step.
+# Regenerate first so this independent addon builds from a clean checkout.
+if [[ ! -f "$ROOT/bin/prebuild.dll" ]]; then
+  echo "Missing bin/prebuild.dll; build from a complete OpenGenesisLINK source tree." >&2
+  exit 1
+fi
+bash runprebuild.sh
+
 dotnet build addons/OGLWeather/OpenGenesisLINK.Addons.OGLWeather.csproj -c "$CONFIG"
 DLL="addons/OGLWeather/bin/$CONFIG/net8.0/OpenGenesisLINK.Addons.OGLWeather.dll"
 test -s "$DLL" || { echo "OGLWeather DLL missing" >&2; exit 1; }
