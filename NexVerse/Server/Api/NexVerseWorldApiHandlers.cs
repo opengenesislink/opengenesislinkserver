@@ -97,6 +97,8 @@ namespace NexVerse.Server.Api
             {
                 product = NexVersePlatform.ProductName,
                 server_version = OpenSim.VersionInfo.Version.Trim(),
+                release_channel = NexVersePlatform.DevelopmentChannel,
+                generation = NexVersePlatform.PublicGeneration,
                 api_version = NexVersePlatform.ApiVersion,
                 protocol_version = NexVersePlatform.ProtocolVersion,
                 nexbus_schema_version = NexVersePlatform.NexBusSchemaVersion,
@@ -1618,15 +1620,15 @@ namespace NexVerse.Server.Api
                     new
                     {
                         api_version = NexVersePlatform.ApiVersion,
-                        server_line = "0.9.3.14",
-                        codename = "OGL",
+                        server_line = "0.9.4.0",
+                        codename = "Generation 1",
                         status = "development",
                         published = (string)null,
-                        compatibility = "OpenGenesisLINK 0.9.3.14 Dev – NexAds, Events und Notification Center als nächster Roadmap-Meilenstein; keine Stable-Freigabe.",
+                        compatibility = "OpenGenesisLINK Generation 1 – flexibles Sammelrelease und Plattformkonsolidierung; 0.9.4.0 nur technische Kennung, nicht öffentlicher Release-Name.",
                         highlights = new[]
                         {
-                            "Entwicklungslinie 0.9.3.14 nach dem offiziellen 0.9.3.13 Stable-Release gestartet",
-                            "NexAds-Kampagnen, Events und Benachrichtigungen im geplanten Milestone-Scope",
+                            "Bisherige Pläne 0.9.3.14 und 0.9.4.0 in einer Entwicklungslinie zusammengeführt",
+                            "Features werden blockweise priorisiert, keine starr vorgegebenen NexAds-/Event-Pflichten",
                             "0.9.3.13 bleibt die letzte offiziell veröffentlichte Stable-Version"
                         }
                     },
@@ -1793,11 +1795,11 @@ namespace NexVerse.Server.Api
                     new
                     {
                         date = "2026-10-27",
-                        version = "0.9.3.14",
+                        version = "0.9.4.0",
                         category = "server",
                         status = "development",
-                        title = "OpenGenesisLINK 0.9.3.14 Dev – neue Entwicklungslinie",
-                        summary = "main folgt jetzt der nächsten Entwicklungsline 0.9.3.14. Roadmap: NexAds, Event-Verwaltung und Notification Center. Der veröffentlichte Stable-Tag v0.9.3.13 bleibt unverändert.",
+                        title = "OpenGenesisLINK Generation 1 – gemeinsames Sammelrelease",
+                        summary = "Die früheren Entwicklungspläne 0.9.3.14 und 0.9.4.0 sind zusammengeführt; technische Kennung 0.9.4.0, öffentlicher Name Generation 1. Flexible, getrennt geprüfte Features; keine automatische Stable-Freigabe.",
                         endpoints = Array.Empty<string>()
                     },
                     new
@@ -2166,23 +2168,8 @@ namespace NexVerse.Server.Api
                         new { version = "0.9.3.11", codename = "", title = "LSL-Parität I — Kernkonformität", status = "planned", checklist = (object)null, summary = "Maschinenlesbare LSL-Matrix, Konformitätstests und Härtung der Script-Sandbox.", evidence = Array.Empty<string>() },
                         new { version = "0.9.3.12", codename = "OGL", title = "OpenGenesisLINK 0.9.3.12 Stable — World API, IAR und LSL", status = "released", checklist = (object)null, summary = "Stable-Versionskennung auf Betreiberwunsch; LSL-/Touch- und Regionschat-Fixes, deutscher IAR-Fortschritt, World API Control Center und RC1-Evidence-Gate. Einzelne Security-/Restore-Live-Nachweise sind weiterhin offen.", evidence = new[] { "Release-Build und GitHub-CI", "IAR-Regression mit 11 Archiven", "UserLevel-200-GridUser-Login" } },
                         new { version = "0.9.3.13", codename = "OGL", title = "OpenGenesisLINK 0.9.3.13 Stable – AssetService, Mesh/PBR und Extended Region Visibility", status = "released", checklist = (object)null, summary = "Betreiberseitig freigegebenes Stable-Release mit dokumentierter Ausnahme von fehlenden 30-Gates-Einzelbelegen: opt-in AssetService, Materialpipeline, LLUDP und erweiterte Regionssicht; FSAssets bleibt autoritativ.", evidence = new[] { "doc/NexVerse/RELEASE_0.9.3.13.md", "doc/NexVerse/09313_OPERATOR_RELEASE_DECISION.md", "doc/NexVerse/09313_RELEASE_ACCEPTANCE.md" } },
-                        new { version = "0.9.3.14", codename = "", title = "NexAds, Veranstaltungen und Benachrichtigungen (Dev)", status = "active", checklist = (object)null, summary = "Aktuelle Entwicklungslinie nach 0.9.3.13 Stable. Geplante NexAds-Kampagnen, Events und Notification Center; noch keine fertiggestellten Module durch die Versionsumstellung.", evidence = new[] { "doc/NexVerse/ROADMAP.md", "VERSIONING.md" } },
-                        new
-                        {
-                            version = "0.9.3.15",
-                            codename = "",
-                            title = "Überwachung, Sicherheit und Betrieb",
-                            status = "foundation",
-                            checklist = (object)null,
-                            summary = "Beobachtbarkeit und mehrere Sicherheitskontrollen wurden vorgezogen; Übersichten, Alarmierung, Sicherungen, Moderation und gestaffelte Aktualisierungen bleiben zukünftiger Umfang.",
-                            evidence = new[]
-                            {
-                                "Prometheus-kompatible NexMetrics und OpenTelemetry-/OTLP-Export",
-                                "Korrelations-IDs, API-Rate-Limits, Audit-Datensätze und Zugangsdaten mit Berechtigungsumfang"
-                            }
-                        },
-                        new { version = "0.9.3.16", codename = "", title = "Entwicklerplattform, SDKs und Erweiterbarkeit", status = "planned", checklist = (object)null, summary = "Entwicklerportal, offizielle SDKs, Webhooks, Echtzeit-APIs und Modulverträge.", evidence = Array.Empty<string>() },
-                        new { version = "0.9.4.0", codename = "", title = "OpenGenesisLINK Generation 1", status = "planned", checklist = (object)null, summary = "Konsolidierungsmeilenstein für die erste vollständige OpenGenesisLINK-Plattformgeneration.", evidence = Array.Empty<string>() }
+                        // Former 0.9.3.14/15/16 scopes are consolidated as optional Generation 1 backlog.
+                        new { version = "0.9.4.0", codename = "Generation 1", title = "OpenGenesisLINK Generation 1 – Sammelrelease (Dev)", status = "active", checklist = (object)null, summary = "Aktuelles gemeinsames, flexibel priorisiertes Entwicklungsprojekt; interne technische Kennung 0.9.4.0, öffentlicher Produktname Generation 1. Vorhandene NexAds-, Monitoring-, SDK- und Plattform-Ideen sind keine automatischen Release-Pflichten.", evidence = new[] { "doc/NexVerse/ROADMAP.md", "VERSIONING.md" } }
                     }
                 },
                 x_nexverse_idempotency = new

@@ -1,11 +1,11 @@
 # OpenGenesisLINK Roadmap
 
 > **0.9.3.12 RC1-/Stable-Gates:** [Operator-Abnahmematrix](09312_RC1_STABLE_ACCEPTANCE.md) – Entwicklungsstand, kein RC- oder Stable-Tag.
-> **Aktuelle Stable-Version:** **[OpenGenesisLINK v0.9.3.10](https://github.com/opengenesislink/opengenesislinkserver/releases/tag/v0.9.3.10)** (veröffentlicht am 12.10.2026)
+> **Letzte offizielle Stable-Version:** **[OpenGenesisLINK v0.9.3.13](https://github.com/opengenesislink/opengenesislinkserver/releases/tag/v0.9.3.13)** (veröffentlicht am 27.10.2026); **OpenGenesisLINK Generation 1 ist aktuell in Entwicklung.**
 > **Status:** Stabilisierungsrelease abgeschlossen; [Betreiberfreigabe und dokumentierte Abweichungen](09310_OPERATOR_RELEASE_DECISION.md)
 > **Vorheriger Stable-Stand:** v0.9.3.8 (historisch, veröffentlicht am 08.10.2026)
 > **Abgeschlossene Entwicklungslinien:** 0.9.3.1 bis 0.9.3.8 sowie 0.9.3.10; keine separate Stable-Version 0.9.3.9
-> **Nächste geplante Meilensteine:** 0.9.3.11 bis 0.9.3.16; danach **0.9.4.0 – OpenGenesisLINK Generation 1**
+> **Neue Entwicklungsstrategie:** Das ehemalige `0.9.3.14`-Sammelrelease und die bisher separat geplante Plattformkonsolidierung `0.9.4.0` sind **eine gemeinsame Generation-1-Entwicklung**. `0.9.4.0` bleibt ausschließlich technische Build-/Kompatibilitätskennung; öffentlich heißt die Produktgeneration **OpenGenesisLINK Generation 1**. Keine weiteren separaten 0.9.3.14/15/16-Zwischenreleases sind hier verbindlich terminiert.
 > **Verschoben auf nach 0.9.4.0:** OGL Experiences 2.0, OGL Pathfinding 2.0 und OGL My Outfits 2.0 für den eigenen Viewer (Versionen noch nicht festgelegt)
 > **Historische Quellbasis:** OpenSimulator 0.9.3.0 ("Nessie")
 
@@ -206,7 +206,7 @@ For the current release train, 0.9.3.2 and 0.9.3.3 are development milestones an
 
 No implementation work from milestone 0.9.3.5 or later is to be started before the 0.9.3.4 release is completed. Existing work already pulled forward from later milestones remains part of the 0.9.3.4 release train and must be completed or explicitly scoped before release.
 
-The larger architectural platform generation will advance to **OpenGenesisLINK v0.9.4.0**.
+The active consolidated development project is publicly called **OpenGenesisLINK Generation 1**. The internal build/assembly identity is `0.9.4.0`; the former `0.9.3.14` milestone is absorbed into the same workstream. No automatic release approval follows from changing version metadata.
 
 ## 4. Compatibility levels
 
@@ -1553,11 +1553,17 @@ unbeabsichtigt beschädigt werden.
 
 ---
 
-# Milestone 0.9.3.14
+# Milestone 0.9.4.0
 
-> **Status: aktuelle Entwicklungslinie (`0.9.3.14 Dev`) nach 0.9.3.13 Stable.** Die folgenden Funktionen sind geplant und werden durch den Versionswechsel nicht automatisch implementiert oder aktiviert.
+> **Öffentlicher Name: OpenGenesisLINK Generation 1.** Aktuelle einheitliche Entwicklungslinie nach 0.9.3.13 Stable. Die Zahl `0.9.4.0` ist nur die interne Build-/Kompatibilitätskennung und **kein offizieller öffentlicher Release-Name**. Das bisherige Sammelrelease `0.9.3.14` sowie die früher separat geplanten Arbeiten an `0.9.3.15`, `0.9.3.16` und `0.9.4.0` werden in diesem gemeinsamen Projekt koordiniert.
 
-## 18. NexAds, Events and Notifications
+## Neue Generation-1-Strategie: Flexibles Sammelrelease
+
+Kein starres Pflichtpaket: Der Betreiber wählt einzelne Arbeitsblöcke zu Simulator/ROBUST, World API, Sicherheit, Addons, Viewer-/Hypergrid-Kompatibilität, LSL, Performance, Speicher, Fehlerkorrekturen und Infrastruktur. Die älteren NexAds-/Events-/Notification-, Monitoring-, SDK- und Konsolidierungspläne bleiben **Ideenpool**, nicht automatisch verpflichtende Features oder bereits implementiert.
+
+Jeder Arbeitsblock wird vor der Umsetzung am aktuellen `main` abgeglichen, in einem isolierten PR umgesetzt und durch passende CI- und gegebenenfalls Live-/Migrationsprüfungen abgesichert. Ein erfolgreiches Build ersetzt keine betriebliche Freigabe. Generation 1 wird erst nach gesonderter Betreiberentscheidung als Stable veröffentlicht. Das bestehende `v0.9.3.13`-Stable-Tag bleibt unverändert.
+
+## Backlog A – NexAds, Events and Notifications (optionale Ideen)
 
 ### 18.1 NexAds
 
@@ -1614,7 +1620,7 @@ Provide real-time delivery through WebSocket/SSE and optional future mobile push
 
 ---
 
-# Milestone 0.9.3.15
+# Generation 1 Backlog B – Monitoring, Security and Operations (optional)
 
 ## 19. Monitoring, Security and Operations
 
@@ -1707,7 +1713,7 @@ NexModeration should support:
 
 ---
 
-# Milestone 0.9.3.16
+# Generation 1 Backlog C – Developer Platform, SDKs and Extensibility (optional)
 
 ## 20. Developer Platform, SDKs and Extensibility
 
@@ -1770,11 +1776,11 @@ Examples:
 
 ---
 
-# Milestone 0.9.4.0
+# Generation 1 Backlog D – Plattformkonsolidierung (bisheriger eigenständiger 0.9.4.0-Plan)
 
 ## 21. OpenGenesisLINK Generation 1
 
-**OpenGenesisLINK v0.9.4.0** is the consolidation milestone and the first release line in which the remaining inherited product identity is deliberately migrated to the OpenGenesisLINK/OGL identity.
+**OpenGenesisLINK Generation 1** is the public product generation. The former separately scheduled internal `0.9.4.0` consolidation scope now belongs to the shared rolling development backlog. No individual item is implicitly implemented or mandatory solely by this consolidation.
 
 It should only be declared when the platform behaves as a coherent NexVerse system rather than as a collection of additions to the OpenSimulator baseline.
 
@@ -1812,7 +1818,7 @@ Target characteristics:
 Target console identity:
 
 ```text
-OpenGenesisLINK v0.9.4.0
+OpenGenesisLINK Generation 1
 OGL>
 ```
 
@@ -1861,7 +1867,7 @@ The catalog protocol must be documented and versioned so third-party repositorie
 
 ### 21.3 Verbindliche Scope-Grenze für Generation 1
 
-**0.9.4.0 ist abnahmefähig ohne Experiences 2.0, Pathfinding 2.0
+**Generation 1 ist abnahmefähig ohne Experiences 2.0, Pathfinding 2.0
 und My Outfits 2.0.** Entscheidend sind die in diesem Meilenstein
 beschriebenen OGL-Plattform-, Verwaltungs-, Addon-, Sicherheits- und
 Kompatibilitätsziele. Nicht eingeführte Viewer-CAPS werden nicht
@@ -1871,7 +1877,7 @@ Standardprofil deaktiviert. Die folgenden Feature-Abnahmen werden
 
 ---
 
-# Nach 0.9.4.0 – eigene Viewer-Generation (Versionsnummer noch offen)
+# Nach Generation 1 – eigene Viewer-Generation (Versionsnummer noch offen)
 
 **Status: geplant und verschoben, nicht Teil der 0.9.4.0-Abnahme.**
 Hier werden die LSL-Entwicklungsaufgaben und die zugehörigen
