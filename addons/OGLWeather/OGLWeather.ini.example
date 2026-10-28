@@ -1,0 +1,14 @@
+; OpenGenesisLINK Generation 1: eigenstaendiges, simulatorweites OGLWeather.
+; Nur auf Simulator-Prozessen installieren, NICHT auf ROBUST.
+[OGLWeather]
+Enabled = false
+; Jeder Region auf diesem Simulator folgt dem gleichen Wetterplan.
+; Gleicher Seed + Zeitzone = gleicher Wetterplan auch auf anderen Nodes.
+WeatherSeed = 20261028
+TimeZone = "Europe/Berlin"
+; Separater Kanal, NICHT mit OGLSeasons verwechseln.
+LSLChannel = -835311
+CurrentBroadcastSeconds = 60
+ForecastBroadcastSeconds = 300
+; Keine EEP-Aenderungen, keine dauerhaften Rezzed-Objekte.
+; Das Wettersystem benoetigt Wetter-Emitter-Prims fuer sichtbare Partikel.
