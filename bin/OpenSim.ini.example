@@ -21,6 +21,9 @@
     CrossRegionChatMessaging = true
     AllowCrossOwnerObjectMessages = true
     EstateScriptMessaging = true
+    ; Generation 1: explicit opt-in for global cross-estate object signals.
+    ; llGridSay is restricted to Estate Owner/Manager-owned source objects.
+    GridScriptMessaging = true
     ObjectMessagesPerSecond = 20
     ObjectMessageMaxAgeSeconds = 30
     ManagedRegionCommands = false
