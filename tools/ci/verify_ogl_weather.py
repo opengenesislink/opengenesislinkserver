@@ -67,6 +67,37 @@ assert 'OglWeatherViewerState.LegacyEmittersActive(' in module
 assert 'm_CloudBaseMeters, legacyActive' in module
 assert 'm_CloudBaseMeters, m_LegacyParticleEmitters' not in module, "Do not report config as actual emitters"
 
+# Temporary manual test weather must be operator-only, bounded and reflected
+# consistently in the Firestorm emitters, inworld NOW and native viewer CAPS.
+override = read("addons/OGLWeather/OglWeatherTestOverride.cs")
+active_ini = read("bin/OpenSim.ini")
+test_csproj = read("tools/ci/OglWeatherRegression/OglWeatherRegression.csproj")
+for marker in (
+    'TestWeatherMode", "auto"', 'TestWeatherIntensity", 70',
+    'TestWeatherDurationMinutes", 15',
+    'MainConsole.Instance?.Commands.AddCommand("Weather", true,',
+    '"ogl weather"', 'HandleWeatherConsole', 'RefreshAllWeather()',
+    'm_TestOverride.TryGet(utc, natural,',
+    'OglWeatherTestOverride.NowWire(utc, m_TimeZone, effective)',
+    'testActive ? effective : null',
+):
+    assert marker in module, marker
+for marker in (
+    'public bool Activate(', 'public void Clear()',
+    'public bool TryGet(', 'public static string NowWire(',
+    'durationMinutes > 60', 'intensity > 100',
+    'utc >= m_ExpiresUtc', 'm_Condition = "auto";',
+):
+    assert marker in override, marker
+assert 'test_override_active = testReading != null' in viewer
+assert "OglWeatherTestOverride.cs" in test_csproj
+assert 'TestWeatherMode = auto' in config
+assert 'TestWeatherMode = auto' in active_ini
+assert 'TestWeatherIntensity = 70' in active_ini
+assert 'TestWeatherDurationMinutes = 15' in active_ini
+assert 'Password' not in override and 'Http' not in override
+assert 'OglWeatherPortalProjection' not in module, "Never mutate public forecast from the simulator"
+
 assert 'LegacyParticleEmitters = true' in config
 assert 'EmitterHeightMeters = 65' in config
 assert 'MaxEmittersPerRegion = 16' in config
