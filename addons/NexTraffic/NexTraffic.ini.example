@@ -1,0 +1,10 @@
+; City traffic-signal synchronization. Visual control only, NOT vehicle physics.
+[NexTraffic]
+Enabled = false
+LSLChannel = -835421
+RefreshSeconds = 5
+GreenSeconds = 30
+YellowSeconds = 5
+AllRedSeconds = 3
+; Name:phaseOffsetSeconds separated by semicolon, at most 32.
+Junctions = Hauptstrasse:0;Marktplatz:11
