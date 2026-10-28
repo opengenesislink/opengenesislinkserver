@@ -95,11 +95,11 @@ print("NexCity addon contracts PASS: independent plugins, bounded wire, safe dis
 # Catch duplicate INI sections, wrong host placement and protocol drift.
 def active_ini_section(path, section):
     raw = content(path)
-    header = re.compile(r"(?m)^[ \\t]*\\[" + re.escape(section) + r"\\][ \\t]*$")
+    header = re.compile(r"(?m)^[ \t]*\[" + re.escape(section) + r"\][ \t]*$")
     matches = list(header.finditer(raw))
     assert len(matches) == 1, f"{path}: expected exactly one [{section}]"
     remainder = raw[matches[0].end():]
-    next_header = re.search(r"(?m)^[ \\t]*\\[[^]\\r\\n]+\\][ \\t]*$", remainder)
+    next_header = re.search(r"(?m)^[ \t]*\[[^]\r\n]+\][ \t]*$", remainder)
     block = remainder[:next_header.start()] if next_header else remainder
     values = {}
     for raw_line in block.splitlines():
@@ -142,7 +142,7 @@ active = {
 for section, expected in active.items():
     actual = active_ini_section(simulator_ini, section)
     assert actual == expected, f"{simulator_ini} [{section}] drift: {actual}"
-    assert not re.search(r"(?m)^\\[" + re.escape(section) + r"\\]$", content(robust_ini)), (
+    assert not re.search(r"(?m)^\[" + re.escape(section) + r"\]$", content(robust_ini)), (
         f"Simulator-only [{section}] must not appear in ROBUST"
     )
 
@@ -152,6 +152,6 @@ assert portal == {
     "TimeZone": active["OGLWeather"]["TimeZone"],
     "DisplayName": "Stadt-NexVerse",
 }, "Portal climate or activation mismatches simulator"
-assert not re.search(r"(?m)^\\[OGLWeatherPortal\\]$", content(simulator_ini))
+assert not re.search(r"(?m)^\[OGLWeatherPortal\]$", content(simulator_ini))
 assert active_ini_section(robust_ini, "NexVerseWorldApi")["Enabled"].lower() == "true"
 print("Gen1 active INIs PASS: 4 simulator modules + ROBUST portal enabled, unique and synchronized")
