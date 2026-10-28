@@ -1541,15 +1541,27 @@ Eine sichtbare 5×5-Regionen-Anordnung wird angestrebt, aber nicht allein
 durch den Server garantiert; Firestorm-Sichtweite und Grid-Topologie sind
 maßgeblich. Dokumentation: [Extended Region Visibility](../OpenGenesisLINK/09313_EXTENDED_REGION_VISIBILITY.md).
 
-### OGLSeasons — Nachfolge erst nach Stable 0.9.3.13
+### Generation 1 – OGLWeather ersetzt OGLSeasons
 
-Das bisherige OGLSeasons-Addon wird in 0.9.3.13 **eingefroren**:
-keine weiteren Feature-Änderungen, keine automatische Deinstallation und
-kein 0.9.3.13-Release-Gate. Nach der Veröffentlichung wird die bisherige
-Umsetzung im Rahmen eines gesonderten Projekts vollständig neu konzipiert.
-Eine Entfernung oder Migration erfolgt erst nach ausdrücklichem
-Kompatibilitäts- und Betreiberentscheid, damit bestehende Regionen nicht
-unbeabsichtigt beschädigt werden.
+Das frühere **OGLSeasons-Projekt wurde nach Betreiberentscheidung am
+28.10.2026 eingestellt**. Quellcode, Build-Aufruf, EEP-Beispielskripte,
+Regressionen und CI-Gates des alten Addons werden aus der Entwicklungslinie
+entfernt. Historische 0.9.3.13-Releasenotizen bleiben unverändert.
+
+**OGLWeather 0.1.0 Dev** ist das neue, unabhängige Addon: ein
+`ISharedRegionModule` synchronisiert simuliertes Wetter auf allen Regionen
+desselben Simulatorprozesses. LSL-Emitter visualisieren Regen/Schnee; eine
+1024×512-Wettertafel zeigt aktuelle Lage, Temperatur und die nächsten fünf Tage.
+Vorhersage und später eintretender Wetterverlauf beruhen auf einem
+deterministischen Zeitplan (keine Live-DWD-Daten). Das Addon bleibt bis zur
+Live-Abnahme auf Produktionssimulatoren deaktiviert; kein automatischer
+Objekt-Rez und keine EEP-/Estate-Änderungen.
+
+Wichtige Migrationsregel: Auf bereits laufenden Simulatoren muss eine
+vorhandene `OpenGenesisLINK.Addons.OGLSeasons.dll` beim Update **gezielt**
+entfernt oder isoliert werden; GitHub-Quellcode-Löschung entfernt keine DLLs
+von Produktionshosts. Vorher eventuell vorhandene OGLSeasons-Emitter/Skripte
+identifizieren und durch OGLWeather ersetzen.
 
 ---
 
