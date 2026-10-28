@@ -45,7 +45,7 @@ namespace OpenSim.Region.CoreModules.Scripting.DynamicTexture
     [Extension(Path = "/OpenSim/RegionModules", NodeName = "RegionModule", Id = "DynamicTextureModule")]
     public class DynamicTextureModule : ISharedRegionModule, IDynamicTextureManager
     {
-//        private static readonly ILog m_log = LogManager.GetLogger(MethodBase.GetCurrentMethod().DeclaringType);
+        private static readonly ILog m_log = LogManager.GetLogger(typeof(DynamicTextureModule));
 
         private const int ALL_SIDES = -1;
 
