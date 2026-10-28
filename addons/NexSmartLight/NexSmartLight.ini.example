@@ -1,0 +1,8 @@
+; Real German local civil time with automatic DST; does not force EEP.
+[NexSmartLight]
+Enabled = false
+LSLChannel = -835423
+RefreshSeconds = 60
+TimeZone = Europe/Berlin
+NightStarts = 18:00
+NightEnds = 06:00
