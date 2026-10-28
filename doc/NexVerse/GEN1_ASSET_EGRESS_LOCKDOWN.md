@@ -53,3 +53,26 @@ The intended protection roadmap is therefore:
 6. Optionally test the emergency lockdown on an isolated disposable stage; restore the **open** default afterwards.
 
 **No production rollout is performed by this code change.** Stable `v0.9.3.13` remains unchanged.
+
+## Public Hypergrid batch-enumeration guard (Generation 1, next security block)
+
+The public `POST /get_assets_exist` endpoint historically deserialized arbitrarily large XML arrays and could enumerate unlimited asset IDs in one request. The connector now enforces limits **only for the public [HGAssetService]**. This reduces unbounded batch enumeration and XML resource exhaustion while leaving lawful per-asset GETs and authorized outgoing inventory/assets unchanged.
+
+```ini
+[HGAssetService]
+DisallowAllExport = false
+MaxHGAssetExistIds = 16384
+MaxHGAssetExistXmlChars = 4194304
+```
+
+Values can be tuned to real grids' legitimate batch sizes. The server clamps the first value to 256–65536 IDs and the second to 65536–16777216 XML characters. The defaults intentionally accommodate large, legitimate objects; above-limit batch IDs receive HTTP 413, and oversized/malformed XML receives HTTP 400. XML DTDs and external entities are prohibited. On a private [AssetService] the legacy batch-limit behavior is unchanged, but XML DTDs are still prohibited. The independent inbound asset POST stays available and is not affected.
+
+This does **not** distinguish Darkstorm from Firestorm, does **not** block a malicious viewer saving rendered asset data, and does not prevent an attacker from splitting requests into smaller batches. A hard cap is an abuse-resistance layer, not copy protection or user authorization.
+
+### Acceptance and negative tests
+
+- Public HG: exactly 16384 IDs parses and passes to the service (valid IDs), 16385 returns 413 before any lookup.
+- Public HG: a small valid `string[]` XML request responds as before; malformed XML, DTD, or an XML body over 4194304 characters fails without a lookup.
+- Private [AssetService]: large internal batch operations remain unaffected by the public limit.
+- Actual HG visitor: purchase, suitcase transfer, home-grid rez, wearables and textured mesh attachments function; import and public HG GET paths remain available.
+- Monitor and adjust the HG thresholds only if real production telemetry reveals oversized legitimate batches. Do not disable trade to respond to copybot activity.
