@@ -275,6 +275,7 @@ namespace OpenSim.Region.Framework.Scenes
             get { return m_minRegionViewDistance; }
         }
 
+        private bool m_OglApprovedViewersOnly;
         private readonly List<string> m_AllowedViewers = new();
         private readonly List<string> m_BannedViewers = new();
 
@@ -1076,6 +1077,8 @@ namespace OpenSim.Region.Framework.Scenes
                 }
 
                 string[] possibleAccessControlConfigSections = new string[] { "Startup", "AccessControl"};
+                m_OglApprovedViewersOnly = Util.GetConfigVarFromSections<bool>(config,
+                    "OGLApprovedViewersOnly", possibleAccessControlConfigSections, false);
 
                 string grant = Util.GetConfigVarFromSections<string>(
                     config, "AllowedClients", possibleAccessControlConfigSections, string.Empty);
@@ -4043,6 +4046,17 @@ namespace OpenSim.Region.Framework.Scenes
             if (!LoginsEnabled)
             {
                 reason = "Logins to this region are disabled";
+                return false;
+            }
+
+            // Enforce again at region entry, including direct travel and crossings.
+            // Viewer strings can be forged; this is not cryptographic attestation.
+            if (m_OglApprovedViewersOnly &&
+                !OglApprovedViewerPolicy.IsAllowed(acd.Viewer, acd.Channel))
+            {
+                reason = "Only Firestorm or OpenGenesisLINK Viewer is permitted";
+                m_log.InfoFormat("[OGL VIEWER ACCESS]: Region {0} rejected viewer {1}, channel {2}",
+                    RegionInfo.RegionName, acd.Viewer, acd.Channel);
                 return false;
             }
 
