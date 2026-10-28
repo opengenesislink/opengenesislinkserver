@@ -71,7 +71,12 @@ docs = (ROOT / "doc/NexVerse/GEN1_INWORLD_LSL_PACKS.md").read_text()
 seen = set()
 total = 0
 for package, info in PACKAGES.items():
-    module = (ROOT / f"addons/{package}/{package}RegionModule.cs").read_text()
+    module_path = (
+        f"addons/{package}/{package}RegionModule.cs"
+        if package != "OGLWeather"
+        else "addons/OGLWeather/OglWeatherRegionModule.cs"
+    )
+    module = (ROOT / module_path).read_text()
     assert f'"{package}", UUID.Zero' in module, package
     assert f'"LSLChannel", {info["channel"]}' in module, package
     for filename in info["files"]:
