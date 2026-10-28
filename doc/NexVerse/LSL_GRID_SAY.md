@@ -29,7 +29,7 @@ default
 }
 ```
 
-Die vollständig getestete Würfel-Demovorlage mit 0,5-Sekunden-Rückstellung liegt in `tools/diagnostics/ogl_grid_beep_cubes.lsl`. Dieses Script kommt in jeden Würfel. Für zuverlässiges Feedback leuchtet der Sender beim Touch auch sofort lokal.
+Die vollständige Würfel-Demovorlage mit 0,5-Sekunden-Rückstellung liegt in `tools/diagnostics/ogl_grid_beep_cubes.lsl`. Dieses Script kommt in jeden Würfel. Für zuverlässiges Feedback leuchtet der Sender beim Touch auch sofort lokal.
 
 ## Architektur
 
