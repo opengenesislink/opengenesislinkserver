@@ -49,6 +49,17 @@ namespace OpenSim.Server.Handlers.Asset
         //private static readonly ILog m_log = LogManager.GetLogger(MethodBase.GetCurrentMethod().DeclaringType);
 
         private IAssetService m_AssetService;
+        // Zero preserves the legacy private AssetService behavior. Limits are
+        // set only by the public HG connector to bound asset-ID enumeration.
+        private int m_MaxIds;
+        private long m_MaxXmlCharacters;
+
+        public AssetsExistHandler(IAssetService service, int maxIds, long maxXmlCharacters) :
+            this(service)
+        {
+            m_MaxIds = Math.Max(0, maxIds);
+            m_MaxXmlCharacters = Math.Max(0, maxXmlCharacters);
+        }
 
         public AssetsExistHandler(IAssetService service) :
             base("POST", "/get_assets_exist")
@@ -70,11 +81,33 @@ namespace OpenSim.Server.Handlers.Asset
             try
             {
                 xs = new XmlSerializer(typeof(string[]));
-                ids = (string[])xs.Deserialize(request);
+                // Defend the public HG existence endpoint against unbounded
+                // XML and entity payloads, without affecting authorized GET
+                // downloads or ordinary foreign-grid inventory transfers.
+                using (XmlReader xmlReader = XmlReader.Create(request, new XmlReaderSettings
+                {
+                    DtdProcessing = DtdProcessing.Prohibit,
+                    XmlResolver = null,
+                    MaxCharactersInDocument = m_MaxXmlCharacters,
+                    CloseInput = false
+                }))
+                    ids = (string[])xs.Deserialize(xmlReader);
             }
             catch (Exception)
             {
                 httpResponse.StatusCode = (int)HttpStatusCode.BadRequest;
+                return null;
+            }
+
+            if (ids == null)
+            {
+                httpResponse.StatusCode = (int)HttpStatusCode.BadRequest;
+                return null;
+            }
+
+            if (m_MaxIds > 0 && ids.Length > m_MaxIds)
+            {
+                httpResponse.StatusCode = (int)HttpStatusCode.RequestEntityTooLarge;
                 return null;
             }
 
