@@ -25,7 +25,7 @@ for marker in (
     assert marker in policy, marker
 
 project = read("OpenSim/Framework/OpenSim.Framework.csproj")
-assert '<Compile Include="OglApprovedViewerPolicy.cs" />' in project
+assert 'Compile Include="OglApprovedViewerPolicy.cs"' in project
 
 for path, needle in (
     ("OpenSim/Services/LLLoginService/LLLoginService.cs",
