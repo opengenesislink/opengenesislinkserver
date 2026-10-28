@@ -14,7 +14,9 @@ drawBoard(string wire)
     if (llGetListLength(p) != 4 ||
         llList2String(p, 0) != "NEXTRANSIT" ||
         llList2String(p, 1) != "1") return;
-    list routes = llParseStringKeepNulls(llList2String(p, 3), [";"], []);
+    string rawRoutes = llList2String(p, 3);
+    list routes = [];
+    if (rawRoutes != "") routes = llParseStringKeepNulls(rawRoutes, [";"], []);
     string d = "";
     d = osSetPenColor(d, "black");
     d = osMovePen(d, 0, 0);
@@ -91,6 +93,20 @@ default
         if (llGetListLength(p) != 4 ||
             llList2String(p, 0) != "NEXTRANSIT" ||
             llList2String(p, 1) != "1") return;
+        // Validate the WHOLE message before updating the offline watchdog.
+        // Untrusted or malformed rows must never replace the last good sign.
+        string payload = llList2String(p, 3);
+        list rows = [];
+        if (payload != "") rows = llParseStringKeepNulls(payload, [";"], []);
+        if (llGetListLength(rows) > 10) return;
+        integer i;
+        for (i = 0; i < llGetListLength(rows); i++)
+        {
+            list row = llParseStringKeepNulls(llList2String(rows, i), [","], []);
+            if (llGetListLength(row) != 4) return;
+            integer wait = llList2Integer(row, 3);
+            if (wait < 0 || wait > 1440) return;
+        }
         LAST_RECV = llGetUnixTime();
         drawBoard(message);
     }
