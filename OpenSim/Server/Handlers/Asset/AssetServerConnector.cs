@@ -111,9 +111,19 @@ namespace OpenSim.Server.Handlers.Asset
             // by legacy settings, including when a public asset listener was exposed.
             // Old remote-delete settings in external .ini files have no effect.
             // Local maintenance remains exclusively an operator-console operation.
-            server.AddStreamHandler(new AssetServerGetHandler(m_AssetService, auth, redirectURL));
+            // Generation 1: separate inbound import (POST /assets) from outbound
+            // Hypergrid reads. A blocked HG service must never expose raw
+            // asset, metadata or UUID-existence HTTP endpoints on the public port.
+            // The private [AssetService] listener keeps its ordinary read routes.
+            bool hgExportLocked = String.Equals(m_ConfigName, "HGAssetService",
+                StringComparison.OrdinalIgnoreCase) &&
+                serverConfig.GetBoolean("DisallowAllExport", false);
+            if (!hgExportLocked)
+            {
+                server.AddStreamHandler(new AssetServerGetHandler(m_AssetService, auth, redirectURL));
+                server.AddStreamHandler(new AssetsExistHandler(m_AssetService));
+            }
             server.AddStreamHandler(new AssetServerPostHandler(m_AssetService, auth));
-            server.AddStreamHandler(new AssetsExistHandler(m_AssetService));
 
             MainConsole.Instance.Commands.AddCommand("Assets", false,
                     "show asset",

@@ -983,6 +983,9 @@
 ; * the assets of this world.
 ; *
 [HGAssetService]
+    ; Generation 1: deny all public Hypergrid asset reads/metadata.
+    ; HG asset POST/import stays available (only import licensed content).
+    DisallowAllExport = true
     ;; Use the second option if you have FSAsset service enabled
     LocalServiceModule = "OpenSim.Services.HypergridService.dll:HGAssetService"
     ;LocalServiceModule = "OpenSim.Services.HypergridService.dll:HGFSAssetService"
