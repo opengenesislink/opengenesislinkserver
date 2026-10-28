@@ -50,6 +50,14 @@ Nach der ROBUST-Konfigurationsänderung ROBUST neu starten.
 Das Modul selbst läuft auf den Simulatoren und steuert dort Wetterpartikel
 für Firestorm; ROBUST erzeugt nur JSON für die Webseite.
 
+**Temporäre Wettertests auf einem Regionssimulator:** Die lokal über
+`ogl weather rain|snow` ausgelösten Niederschlags-Overrides verändern
+die deterministische Portal-Vorhersage **nicht**. Während solcher Tests
+können aktuelle Partikel inworld bewusst von den regulären Portalwerten
+abweichen. Diese World-API-Version besitzt keinen öffentlichen
+Wetter-Schreibendpunkt; eine spätere Administratorsteuerung benötigt
+Authentifizierung, Berechtigungsprüfung und Auditierung.
+
 ## 2. HTTP-Endpunkt
 
 ```http
