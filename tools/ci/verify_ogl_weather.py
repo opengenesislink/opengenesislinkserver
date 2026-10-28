@@ -7,7 +7,7 @@ def read(path):
 
 model = read("addons/OGLWeather/OglWeatherModel.cs")
 module = read("addons/OGLWeather/OglWeatherRegionModule.cs")
-emitter = read("addons/OGLWeather/WeatherEmitter.lsl")
+viewer = read("addons/OGLWeather/OglWeatherViewerState.cs")
 board = read("addons/OGLWeather/WeatherForecastBoard.lsl")
 config = read("addons/OGLWeather/OGLWeather.ini.example")
 builder = read("addon-modules/OGLWeather/build.sh")
