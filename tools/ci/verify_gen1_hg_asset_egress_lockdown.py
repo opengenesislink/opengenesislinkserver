@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Static safeguards for Generation 1's public Hypergrid asset egress lockdown.
+"""Static safeguards for Generation 1 open HG commerce and optional egress lockdown.
 
 These assertions complement (do not replace) live negative HTTP, viewer, and
 HG tests. No endpoint access is attempted from CI.
@@ -62,7 +62,7 @@ for name in (
     "bin/config-include/StandaloneCommon.ini.example",
 ):
     hg = section(name, "HGAssetService")
-    assert "DisallowAllExport = true" in hg, name
+    assert "DisallowAllExport = false" in hg, name
     assert not any(line.strip().startswith("DisallowImport =")
                    for line in hg.splitlines()), name
 
@@ -72,8 +72,8 @@ for name in (
     "bin/config-include/StandaloneCommon.ini.example",
 ):
     section_data = section(name, "HGInventoryAccessModule")
-    assert "OutboundPermission = false" in section_data, name
+    assert "OutboundPermission = true" in section_data, name
 
 notes = read("doc/NexVerse/GEN1_ASSET_EGRESS_LOCKDOWN.md")
-assert "not" in notes.lower() and "100% Copybot prevention" in notes
-print("Generation 1 HG egress safeguards: policy, HTTP routes, services, configuration, threat model OK")
+assert "no secure server-side switch" in notes and "Open Hypergrid commerce" in notes
+print("Generation 1 HG: commerce defaults open; emergency lockdown code and policy verified")
