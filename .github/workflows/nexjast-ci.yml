@@ -553,6 +553,10 @@ jobs:
         shell: bash
         run: python3 tools/ci/verify_estate_say.py
 
+      - name: Verify grid-wide cross-estate LSL messaging
+        shell: bash
+        run: python3 tools/ci/verify_gen1_grid_script_messaging.py
+
       - name: Verify NodeAgent registry projection
         shell: bash
         run: dotnet run --configuration Release --project tools/ci/NexNodeRegistryRegression/NexNodeRegistryRegression.csproj
