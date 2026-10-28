@@ -1,6 +1,6 @@
-name: One-time cleanup of safely merged GitHub branches (2026-10-28)
+name: One-time cleanup of five already-contained source branches (2026-10-28)
 
-# One-time operator-approved cleanup. Runs when this file is first merged to main.
+# Second and final operator-approved pass: only the exact 5 audited refs.
 on:
   push:
     branches: [main]
@@ -13,97 +13,86 @@ permissions:
 
 jobs:
   prune:
-    name: Remove exact merged PR head refs only
+    name: Remove exactly five confirmed ancestors of main
     if: github.repository == 'opengenesislink/opengenesislinkserver'
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 10
     steps:
-      - name: Prune only verified merged PR heads
+      - name: Delete exact, fully-contained source refs only
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const owner = 'opengenesislink';
-            const repo = 'opengenesislinkserver';
-            const full = owner + '/' + repo;
-            const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
-            // One-shot maintenance, never run it against a fork or after a future
-            // unrelated release train was started.
+            const owner='opengenesislink', repo='opengenesislinkserver';
+            const targets=[
+              {
+                "name": "docs/world-api-gegenpruefung-r409-20261023",
+                "sha": "9fd04acaad55d7d7eae2bbdc4c95c9b4c7df19d8"
+              },
+              {
+                "name": "feat/r287-citizen-portal-api-coverage",
+                "sha": "c6e095e2bacc53b6563bc8a7f80f08bedcf2968d"
+              },
+              {
+                "name": "nexverse/firestorm-bridge-script-upload",
+                "sha": "74a10ebad921c59ccf3027e6da43337429c50d9a"
+              },
+              {
+                "name": "nexverse/load-regionmodules-addin-current",
+                "sha": "65a2dfc1d54d9c357bffe52ad6a60daa46fe4792"
+              },
+              {
+                "name": "nexverse/load-regionmodules-final",
+                "sha": "810e8f617b51a141c4f4b12286fca304d641e4d4"
+              }
+            ];
             if (context.repo.owner !== owner || context.repo.repo !== repo ||
                 context.ref !== 'refs/heads/main') {
-              throw new Error('Unexpected repository or ref: refusing deletion');
+              throw new Error('Wrong execution context: refusing cleanup');
             }
-            const [branches, openPRs, closedPRs] = await Promise.all([
-              github.paginate(github.rest.repos.listBranches, {owner, repo, per_page: 100}),
-              github.paginate(github.rest.pulls.list, {owner, repo, state: 'open', per_page: 100}),
-              github.paginate(github.rest.pulls.list, {owner, repo, state: 'closed', per_page: 100}),
+            const open = await github.paginate(github.rest.pulls.list, {
+              owner,repo,state:'open',per_page:100
+            });
+            const closed = await github.paginate(github.rest.pulls.list, {
+              owner,repo,state:'closed',per_page:100
+            });
+            const veto = new Set([
+              ...open.filter(p=>p.head?.repo?.full_name===owner+'/'+repo).map(p=>p.head.ref),
+              ...closed.filter(p=>!p.merged_at && p.head?.repo?.full_name===owner+'/'+repo).map(p=>p.head.ref)
             ]);
-            const openNames = new Set(openPRs.filter(p => p.head?.repo?.full_name === full)
-              .map(p => p.head.ref));
-            const unmergedNames = new Set(closedPRs
-              .filter(p => !p.merged_at && p.head?.repo?.full_name === full)
-              .map(p => p.head.ref));
-            const mergedByBranch = new Map();
-            for (const p of closedPRs) {
-              if (!p.merged_at || p.base?.ref !== 'main' ||
-                  p.head?.repo?.full_name !== full) continue;
-              const list = mergedByBranch.get(p.head.ref) || [];
-              list.push({number: p.number, sha: p.head.sha});
-              mergedByBranch.set(p.head.ref, list);
-            }
-            const candidates = [], preserved = [];
-            for (const b of branches) {
-              const name = b.name;
-              const found = (mergedByBranch.get(name) || [])
-                .find(pr => pr.sha === b.commit.sha);
-              if (name === 'main' || b.protected || openNames.has(name) ||
-                  unmergedNames.has(name) || !found) {
-                preserved.push(name);
-              } else {
-                candidates.push({name, sha:b.commit.sha, pr:found.number});
-              }
-            }
-            core.info(`Audit: ${branches.length} branches, ${openPRs.length} open PRs, ${candidates.length} exact merged PR branches, ${preserved.length} preserved.`);
-            core.info('Preserving: ' + preserved.join(', '));
-            // Guard against incorrect pagination, permissions or unexpectedly
-            // changed repository state; this audit found 301 candidates before
-            // the maintenance PR was created.
-            if (candidates.length < 290 || candidates.length > 310 ||
-                openPRs.length < 10 || !branches.some(b => b.name === 'main')) {
-              throw new Error('Unexpected inventory; fail closed without removing any refs');
-            }
-            let removed = 0, skipped = 0;
-            const errors = [];
-            for (const item of candidates) {
-              // Fresh HEAD check immediately before each irreversible operation.
+            let removed=0, skipped=0;
+            const errors=[];
+            for(const item of targets) {
               try {
-                const current = await github.rest.repos.getBranch({owner, repo, branch:item.name});
-                if (current.data.protected || current.data.commit.sha !== item.sha) {
-                  core.warning(`Skip changed/protected branch: ${item.name}`);
-                  skipped++;
-                  continue;
-                }
-                await github.rest.git.deleteRef({owner, repo, ref:'heads/' + item.name});
+                if(veto.has(item.name)) throw new Error('Branch used by open/unmerged PR');
+                const before=await github.rest.repos.getBranch({owner,repo,branch:item.name});
+                if(before.data.protected || before.data.commit.sha!==item.sha)
+                  throw new Error('Branch protected or SHA changed');
+                // Compare main...branch: ahead_by=0 means no unmerged commits.
+                const cmp=await github.rest.repos.compareCommits({
+                  owner,repo,base:'main',head:item.name
+                });
+                if(cmp.data.ahead_by!==0)
+                  throw new Error('Branch has commits not contained in main');
+                const fresh=await github.rest.repos.getBranch({owner,repo,branch:item.name});
+                if(fresh.data.protected || fresh.data.commit.sha!==item.sha)
+                  throw new Error('Branch moved after compare');
+                await github.rest.git.deleteRef({owner,repo,ref:'heads/'+item.name});
                 removed++;
-                core.info(`Deleted ${item.name} (merged PR #${item.pr}, head ${item.sha})`);
-              } catch (err) {
+                core.info(`Deleted fully integrated branch: ${item.name} @ ${item.sha}`);
+              } catch(err) {
                 skipped++;
                 errors.push(`${item.name}: ${err.message}`);
-                core.warning(`Could not remove ${item.name}: ${err.message}`);
+                core.warning(`Skipped ${item.name}: ${err.message}`);
               }
-              // Avoid GitHub API secondary-rate abuse on 300+ requests.
-              await pause(550);
             }
             await core.summary
-              .addHeading('Merged branch cleanup — 2026-10-28')
+              .addHeading('Additional ancestor cleanup')
               .addTable([
                 [{data:'Result',header:true},{data:'Count',header:true}],
-                ['Branches inspected',String(branches.length)],
-                ['Safe merged candidates',String(candidates.length)],
+                ['Audited targets','5'],
                 ['Deleted',String(removed)],
-                ['Preserved',String(preserved.length)],
-                ['Skipped/failed',String(skipped)]
+                ['Skipped',String(skipped)]
               ])
-              .addRaw('Open PR heads, nonmerged PR heads, unassociated refs, protected branches, main, and all tags preserved.\n')
               .write();
-            if (errors.length) core.setFailed('Some deletions could not be completed: '+errors.slice(0,15).join('; '));
+            if(errors.length)core.setFailed(errors.join('; '));
