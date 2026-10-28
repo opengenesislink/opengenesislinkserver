@@ -68,11 +68,16 @@ namespace OpenGenesisLINK.Addons.OGLWeather
                     group.RootPart.Name = "OGLWeather managed precipitation";
                     group.RootPart.Description = "Temporary simulator-managed weather - do not edit";
                     group.RootPart.AddFlag(PrimFlags.Phantom);
+                    // Set weather BEFORE first object update so Firestorm
+                    // receives an initialized emitter, not an empty prim.
+                    group.RootPart.AddNewParticleSystem(
+                        CreateParticles(weather, spacingMeters), false);
                     // AttachToBackup=false: no persistent objects in SQL/OAR.
                     if (!scene.AddNewSceneObject(group, false))
                     {
                         group.Dispose();
-                        continue;
+                        Clear(scene, owned);
+                        return;
                     }
                     owned.Add(group);
                 }
