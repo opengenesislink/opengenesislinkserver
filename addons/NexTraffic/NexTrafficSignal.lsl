@@ -22,8 +22,10 @@ showSignal()
         else jump nextLamp;
 
         integer active = (name == CURRENT);
+        float brightness = 0.08;
+        if (active) brightness = 1.0;
         llSetLinkPrimitiveParamsFast(i, [
-            PRIM_COLOR, ALL_SIDES, tint * (active ? 1.0 : 0.08), 1.0,
+            PRIM_COLOR, ALL_SIDES, tint * brightness, 1.0,
             PRIM_FULLBRIGHT, ALL_SIDES, active
         ]);
 @nextLamp;
@@ -54,7 +56,9 @@ default
             llList2String(f, 1) != "1" ||
             llList2String(f, 2) != JUNCTION) return;
 
-        string phase = llList2String(f, AXIS == "B" ? 4 : 3);
+        integer phaseIndex = 3;
+        if (AXIS == "B") phaseIndex = 4;
+        string phase = llList2String(f, phaseIndex);
         if (phase != "GREEN" && phase != "YELLOW" && phase != "RED")
             return;
         integer remaining = llList2Integer(f, 5);
