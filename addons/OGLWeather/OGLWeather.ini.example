@@ -13,6 +13,18 @@ ForecastBroadcastSeconds = 300
 ; Read-only viewer weather source. This height is a renderer suggestion,
 ; not an automatic EEP cloud layer or standard Firestorm particle effect.
 CloudBaseMeters = 200
+
+; Firestorm fallback: automatically spawn MANAGED, NONPERSISTENT,
+; SCRIPT-FREE phantom weather emitters during rain/snow.
+; No manually installed objects. No object remains after clear/shutdown.
+LegacyParticleEmitters = true
+; Height above the terrain in metres. Not the same as EEP cloud altitude.
+; Particle age is finite, so very high sources can vanish before ground.
+EmitterHeightMeters = 65
+; Typical 256x256 region: approximately 3x3 temporary emitters.
+EmitterSpacingMeters = 96
+MaxEmittersPerRegion = 16
+VisualRefreshSeconds = 60
 ; Precipitation is viewer-native only: no prims, no automatic rezzing.
 ; An unchanged Firestorm viewer cannot render this protocol yet.
 ; Keine EEP-Aenderungen, keine dauerhaften Rezzed-Objekte.
