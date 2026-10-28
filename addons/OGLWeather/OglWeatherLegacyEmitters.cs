@@ -30,7 +30,7 @@ namespace OpenGenesisLINK.Addons.OGLWeather
             }
 
             List<(float X, float Y)> points = OglWeatherEmitterPlan.Positions(
-                scene.RegionInfo.RegionSizeX, scene.RegionInfo.RegionSizeY,
+                (int)scene.RegionInfo.RegionSizeX, (int)scene.RegionInfo.RegionSizeY,
                 spacingMeters, maxEmitters);
 
             // Reuse the same non-persistent objects throughout the weather
