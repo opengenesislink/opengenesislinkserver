@@ -512,6 +512,7 @@
     <Compile Include="Interfaces\IFriendsModule.cs">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="Interfaces\IGridScriptMessageRouter.cs" />
     <Compile Include="Interfaces\ICommander.cs">
       <SubType>Code</SubType>
     </Compile>

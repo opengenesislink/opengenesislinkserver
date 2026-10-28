@@ -320,6 +320,7 @@ namespace OpenSim.Region.ScriptEngine.Shared.Api.Interfaces
               void llRefreshPrimURL();
               void llRegionSay(int channelID, string text);
               void llEstateSay(int channelID, string text);
+              void llGridSay(int channelID, string text);
               void llRegionSayTo(string target, int channelID, string text);
               void llReleaseCamera(string avatar);
               void llReleaseControls();

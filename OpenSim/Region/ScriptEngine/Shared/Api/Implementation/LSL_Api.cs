@@ -1339,6 +1339,40 @@ namespace OpenSim.Region.ScriptEngine.Shared.Api
                 message);
         }
 
+        /// <summary>
+        /// OpenGenesisLINK-only, opt-in grid-wide object chat. All security and
+        /// fanout decisions belong to the NodeAgent router; this API never
+        /// bypasses that router or exposes a public HTTP broadcast.
+        /// </summary>
+        public void llGridSay(int channelID, string text)
+        {
+            if (channelID == 0 || channelID == ScriptBaseClass.DEBUG_CHANNEL)
+            {
+                Error("llGridSay", "Channel 0 and DEBUG_CHANNEL are not allowed");
+                return;
+            }
+
+            IGridScriptMessageRouter router =
+                World.RequestModuleInterface<IGridScriptMessageRouter>();
+            if (router == null)
+            {
+                Error("llGridSay", "Grid-wide messaging is not enabled on this simulator");
+                return;
+            }
+
+            byte[] payload = Utils.StringToBytesNoTerm(text ?? string.Empty, 1023);
+            if (!router.TryBroadcastGridMessage(
+                    World.RegionInfo.RegionID,
+                    m_host.UUID,
+                    m_host.OwnerID,
+                    m_host.Name,
+                    channelID,
+                    Util.UTF8.GetString(payload)))
+            {
+                Error("llGridSay", "Grid-wide delivery refused by server policy");
+            }
+        }
+
         public void  llRegionSayTo(string target, int channel, string msg)
         {
             if (channel == ScriptBaseClass.DEBUG_CHANNEL)
