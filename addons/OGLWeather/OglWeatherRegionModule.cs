@@ -130,7 +130,7 @@ namespace OpenGenesisLINK.Addons.OGLWeather
                         comm.DeliverMessage(ChatTypeEnum.Region, m_Channel,
                             "OGLWeather", UUID.Zero,
                             OglWeatherModel.DayWire(localDate.AddDays(i + 1),
-                                m_Seed, i), location);
+                                m_Seed, i, m_TimeZone), location);
                     }
                 }
             }
