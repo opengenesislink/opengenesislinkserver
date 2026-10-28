@@ -2,6 +2,7 @@
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
     <AssemblyName>OpenGenesisLINK.Addons.NexTransit</AssemblyName>
+    <ProjectGuid>{AF51F7E2-91D2-4801-AB77-F512A0430102}</ProjectGuid>
     <ImplicitUsings>disable</ImplicitUsings>
     <Nullable>disable</Nullable>
   </PropertyGroup>
