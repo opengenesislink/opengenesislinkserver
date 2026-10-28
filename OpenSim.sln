@@ -126,12 +126,36 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Robust", "OpenSim/Server/Ro
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SmartThreadPool", "ThirdParty/SmartThreadPool/SmartThreadPool.csproj", "{6D8D7852-0000-0000-0000-000000000000}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OpenGenesisLINK.Addons.NexTraffic", "addons/NexTraffic/OpenGenesisLINK.Addons.NexTraffic.csproj", "{AF51F7E2-91D2-4801-AB77-F512A0430101}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OpenGenesisLINK.Addons.NexTransit", "addons/NexTransit/OpenGenesisLINK.Addons.NexTransit.csproj", "{AF51F7E2-91D2-4801-AB77-F512A0430102}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OpenGenesisLINK.Addons.NexSmartLight", "addons/NexSmartLight/OpenGenesisLINK.Addons.NexSmartLight.csproj", "{AF51F7E2-91D2-4801-AB77-F512A0430103}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OpenGenesisLINK.Addons.OGLWeather", "addons/OGLWeather/OpenGenesisLINK.Addons.OGLWeather.csproj", "{AF51F7E2-91D2-4801-AB77-F512A0430104}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{AF51F7E2-91D2-4801-AB77-F512A0430101}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{AF51F7E2-91D2-4801-AB77-F512A0430101}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{AF51F7E2-91D2-4801-AB77-F512A0430101}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{AF51F7E2-91D2-4801-AB77-F512A0430101}.Release|Any CPU.Build.0 = Release|Any CPU
+		{AF51F7E2-91D2-4801-AB77-F512A0430102}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{AF51F7E2-91D2-4801-AB77-F512A0430102}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{AF51F7E2-91D2-4801-AB77-F512A0430102}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{AF51F7E2-91D2-4801-AB77-F512A0430102}.Release|Any CPU.Build.0 = Release|Any CPU
+		{AF51F7E2-91D2-4801-AB77-F512A0430103}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{AF51F7E2-91D2-4801-AB77-F512A0430103}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{AF51F7E2-91D2-4801-AB77-F512A0430103}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{AF51F7E2-91D2-4801-AB77-F512A0430103}.Release|Any CPU.Build.0 = Release|Any CPU
+		{AF51F7E2-91D2-4801-AB77-F512A0430104}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{AF51F7E2-91D2-4801-AB77-F512A0430104}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{AF51F7E2-91D2-4801-AB77-F512A0430104}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{AF51F7E2-91D2-4801-AB77-F512A0430104}.Release|Any CPU.Build.0 = Release|Any CPU
 		{866B91D3-0000-0000-0000-000000000000}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{866B91D3-0000-0000-0000-000000000000}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{866B91D3-0000-0000-0000-000000000000}.Release|Any CPU.ActiveCfg = Release|Any CPU
