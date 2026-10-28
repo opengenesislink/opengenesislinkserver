@@ -43,7 +43,7 @@ updateCaption()
     if (CURRENT == LAST_PHASE && seconds == LAST_CAPTION) return;
     LAST_PHASE = CURRENT;
     LAST_CAPTION = seconds;
-    llSetText("NexTraffic " + JUNCTION + " [" + AXIS + "]\\n" +
+    llSetText("NexTraffic " + JUNCTION + " [" + AXIS + "]\n" +
         CURRENT + "  " + (string)seconds + "s",
         <1.0, 1.0, 1.0>, 1.0);
 }
