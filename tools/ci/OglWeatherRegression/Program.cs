@@ -128,6 +128,37 @@ internal static class Program
                 "cloud height must not exceed configured maximum");
         }
 
+        // 256 x 256: moderate number of emitters with guaranteed bounds;
+        // 1024 x 1024: distribute across whole varregion, not one corner.
+        var normal = OglWeatherEmitterPlan.Positions(256, 256, 96, 16);
+        Require(normal.Count == 9, "256 region should use 3 by 3 emitters");
+        var large = OglWeatherEmitterPlan.Positions(1024, 1024, 96, 16);
+        Require(large.Count <= 16 && large.Count >= 9, "large region bounded");
+        float minX = float.MaxValue, maxX = float.MinValue;
+        float minY = float.MaxValue, maxY = float.MinValue;
+        foreach (var point in large)
+        {
+            Require(point.X > 0 && point.X < 1024 &&
+                point.Y > 0 && point.Y < 1024, "all emitters inside region");
+            minX = Math.Min(minX, point.X);
+            maxX = Math.Max(maxX, point.X);
+            minY = Math.Min(minY, point.Y);
+            maxY = Math.Max(maxY, point.Y);
+        }
+        Require(maxX - minX > 600 && maxY - minY > 600,
+            "varregion emitters distributed across whole area");
+        var small = OglWeatherEmitterPlan.Positions(256, 256, 1, 99999);
+        Require(small.Count <= 64, "malicious config remains bounded");
+        Require(OglWeatherEmitterPlan.Positions(128, 128, 256, 16).Count == 1,
+            "small region has exactly one fallback emitter");
+        using (JsonDocument legacy = JsonDocument.Parse(
+            OglWeatherViewerState.Serialize(
+                "region", now, seed, berlin, 200, true)))
+        {
+            Require(legacy.RootElement.GetProperty("precipitation")
+                .GetProperty("legacy_prim_emitters_active").GetBoolean(),
+                "native viewers can suppress double precipitation");
+        }
         Console.WriteLine("OGLWeather: " + checks + " checks PASS, " +
             wetDays + " wet days, " + dryDays + " dry days, " + snowDays + " snowy days");
     }
