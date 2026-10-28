@@ -8,6 +8,9 @@ string AXIS = "A";
 integer LAST_SIGNAL;
 string CURRENT = "RED";
 integer REMAINING;
+integer PHASE_END = 0;
+integer LAST_CAPTION = -1;
+string LAST_PHASE = "";
 
 showSignal()
 {
@@ -30,8 +33,18 @@ showSignal()
         ]);
 @nextLamp;
     }
-    llSetText("NexTraffic " + JUNCTION + " [" + AXIS + "]\n" +
-        CURRENT + "  " + (string)REMAINING + "s",
+    updateCaption();
+}
+
+updateCaption()
+{
+    integer seconds = PHASE_END - llGetUnixTime();
+    if (seconds < 0) seconds = 0;
+    if (CURRENT == LAST_PHASE && seconds == LAST_CAPTION) return;
+    LAST_PHASE = CURRENT;
+    LAST_CAPTION = seconds;
+    llSetText("NexTraffic " + JUNCTION + " [" + AXIS + "]\\n" +
+        CURRENT + "  " + (string)seconds + "s",
         <1.0, 1.0, 1.0>, 1.0);
 }
 
@@ -43,7 +56,7 @@ default
         REMAINING = 0;
         showSignal();
         llListen(CHANNEL, "NexTraffic", NULL_KEY, "");
-        llSetTimerEvent(5.0);
+        llSetTimerEvent(1.0);
     }
 
     listen(integer channel, string name, key id, string message)
@@ -66,13 +79,18 @@ default
         if (remaining < 1 || remaining > 120 ||
             llAbs(llGetUnixTime() - serverTime) > 15) return;
 
+        string other = llList2String(f, 4);
+        if (AXIS == "B") other = llList2String(f, 3);
+        if (phase != "RED" && other != "RED") return;
         LAST_SIGNAL = llGetUnixTime();
         REMAINING = remaining;
+        PHASE_END = serverTime + remaining;
         if (CURRENT != phase)
         {
             CURRENT = phase;
             showSignal();
         }
+        else updateCaption();
     }
 
     timer()
@@ -84,9 +102,11 @@ default
             {
                 CURRENT = "RED";
                 REMAINING = 0;
+                PHASE_END = 0;
                 showSignal();
             }
         }
+        else updateCaption();
     }
 
     on_rez(integer code) { llResetScript(); }
