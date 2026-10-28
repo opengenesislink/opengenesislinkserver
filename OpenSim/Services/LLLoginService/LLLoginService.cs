@@ -86,6 +86,7 @@ namespace OpenSim.Services.LLLoginService
         protected int m_MaxAgentGroups = 42;
         protected string m_DestinationGuide;
         protected string m_AvatarPicker;
+        protected bool m_OglApprovedViewersOnly;
         protected Regex m_AllowedClientsRegex;
         protected Regex m_DeniedClientsRegex;
         protected string m_DeniedMacs;
@@ -158,6 +159,8 @@ namespace OpenSim.Services.LLLoginService
             m_allowLoginFallbackToAnyRegion = m_LoginServerConfig.GetBoolean("AllowLoginFallbackToAnyRegion", m_allowLoginFallbackToAnyRegion);
 
             string[] accessControlConfigSections = new string[] { "AccessControl", "LoginService" };
+            m_OglApprovedViewersOnly = Util.GetConfigVarFromSections<bool>(config,
+                "OGLApprovedViewersOnly", accessControlConfigSections, false);
             string AllowedClients = Util.GetConfigVarFromSections<string>(config, "AllowedClients", accessControlConfigSections, string.Empty);
             if (!string.IsNullOrEmpty(AllowedClients))
             {
@@ -401,6 +404,16 @@ namespace OpenSim.Services.LLLoginService
 
             try
             {
+                // The server refuses nonapproved self-reported viewers before
+                // authentication, account/presence creation or asset traffic.
+                if (m_OglApprovedViewersOnly &&
+                    !OglApprovedViewerPolicy.IsAllowed(clientVersion, channel))
+                {
+                    m_log.InfoFormat("[OGL VIEWER ACCESS]: Rejected local login: viewer {0}, channel {1}",
+                        clientVersion, channel);
+                    return LLFailedLoginResponse.LoginBlockedProblem;
+                }
+
                 //
                 // Check client
                 //
