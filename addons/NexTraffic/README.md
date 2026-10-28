@@ -1,5 +1,12 @@
 # NexTraffic 0.1.0 – simulatorweite Ampelsteuerung
 
+## Automatischer Standard-Build (Generation 1)
+
+Dieses Addon wird zusammen mit OpenGenesisLINK automatisch über `./runprebuild.sh` und `dotnet build -c Release OpenSim.sln` erstellt. Die DLL `OpenGenesisLINK.Addons.NexTraffic.dll` wird dabei automatisch in `bin/` abgelegt, **ohne einen separaten Addon-Build oder Installationsschritt**. Das funktioniert auch über die automatisch erzeugte `compile.sh`. Die Build-Integration installiert keine Dateien auf fremden Servern und aktiviert das Addon nicht automatisch; `Enabled = false` bleibt die sichere Vorgabe.
+
+Die vorhandenen `addon-modules/.../build.sh`-Skripte bleiben ausschließlich für gezielte Einzel-Builds und separate Simulatorinstallationen bestehen.
+
+
 **Eigenständiges, opt-in OpenGenesisLINK Generation-1-Addon.** Der Server berechnet auf Basis der UTC-Unixzeit und eines einheitlichen Takts synchronisierte Ampelphasen und sendet sie als Region-Chat an freiwillig platzierte Ampelobjekte. Das verhindert widersprüchliche Ampelphasen, sofern beide Seiten derselben Kreuzung den gleichen Serverkanal nutzen. Ein externer Verkehrsleitrechner, echte Fahrzeuge und physische Kollisionsvermeidung sind nicht Bestandteil dieses MVP.
 
 ## Einbau
