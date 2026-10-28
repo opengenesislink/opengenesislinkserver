@@ -44,7 +44,7 @@ Zusätzlich pro Eintrag:
 | `last_online_minutes` | Ganze Minuten seit diesem Logout, sonst `null` |
 | `last_online_hours` | Ganze Stunden seit diesem Logout, sonst `null` |
 | `last_online_label` | UI-Text, etwa `vor 12 Minuten` oder `vor 3 Stunden` |
-| `last_online_scope` | `local_grid_logout` oder `unknown` |
+| `last_online_scope` | `local_grid_logout` (nur hier zuletzt gesehen), sonst `unknown` |
 
 Beispiel für einen **lokalen**, berechtigten Offline-Freund:
 
@@ -76,10 +76,13 @@ mit durch `TheirFlags & 1` eingeräumtem Online-Sichtrecht dürfen einen
 Online-Status bzw. Logout-Zeitpunkt erhalten. Pending-Freundschaften
 und entzogene Sichtrechte liefern `null` bei allen „zuletzt online“-Feldern.
 `GridUser.Logout` ist der letzte **lokal** dokumentierte Logout.
-Bei Hypergrid-Freunden sind fremde Login-/Logout-Zeitpunkte auf
-**anderen Grids** nicht zuverlässig verfügbar. Deshalb bleiben deren
-`last_online_*`-Felder stets `null` und `online_status` außerhalb
-einer auf unserem Grid beobachteten aktiven Präsenz `unknown`.
+Bei Hypergrid-Freunden sind Login-/Logout-Zeitpunkte auf
+**anderen Grids** nicht zuverlässig verfügbar. Wenn der Gast dagegen
+**unser Grid besucht** hat, kann ein hier gespeicherter letzter Logout
+unter seinem exakten UUI angezeigt werden (`last_online_scope =
+local_grid_logout`). Fehlt eine solche lokale Aufzeichnung, bleiben
+die `last_online_*`-Felder `null`. `online_status` ist bei auswärtigen
+Freunden außerhalb einer beobachteten aktiven Präsenz `unknown`.
 Das bisherige boolesche `online=false` darf bei HG-Freunden **nicht**
 als „weltweit offline“ interpretiert werden. Diese Version startet
 keine HTTP-Abfragen an beliebige externe Heimatsysteme und speichert
