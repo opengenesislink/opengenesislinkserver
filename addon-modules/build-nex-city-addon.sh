@@ -2,7 +2,7 @@
 # Build exactly one of three independently loadable RegionModule libraries.
 # Deployment is explicit and refuses any ROBUST installation.
 set -euo pipefail
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 NAME="${1:-}"
 CFG="${2:-Release}"
 case "$NAME" in NexTraffic|NexTransit|NexSmartLight) ;; *) echo "Unknown addon" >&2; exit 2 ;; esac
