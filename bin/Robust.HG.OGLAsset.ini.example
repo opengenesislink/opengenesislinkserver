@@ -1148,3 +1148,16 @@
     PrivateKeyPath = "config-include/ogl-feature-private.pem"
     ; Lokaler Persistenzpfad des Robust-Lizenzspeichers.
     StorePath = "data/ogl-feature-control.json"
+
+; ============================================================================
+; OGLWeather public Stadtportal display (World API / ROBUST only)
+; ============================================================================
+; Opt-in public GET /api/v1/weather with no citizen login. Uses the same
+; deterministic climate code as the simulator, not real weather services.
+; IMPORTANT: match WeatherSeed and TimeZone from EVERY [OGLWeather]
+; simulator you want to represent. No synchronisation across mismatched seeds.
+[OGLWeatherPortal]
+    Enabled = false
+    WeatherSeed = 20261028
+    TimeZone = "Europe/Berlin"
+    DisplayName = "Stadt-NexVerse"
