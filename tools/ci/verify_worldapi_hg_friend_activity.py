@@ -20,11 +20,13 @@ assert "NexScopes.RelationshipsRead" in api
 assert "if (!Owns(principal, owner))" in api
 assert "m_Friends.GetFriends(owner)" in api
 assert "NexRelationshipPresenceModel.TryParseIdentity(" in api
-assert "m_GridUsers.GetGridUserInfo(id.ToString())" in api
+assert "m_GridUsers.GetGridUserInfo(" in api
 assert "identity.IsHypergrid ? identity.ForeignName" in api
 assert "identity.IsHypergrid" in api
 assert "canSeeOnline = confirmed && (f.TheirFlags & 1) != 0" in api
-assert "canSeeOnline && !online && !identity.IsHypergrid" in api
+assert "canSeeOnline && presenceKnown && !online" in api
+assert "identity.IsHypergrid ? f.Friend : id.ToString()" in api
+assert "TryGetOnline(UUID id, out bool online)" in api
 assert 'last_online_scope = activity.LastOnlineAtUtc == null' in api
 for field in (
     "is_hypergrid", "home_grid", "online_status", "online_scope",
