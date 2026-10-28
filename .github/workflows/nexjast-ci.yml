@@ -427,6 +427,12 @@ jobs:
         shell: bash
         run: python3 tools/ci/verify_r409_world_portal_contract.py
 
+      - name: Verify World API OGLWeather portal contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/ci/verify_world_api_oglweather_portal.py
+
       - name: Weather Forecast regression and independent addon build
         shell: bash
         run: |
