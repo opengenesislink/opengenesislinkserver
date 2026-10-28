@@ -1,0 +1,59 @@
+name: Wolfvoice Region Addon Compatibility
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'tools/voice/**'
+      - 'doc/NexVerse/GEN1_WOLFVOICE_COMPATIBILITY.md'
+      - '.github/workflows/ogl-wolfvoice-compatibility.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  build-addon:
+    name: Build hardened WebRTC region addon
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout OpenGenesisLINK
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Install native dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgdiplus libc6-dev
+
+      - name: Validate integration safety contracts
+        run: |
+          python3 tools/ci/verify_gen1_wolfvoice_compat.py
+          bash -n tools/voice/install-wolfvoice-region-addon.sh
+          bash -n tools/voice/configure-wolfvoice-region.sh
+
+      - name: Fetch and compile pinned hardened WebRTC addon
+        run: |
+          chmod +x runprebuild.sh
+          bash tools/voice/install-wolfvoice-region-addon.sh build
+
+      - name: Validate opt-in config with disposable test credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          tmp="$(mktemp -d)"
+          trap 'rm -rf "$tmp"' EXIT
+          umask 077
+          openssl rand -hex 32 > "$tmp/rpc_key"
+          openssl rand -hex 32 > "$tmp/cred_key"
+          export WOLFVOICE_RPC_KEY_FILE="$tmp/rpc_key"
+          export WOLFVOICE_CRED_KEY_FILE="$tmp/cred_key"
+          bash tools/voice/configure-wolfvoice-region.sh \
+            https://voice-ci.stadt-nexverse.test:9443 "$tmp/wolfvoice.ini"
+          grep -Fq 'Enabled = false' "$tmp/wolfvoice.ini"
+          grep -Fq 'WebRtcVoice.dll:WebRtcVoiceServiceConnector' "$tmp/wolfvoice.ini"
+          grep -Fq 'PositionFeed = true' "$tmp/wolfvoice.ini"

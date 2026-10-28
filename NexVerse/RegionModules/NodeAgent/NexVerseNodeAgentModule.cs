@@ -52,6 +52,9 @@ namespace NexVerse.RegionModules.NodeAgent
             new ConcurrentDictionary<UUID, ObjectMessageRateState>();
 
         private bool m_Enabled;
+        // Inbound HTTP may finish after Close starts and the bus is disposed.
+        // Reject new events during shutdown instead of logging a spurious 500.
+        private int m_Stopping;
         private string m_NodeId = string.Empty;
         private string m_SharedKey = string.Empty;
         private string m_InboundPath = "/internal/nexbus/v1/events";
@@ -210,6 +213,7 @@ namespace NexVerse.RegionModules.NodeAgent
                 queueCapacity,
                 timeoutMs);
             m_Bus = new DistributedNexEventBus(m_Transport, deduplicationWindow);
+            Interlocked.Exchange(ref m_Stopping, 0);
             m_StartedAt = DateTimeOffset.UtcNow;
             m_Enabled = true;
 
@@ -347,7 +351,7 @@ namespace NexVerse.RegionModules.NodeAgent
 
         public void Close()
         {
-            if (!m_Enabled)
+            if (!m_Enabled || Interlocked.Exchange(ref m_Stopping, 1) != 0)
                 return;
 
             try
@@ -2366,6 +2370,13 @@ namespace NexVerse.RegionModules.NodeAgent
             response.KeepAlive = false;
             response.ContentType = "application/json; charset=utf-8";
 
+            if (Volatile.Read(ref m_Stopping) != 0 || !m_Enabled)
+            {
+                WriteInbound(response, HttpStatusCode.ServiceUnavailable,
+                    new { error = "node_shutting_down" });
+                return;
+            }
+
             if (request == null ||
                 !string.Equals(
                     request.HttpMethod,
@@ -2426,7 +2437,17 @@ namespace NexVerse.RegionModules.NodeAgent
 
             try
             {
-                bool accepted = m_Bus.Receive(nexEvent);
+                // Close() may race with a validated, in-flight HTTP request.
+                // Snapshot and guard the bus; still handle disposal after the check.
+                DistributedNexEventBus bus = m_Bus;
+                if (Volatile.Read(ref m_Stopping) != 0 || bus == null)
+                {
+                    WriteInbound(response, HttpStatusCode.ServiceUnavailable,
+                        new { error = "node_shutting_down" });
+                    return;
+                }
+
+                bool accepted = bus.Receive(nexEvent);
                 WriteInbound(
                     response,
                     HttpStatusCode.Accepted,
@@ -2435,6 +2456,12 @@ namespace NexVerse.RegionModules.NodeAgent
                         accepted,
                         event_id = nexEvent.EventId
                     });
+            }
+            catch (ObjectDisposedException)
+            {
+                // Expected for requests already authenticated when teardown begins.
+                WriteInbound(response, HttpStatusCode.ServiceUnavailable,
+                    new { error = "node_shutting_down" });
             }
             catch (Exception e)
             {

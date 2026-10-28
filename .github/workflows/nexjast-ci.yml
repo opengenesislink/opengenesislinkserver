@@ -846,6 +846,15 @@ jobs:
           python3 tools/ci/verify_gen1_approved_viewer_access.py
           dotnet run --project tools/ci/OglApprovedViewerRegression/OglApprovedViewerRegression.csproj --configuration Release
 
+      - name: Verify NexBus shutdown race and Wolfvoice integration
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/ci/verify_gen1_nexbus_shutdown.py
+          python3 tools/ci/verify_gen1_wolfvoice_compat.py
+          bash -n tools/voice/install-wolfvoice-region-addon.sh
+          bash -n tools/voice/configure-wolfvoice-region.sh
+
       - name: Runtime smoke test LLLogin protocol
         shell: bash
         run: bash tools/ci/smoke_lllogin_protocol.sh

@@ -12,7 +12,7 @@ namespace OpenSim.Framework
     {
         private static readonly string[] s_AllowedNames =
         {
-            "Firestorm", "OpenGenesisLINK", "OGL Viewer"
+            "Firestorm", "OpenGenesisLINK", "OGL Viewer", "Radegast-ng", "Radegast"
         };
 
         private static readonly string[] s_KnownCopybotNames =

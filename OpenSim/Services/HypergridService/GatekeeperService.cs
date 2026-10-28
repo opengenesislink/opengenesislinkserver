@@ -338,7 +338,7 @@ namespace OpenSim.Services.HypergridService
             if (m_OglApprovedViewersOnly &&
                 !OglApprovedViewerPolicy.IsAllowed(aCircuit.Viewer, aCircuit.Channel))
             {
-                reason = "Only Firestorm or OpenGenesisLINK Viewer is permitted";
+                reason = "Only Firestorm, OpenGenesisLINK or Radegast-ng Viewer is permitted";
                 m_log.InfoFormat("[OGL VIEWER ACCESS]: Rejected Hypergrid arrival using viewer {0}, channel {1}",
                     aCircuit.Viewer, aCircuit.Channel);
                 return false;
