@@ -10,5 +10,10 @@ TimeZone = "Europe/Berlin"
 LSLChannel = -835311
 CurrentBroadcastSeconds = 60
 ForecastBroadcastSeconds = 300
+; Read-only viewer weather source. This height is a renderer suggestion,
+; not an automatic EEP cloud layer or standard Firestorm particle effect.
+CloudBaseMeters = 200
+; Precipitation is viewer-native only: no prims, no automatic rezzing.
+; An unchanged Firestorm viewer cannot render this protocol yet.
 ; Keine EEP-Aenderungen, keine dauerhaften Rezzed-Objekte.
 ; Das Wettersystem benoetigt Wetter-Emitter-Prims fuer sichtbare Partikel.
