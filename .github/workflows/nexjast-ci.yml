@@ -823,6 +823,10 @@ jobs:
           grep -F 'Development checkpoint status: completed 3 October 2026' doc/NexVerse/CHECKPOINT_0.9.3.2.md
           grep -F '36/36 explicit checklist items completed' doc/NexVerse/CHECKPOINT_0.9.3.2.md
 
+      - name: Verify Generation 1 Hypergrid asset egress lockdown
+        shell: bash
+        run: python3 tools/ci/verify_gen1_hg_asset_egress_lockdown.py
+
       - name: Runtime smoke test LLLogin protocol
         shell: bash
         run: bash tools/ci/smoke_lllogin_protocol.sh
