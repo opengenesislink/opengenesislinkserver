@@ -16,6 +16,11 @@ namespace OpenSim.Framework
             MethodBase.GetCurrentMethod().DeclaringType);
 
         private bool[] m_DisallowExport, m_DisallowImport;
+        private readonly bool m_BlockAllExports;
+
+        // Applies to the public Hypergrid service only when explicitly configured.
+        // All asset types, including future/unknown ones, are blocked.
+        public bool BlockAllExports => m_BlockAllExports;
         private string[] m_AssetTypeNames;
 
         public AssetPermissions(IConfig config)
@@ -28,6 +33,7 @@ namespace OpenSim.Framework
             m_DisallowExport = new bool[n];
             m_DisallowImport = new bool[n];
 
+            m_BlockAllExports = config != null && config.GetBoolean("DisallowAllExport", false);
             LoadPermsFromConfig(config, "DisallowExport", m_DisallowExport);
             LoadPermsFromConfig(config, "DisallowImport", m_DisallowImport);
 
@@ -53,6 +59,9 @@ namespace OpenSim.Framework
 
         public bool AllowedExport(sbyte type)
         {
+            if (m_BlockAllExports)
+                return false;
+
             string assetTypeName = ((AssetType)type).ToString();
 
             int index = Array.IndexOf(m_AssetTypeNames, assetTypeName.ToLower());
