@@ -40,6 +40,8 @@ errors = []
 for rel in ("bin/OpenSim.ini", "bin/OpenSim.ini.example", "bin/OpenSimDefaults.ini"):
     path = ROOT / rel
     values = parse_ini(path)
+    if rel == "bin/OpenSim.ini" and values.get(("Map", "RenderMaxHeight")) != "500":
+        errors.append("active Warp3D maptile height limit must be RenderMaxHeight=500")
     for key, expected in EXPECTED.items():
         if rel == "bin/OpenSim.ini" and key == ("XMLRPC", "XmlRpcPort"):
             expected = "-1"
@@ -63,6 +65,9 @@ if "DecodeToImageWithOpenJPEG" not in j2k_decoder or "CSJ2K and OpenJPEG" not in
     errors.append("J2K decoder must retain the CSJ2K -> OpenJPEG compatibility fallback")
 
 warp3d = (ROOT / "OpenSim/Region/CoreModules/World/Warp3DMap/Warp3DImageModule.cs").read_text(encoding="utf-8")
+if ('"RenderMaxHeight", configSections, m_renderMaxHeight' not in warp3d
+        or 'ppos.Z > m_renderMaxHeight' not in warp3d):
+    errors.append("Warp3D maptile must actually honor configured maximum object Z")
 if "m_textureDecodeWarnings" not in warp3d or "LogTextureDecodeFailureOnce" not in warp3d:
     errors.append("Warp3D must suppress repeated decode warnings for the same texture UUID")
 
