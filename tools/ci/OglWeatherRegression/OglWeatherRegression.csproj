@@ -8,5 +8,6 @@
   <ItemGroup>
     <Compile Include="../../../addons/OGLWeather/OglWeatherModel.cs" Link="OglWeatherModel.cs" />
     <Compile Include="../../../addons/OGLWeather/OglWeatherViewerState.cs" Link="OglWeatherViewerState.cs" />
+    <Compile Include="../../../addons/OGLWeather/OglWeatherEmitterPlan.cs" Link="OglWeatherEmitterPlan.cs" />
   </ItemGroup>
 </Project>
