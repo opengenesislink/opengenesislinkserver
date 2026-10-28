@@ -7,6 +7,27 @@ kompiliert, nicht automatisch in Inventare geladen und nicht ungefragt in
 Bewohnerobjekte eingesetzt. Die vier eigenständigen **.NET8-DLLs** entstehen
 weiterhin automatisch bei `bash runprebuild.sh && bash compile.sh`.
 
+## Aktive Stadt-NexVerse-Konfiguration (GitHub)
+
+Für Stadt-NexVerse sind die vier Addons in `bin/OpenSim.ini` jetzt direkt
+mit allen benötigten Parametern und `Enabled = true` eingetragen. Die
+öffentliche Wetter-API `[OGLWeatherPortal]` ist separat in
+`bin/Robust.HG.ini` mit `Enabled = true` konfiguriert. Seed
+`20261028` und Zeitzone `Europe/Berlin` sind auf beiden Seiten gleich.
+
+Die `addons/*/*.ini.example` und `bin/Robust.HG.ini.example` bleiben
+als konservative, standardmäßig deaktivierte Vorlagen bestehen.
+**Der GitHub-Commit ändert keine laufenden Server:** Das tatsächliche
+Deployment muss die bereits lokal angepassten INI-Dateien sorgfältig
+zusammenführen und die Simulatorprozesse bzw. ROBUST neu starten.
+Bei `git pull` mit lokalen Änderungen niemals blind überschreiben.
+
+Die voreingestellten NexTransit-Linien 101/150 enthalten **simulierte
+Beispiel-Abfahrtsintervalle**, keine echten aktuellen Buspositionen oder
+amtlichen Fahrplandaten. Vor dem öffentlichen Betrieb entsprechende
+Haltestellen, Intervalle und Strecken konfigurieren. Die SmartLights
+verwenden die lokale Uhrzeit 18–06 Uhr, nicht automatisch die EEP-Sonne.
+
 ## Voraussetzungen
 
 1. **Regionssimulator**, nicht ROBUST, aktualisieren und sicherstellen, dass
