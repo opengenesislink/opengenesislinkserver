@@ -8,6 +8,17 @@ namespace OpenGenesisLINK.Addons.OGLWeather
 {
     public static class OglWeatherViewerState
     {
+        /// <summary>
+        /// The CAPS flag reports live managed emitters in this region, never
+        /// merely that the feature is enabled in the simulator configuration.
+        /// A missing estate owner, empty region, or failed rez must not cause
+        /// a future native viewer to suppress precipitation.
+        /// </summary>
+        public static bool LegacyEmittersActive(bool enabled, int liveEmitterCount)
+        {
+            return enabled && liveEmitterCount > 0;
+        }
+
         public static string Serialize(string regionId, DateTimeOffset utc,
             int seed, TimeZoneInfo timeZone, int cloudBaseMeters,
             bool legacyParticleEmitters = false)
