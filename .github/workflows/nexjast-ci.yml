@@ -831,6 +831,14 @@ jobs:
         shell: bash
         run: python3 tools/ci/verify_gen1_hg_asset_egress_lockdown.py
 
+      - name: Regression-test dynamic texture retirement handoff
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/ci/verify_gen1_dynamic_texture_refresh.py
+          dotnet run --project tools/ci/OglDynamicTextureRetentionRegression/OglDynamicTextureRetentionRegression.csproj --configuration Release
+
+
       - name: Verify Generation 1 approved-viewer admission policy
         shell: bash
         run: |
