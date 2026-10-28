@@ -986,6 +986,10 @@
     ; Generation 1: allow normal Hypergrid commerce and delivery of purchased assets.
     ; Emergency opt-in lockdown: true denies ALL public HG reads (including sales).
     DisallowAllExport = false
+    ; Only applies to public HG POST /get_assets_exist (not normal asset GETs).
+    ; Large legal transfers remain supported; limits mitigate bulk enumeration.
+    MaxHGAssetExistIds = 16384
+    MaxHGAssetExistXmlChars = 4194304
     ;; Use the second option if you have FSAsset service enabled
     LocalServiceModule = "OpenSim.Services.HypergridService.dll:HGAssetService"
     ;LocalServiceModule = "OpenSim.Services.HypergridService.dll:HGFSAssetService"
