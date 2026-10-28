@@ -68,9 +68,15 @@ namespace OpenGenesisLINK.Addons.OGLWeather
             };
         }
 
-        public static WeatherDay ForecastDay(DateTime localDate, int seed)
+        public static WeatherDay ForecastDay(DateTime localDate, int seed, TimeZoneInfo zone)
         {
-            DateTime date = localDate.Date;
+            if (zone == null) throw new ArgumentNullException(nameof(zone));
+            DateTime date = DateTime.SpecifyKind(localDate.Date, DateTimeKind.Unspecified);
+            // DST creates 23-hour or 25-hour calendar days. Iterate actual
+            // UTC instants so predicted precipitation hours always match
+            // the hours the simulator truly observes.
+            DateTime fromUtc = TimeZoneInfo.ConvertTimeToUtc(date, zone);
+            DateTime untilUtc = TimeZoneInfo.ConvertTimeToUtc(date.AddDays(1), zone);
             int min = int.MaxValue;
             int max = int.MinValue;
             int rain = 0;
@@ -78,10 +84,12 @@ namespace OpenGenesisLINK.Addons.OGLWeather
             int cloud = 0;
             int sunny = 0;
 
-            // All 24 hourly values are taken from the same realisation as At().
-            for (int hour = 0; hour < 24; ++hour)
+            // Sample every actually occurring hour of this local calendar day.
+            for (DateTime hourUtc = fromUtc; hourUtc < untilUtc;
+                 hourUtc = hourUtc.AddHours(1))
             {
-                WeatherReading weather = AtLocal(date.AddHours(hour), seed);
+                DateTime actualLocal = TimeZoneInfo.ConvertTimeFromUtc(hourUtc, zone);
+                WeatherReading weather = AtLocal(actualLocal, seed);
                 min = Math.Min(min, weather.TemperatureC);
                 max = Math.Max(max, weather.TemperatureC);
                 if (weather.Condition == "rain") rain++;
@@ -113,9 +121,9 @@ namespace OpenGenesisLINK.Addons.OGLWeather
                 "|" + reading.WindKmh.ToString(CultureInfo.InvariantCulture);
         }
 
-        public static string DayWire(DateTime localDate, int seed, int index)
+        public static string DayWire(DateTime localDate, int seed, int index, TimeZoneInfo zone)
         {
-            WeatherDay day = ForecastDay(localDate, seed);
+            WeatherDay day = ForecastDay(localDate, seed, zone);
             return "OGLWX|1|DAY|" + index.ToString(CultureInfo.InvariantCulture) + "|" +
                 day.Date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) + "|" +
                 day.Condition + "|" + day.MinC.ToString(CultureInfo.InvariantCulture) +
