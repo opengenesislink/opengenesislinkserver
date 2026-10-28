@@ -92,6 +92,42 @@ internal static class Program
             Require(first == second, "DST and restart yield same weather schedule");
         }
 
+        // CAPS payload is a stable, read-only snapshot derived from the same
+        // forecast that is delivered to the LSL weather board.
+        string json = OglWeatherViewerState.Serialize(
+            "00000000-0000-0000-0000-000000000001", now, seed, berlin, 200);
+        using (JsonDocument parsed = JsonDocument.Parse(json))
+        {
+            JsonElement payload = parsed.RootElement;
+            JsonElement precipitation = payload.GetProperty("precipitation");
+            Require(payload.GetProperty("protocol").GetString() == "ogl.weather",
+                "native viewer protocol identity");
+            Require(payload.GetProperty("version").GetInt32() == 1,
+                "native viewer protocol version");
+            Require(precipitation.GetProperty("origin").GetString() == "clouds",
+                "precipitation originates visually from clouds");
+            Require(precipitation.GetProperty("rendering").GetString() == "viewer_native",
+                "prim-free precipitation requires viewer-native rendering");
+            Require(precipitation.GetProperty("requires_viewer_support").GetBoolean(),
+                "no false claim of unchanged Firestorm compatibility");
+            Require(precipitation.GetProperty("cloud_base_m").GetInt32() == 200,
+                "cloud base is the configured height");
+            Require(precipitation.GetProperty("condition").GetString() == same1.Condition,
+                "CAPS current condition matches shared simulator model");
+            JsonElement days = payload.GetProperty("forecast");
+            Require(days.GetArrayLength() == 5, "CAPS contains exactly five forecast days");
+            DateTime firstDay = TimeZoneInfo.ConvertTime(now, berlin).Date.AddDays(1);
+            Require(days[0].GetProperty("date").GetString() ==
+                firstDay.ToString("yyyy-MM-dd"), "forecast starts on next local day");
+        }
+        using (JsonDocument limits = JsonDocument.Parse(
+            OglWeatherViewerState.Serialize("region", now, seed, berlin, 9999)))
+        {
+            Require(limits.RootElement.GetProperty("precipitation")
+                .GetProperty("cloud_base_m").GetInt32() == 2048,
+                "cloud height must not exceed configured maximum");
+        }
+
         Console.WriteLine("OGLWeather: " + checks + " checks PASS, " +
             wetDays + " wet days, " + dryDays + " dry days, " + snowDays + " snowy days");
     }
