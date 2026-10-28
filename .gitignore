@@ -28,3 +28,7 @@ bin/maptiles/
 # Grid-specific terrain source data and accidental filesystem cache copy
 bin/nexverse-deutschland/
 bin/opt/
+
+# Optional, pinned external wolfvoice region addon, fetched by operator.
+# Do not accidentally vendor its full upstream source or build outputs.
+/addon-modules/os-webrtc-janus/
