@@ -28,6 +28,14 @@ internal static class Program
         Check("1.0.0", "OGL Viewer-Release", true);
         Check("OpenGenesisLINK-Release", null, true);
 
+        // Radegast-ng reports its channel in different forms across builds.
+        Check("Radegast-ng 2.3", "Radegast-ng", true);
+        Check("Radegast-ng", "", true);
+        Check("2.3.0", "Radegast-ng", true);
+        Check("Radegast 2.3", "Radegast", true);
+        Check("2.3.0", "Radegast", true);
+        Check("Radegast-ng-malice", "Hydrastorm", false);
+
         // Denials: explicit known Copybot labels and every other viewer family.
         Check("Darkstorm 2.0", "Darkstorm", false);
         Check("Hydrastorm 1.0", "Hydrastorm", false);
