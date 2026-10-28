@@ -1,5 +1,12 @@
 # NexTransit 0.1.0 – Stadt-NexVerse Linien und Fahrplananzeigen
 
+## Automatischer Standard-Build (Generation 1)
+
+Dieses Addon wird zusammen mit OpenGenesisLINK automatisch über `./runprebuild.sh` und `dotnet build -c Release OpenSim.sln` erstellt. Die DLL `OpenGenesisLINK.Addons.NexTransit.dll` wird dabei automatisch in `bin/` abgelegt, **ohne einen separaten Addon-Build oder Installationsschritt**. Das funktioniert auch über die automatisch erzeugte `compile.sh`. Die Build-Integration installiert keine Dateien auf fremden Servern und aktiviert das Addon nicht automatisch; `Enabled = false` bleibt die sichere Vorgabe.
+
+Die vorhandenen `addon-modules/.../build.sh`-Skripte bleiben ausschließlich für gezielte Einzel-Builds und separate Simulatorinstallationen bestehen.
+
+
 **Eigenständiges opt-in Regionsaddon.** Konfigurierte Linien, Ziele, Taktabstände und Startminuten ergeben reproduzierbare Planabfahrten für eine bestimmte Region/Haltestellenumgebung. Das Wetter- und das alte Bus-Abfahrtstafel-Addon werden nicht verändert. Ein automatischer Bus, Echtzeit-GPS, Fahrscheinverkauf oder Teleport wird **nicht** vorgetäuscht.
 
 ## Einbau

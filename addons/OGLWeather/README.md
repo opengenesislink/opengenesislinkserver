@@ -1,5 +1,12 @@
 # OGLWeather – OpenGenesisLINK Generation 1
 
+## Automatischer Standard-Build (Generation 1)
+
+Dieses Addon wird zusammen mit OpenGenesisLINK automatisch über `./runprebuild.sh` und `dotnet build -c Release OpenSim.sln` erstellt. Die DLL `OpenGenesisLINK.Addons.OGLWeather.dll` wird dabei automatisch in `bin/` abgelegt, **ohne einen separaten Addon-Build oder Installationsschritt**. Das funktioniert auch über die automatisch erzeugte `compile.sh`. Die Build-Integration installiert keine Dateien auf fremden Servern und aktiviert das Addon nicht automatisch; `Enabled = false` bleibt die sichere Vorgabe.
+
+Die vorhandenen `addon-modules/.../build.sh`-Skripte bleiben ausschließlich für gezielte Einzel-Builds und separate Simulatorinstallationen bestehen.
+
+
 **Eigenständiges Wetter-Addon (0.1.0 Dev)** für alle Regionen eines Simulatorprozesses. Ersetzt das eingestellte OGLSeasons-Projekt. Kein externer DWD-Dienst und **keine echte meteorologische Wettervorhersage**: Dies ist eine vollständig deterministische Wetter-Simulation.
 
 ## Funktionen

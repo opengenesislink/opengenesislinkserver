@@ -33,6 +33,9 @@ for name, channel in zip(names, channels):
     assert f"integer CHANNEL = {channel};" in script
     assert f"OpenGenesisLINK.Addons.{name}" in csproj
     assert "net8.0" in csproj
+    assert '<Target Name="CopyAddonToSimulatorBin" AfterTargets="Build"' in csproj
+    assert 'DestinationFiles="$(MSBuildThisFileDirectory)../../bin/$(TargetFileName)"' in csproj
+    assert "<ProjectGuid>" in csproj
     assert f"build-nex-city-addon.sh\" {name}" in wrapper, name
     assert not any(x in mod for x in (
         "AddNewPrim(", "AddNewSceneObject(", "DeleteSceneObject(",
@@ -60,4 +63,27 @@ assert 'test -f "$TARGET/OpenSim.Region.Framework.dll"' not in builder or "robus
 assert 'dotnet build "addons/$NAME/OpenGenesisLINK.Addons.$NAME.csproj"' in builder
 assert "runprebuild.sh" in builder
 assert 'ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"' in builder
+# A plain checkout build and a regenerated solution must both compile
+# all four add-ons. CI also checks the actual bin output post-Release.
+solution = content("OpenSim.sln").replace(chr(92), "/")
+prebuild = content("runprebuild.sh")
+compile_script = content("compile.sh")
+for name in (*names, "OGLWeather"):
+    target = f"OpenGenesisLINK.Addons.{name}.dll"
+    project = f"addons/{name}/OpenGenesisLINK.Addons.{name}.csproj"
+    assert solution.count(project) == 1, f"Missing from checked-in solution: {name}"
+    assert project in prebuild, f"Missing from Prebuild regeneration: {name}"
+    assert target not in solution, f"Solution should include project, not DLL: {name}"
+    assert target not in compile_script or "bin/" in compile_script
+    assert f'bin/OpenGenesisLINK.Addons.${{addon}}.dll' in compile_script
+    assert f'<ProjectGuid>' in content(project)
+weather_project = content("addons/OGLWeather/OpenGenesisLINK.Addons.OGLWeather.csproj")
+assert 'CopyAddonToSimulatorBin' in weather_project
+assert 'DestinationFiles="$(MSBuildThisFileDirectory)../../bin/$(TargetFileName)"' in weather_project
+assert "bash addon-modules/OGLWeather/build.sh Release" not in prebuild, (
+    "Weather is now in OpenSim.sln; do not double-build separately"
+)
+assert 'dotnet build -c Release OpenSim.sln' in compile_script
+print("NexCity + OGLWeather solution bundling: all 4 DLLs checked")
+
 print("NexCity addon contracts PASS: independent plugins, bounded wire, safe disabled defaults")

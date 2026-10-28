@@ -1,5 +1,12 @@
 # NexSmartLight 0.1.0 – automatische Stadtbeleuchtung
 
+## Automatischer Standard-Build (Generation 1)
+
+Dieses Addon wird zusammen mit OpenGenesisLINK automatisch über `./runprebuild.sh` und `dotnet build -c Release OpenSim.sln` erstellt. Die DLL `OpenGenesisLINK.Addons.NexSmartLight.dll` wird dabei automatisch in `bin/` abgelegt, **ohne einen separaten Addon-Build oder Installationsschritt**. Das funktioniert auch über die automatisch erzeugte `compile.sh`. Die Build-Integration installiert keine Dateien auf fremden Servern und aktiviert das Addon nicht automatisch; `Enabled = false` bleibt die sichere Vorgabe.
+
+Die vorhandenen `addon-modules/.../build.sh`-Skripte bleiben ausschließlich für gezielte Einzel-Builds und separate Simulatorinstallationen bestehen.
+
+
 **Eigenständiges opt-in OpenGenesisLINK-Addon.** Der Simulator sendet den gewünschten Lampenstatus nach lokaler Uhrzeit an alle geladenen Regionen. Der Zustand wird mit Deutschland-Zeitzone `Europe/Berlin` einschließlich Sommerzeit berechnet. Er greift **nicht** in EEP, Estate, Terrain oder bestehende Straßenlaternen ein.
 
 ## Einbau

@@ -2,6 +2,7 @@
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
     <AssemblyName>OpenGenesisLINK.Addons.NexTransit</AssemblyName>
+    <ProjectGuid>{AF51F7E2-91D2-4801-AB77-F512A0430102}</ProjectGuid>
     <ImplicitUsings>disable</ImplicitUsings>
     <Nullable>disable</Nullable>
   </PropertyGroup>
@@ -14,4 +15,13 @@
     <Reference Include="OpenMetaverseTypes"><HintPath>../../bin/OpenMetaverseTypes.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="log4net"><HintPath>../../bin/log4net.dll</HintPath><Private>false</Private></Reference>
   </ItemGroup>
+  <!-- Normal OpenSim.sln build must deposit the three independent add-in DLLs
+       beside OpenSim.exe for Mono.Addins region module discovery. -->
+  <Target Name="CopyAddonToSimulatorBin" AfterTargets="Build"
+          Condition="'$(DesignTimeBuild)' != 'true'">
+    <MakeDir Directories="$(MSBuildThisFileDirectory)../../bin" />
+    <Copy SourceFiles="$(TargetPath)"
+          DestinationFiles="$(MSBuildThisFileDirectory)../../bin/$(TargetFileName)"
+          SkipUnchangedFiles="true" />
+  </Target>
 </Project>
