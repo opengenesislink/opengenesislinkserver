@@ -8,6 +8,8 @@ def read(path):
 model = read("addons/OGLWeather/OglWeatherModel.cs")
 module = read("addons/OGLWeather/OglWeatherRegionModule.cs")
 viewer = read("addons/OGLWeather/OglWeatherViewerState.cs")
+legacy = read("addons/OGLWeather/OglWeatherLegacyEmitters.cs")
+plan = read("addons/OGLWeather/OglWeatherEmitterPlan.cs")
 board = read("addons/OGLWeather/WeatherForecastBoard.lsl")
 config = read("addons/OGLWeather/OGLWeather.ini.example")
 builder = read("addon-modules/OGLWeather/build.sh")
@@ -31,8 +33,34 @@ assert "INonSharedRegionModule" not in module
 assert "OGLSeasons" not in module and "OGLSeasons" not in model
 assert "Enabled = false" in config and 'TimeZone = "Europe/Berlin"' in config
 assert "WeatherSeed = 20261028" in config
-assert not (root / "addons/OGLWeather/WeatherEmitter.lsl").exists(), "No weather emitter prims"
+assert not (root / "addons/OGLWeather/WeatherEmitter.lsl").exists(), "No manually placed LSL emitters"
 assert "llParticleSystem(" not in module and "AddNewPrim" not in module
+for marker in (
+    'LegacyParticleEmitters", true', 'EmitterHeightMeters", 65',
+    'EmitterSpacingMeters", 96', 'MaxEmittersPerRegion", 16',
+    'VisualRefreshSeconds", 60',
+    'OglWeatherLegacyEmitters.Apply(', 'OglWeatherLegacyEmitters.Clear(',
+    'lock (state.WeatherLock)',
+):
+    assert marker in module, marker
+for marker in (
+    'scene.AddNewSceneObject(group, false)',
+    'PrimitiveBaseShape.CreateBox()',
+    'texture.DefaultTexture.RGBA = new Color4(1f, 1f, 1f, 0f)',
+    'scene.GetGroundHeight(x, y)',
+    'group.RootPart.AddFlag(PrimFlags.Phantom)',
+    'group.RootPart.AddNewParticleSystem(',
+    'group.RootPart.RemoveParticleSystem()',
+    'scene?.DeleteSceneObject(group, false)',
+):
+    assert marker in legacy, marker
+assert 'OglWeatherEmitterPlan.Positions(' in legacy
+assert 'Math.Clamp(maximum, 1, 64)' in plan
+assert 'while (columns * (long)rows > maximum)' in plan
+assert 'legacy_prim_emitters_active = legacyParticleEmitters' in viewer
+assert 'LegacyParticleEmitters = true' in config
+assert 'EmitterHeightMeters = 65' in config
+assert 'MaxEmittersPerRegion = 16' in config
 assert 'caps.RegisterSimpleHandler("OGLWeatherState"' in module
 assert "scene.EventManager.OnRegisterCaps += region.CapsHandler" in module
 assert "state.Scene.EventManager.OnRegisterCaps -= state.CapsHandler" in module
@@ -74,4 +102,4 @@ for path in (
 assert "OGLSeasons" not in workflow, "obsolete CI weather gate still active"
 assert "OGLSeasons" not in read("runprebuild.sh"), "obsolete compile step still active"
 assert "OGLWeather" in read("runprebuild.sh"), "new addon missing from compile script"
-print("OGLWeather static contracts: simulator-wide, deterministic, opt-in, native weather CAPS and no prims PASS")
+print("OGLWeather static contracts: simulator-wide, deterministic, opt-in, native viewer CAPS plus bounded ephemeral Firestorm particles PASS")

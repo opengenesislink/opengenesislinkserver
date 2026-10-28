@@ -10,9 +10,9 @@
 - Jahreszeitlich schwankende Tages- und Nachttemperaturen; alle sechs Stunden ein fester Regen-/Schnee-/Sonne-/Wolken-Abschnitt. Bei Temperaturen bis einschließlich 1°C wird Niederschlag als Schnee ausgewiesen, sonst Regen.
 - Aktueller Wetterstatus: Zustand, Temperatur, Stärke und Wind.
 - Fünf kommende Kalendertage: Wetterart, tatsächliches Tagesminimum/-maximum und Stunden mit Niederschlag. **Vorhersage und spätere Wirklichkeit sind das gleiche deterministische Modell** und ändern sich bei Neustart nicht, solange Seed, Zeitzone und Modellversion gleich bleiben.
-- **Keine Wetter-Prims, keine LSL-Emitter, keine temporären oder unsichtbaren Wetterobjekte.** Das Addon steuert einen read-only Viewer-Wettervertrag, nicht die Partikel von Firestorm. Für optische Niederschläge benötigt der Viewer einen nativen Renderer.
-- Kein Schreiben in Terrain, Estate-, Parcel- oder EEP-Einstellungen. Keine Rezzes auf Grundstücken.
-- Jede Region sendet ihre Wetterdaten über `IWorldComm` an die optionale **Prim-Wettertafel**. Für native Viewer gibt es zusätzlich die pro Agent/Region ausgegebene read-only-CAPS `OGLWeatherState`. Diese setzt kein Wetter-Prim voraus.
+- **Kein manuelles Rezzen:** Die Legacy-Fallback-Emitter werden für Firestorm automatisch als kurzlebige, nicht persistente Objekte verwaltet. Zukünftige OGL Viewer können den nativen Wettervertrag verwenden.
+- Kein Schreiben in Terrain, Estate-, Parcel- oder EEP-Einstellungen. Bei aktiviertem Firestorm-Fallback werden ausschließlich serververwaltete temporäre Scene-Objekte erstellt und wieder entfernt.
+- Jede Region sendet ihre Wetterdaten über `IWorldComm` an die optionale **Prim-Wettertafel**. Für native Viewer gibt es zusätzlich die pro Agent/Region ausgegebene read-only-CAPS `OGLWeatherState`. Diese selbst setzt kein Wetter-Prim voraus.
 
 ## Installation
 
@@ -41,15 +41,38 @@ CloudBaseMeters = 200
 
 **Nicht** auf ROBUST installieren oder aktivieren. Mit `Enabled = false` ist das Modul inaktiv. Die genutzte DLL und Konfiguration erfordern einen Simulatorneustart.
 
-## Primfreier Niederschlag aus den Wolken
+## Hybrid-Niederschlag: Firestorm und native OGL Viewer
 
-Das **Wetter-Emitter-LSL wurde entfernt**. Der Server rezzed weder unsichtbare Hilfsprims noch virtuelle Prim-Objekte. Der korrekte Weg ist ein **natives Viewer-Wettersystem**, das die Niederschlagspartikel beim Blick in die Region lokal vom Cloud-Layer beziehungsweise oberhalb der Kamera erzeugt und beim Regionswechsel wieder entfernt.
+OGLWeather nutzt **ein gemeinsames Wettermodell** und bietet zwei Darstellungen:
 
-**Technische Grenze:** Standard-Firestorm hat dafür **keine** universelle Wetter-CAPS und bindet LSL-Partikel an Prims. EEP steuert Wolken/Himmel, nicht automatisch Regen und Schnee. Auch der separat geplante OGL Viewer ist noch in der Foundation-Stufe ohne lauffähiges eigenes Rendering. Darum **zeigt aktuell kein unveränderter Firestorm automatisch primfreien Regen**: Wettermodell, Prognose und OGLWeatherState-CAPS sind serverseitig vorbereitet, die Partikel-Darstellung ist noch nicht nutzbar, bis ein kompatibler Viewer-Renderer implementiert und ausgerollt ist. Keine gegenteilige Produktionszusage.
+- **Firestorm, ohne Viewer-Modifikation:** Der Server erzeugt automatisch, nur während Regen oder Schnee, eine begrenzte Anzahl **temporärer, unsichtbarer, nichtphysischer Emitter-Prims** in jeder besuchten Region. **Keine manuelle Platzierung, kein Rezz-Skript und keine LSL-Skripte in den Emitttern erforderlich.** Der Server setzt den SL/OpenSim-Standard-Partikelblock direkt auf die Prims. Regen/Snow und Stärke ändern sich aus der selben Vorhersage wie die Wettertafel.
+- **Künftiger OGL Viewer mit native Renderer:** Die read-only, pro Region/Avatar gebundene CAPS `OGLWeatherState` liefert die Daten für echte GPU-Partikel mit Ursprung in der Wolkendecke. `legacy_prim_emitters_active: true` kennzeichnet den Firestorm-Fallback, damit ein kompatibler künftiger Viewer seinen nativen Effekt bei Bedarf unterdrücken kann. **Der Viewer-Renderer ist noch nicht implementiert.**
 
-Der zusätzliche **read-only, pro Avatar/Region gebundene** CAPS `OGLWeatherState` liefert JSON (`ogl.weather`, v1) mit aktuellem Zustand, Temperatur, Wind, Stärke, `cloud_base_m`, `origin: clouds`, `rendering: viewer_native`, `requires_viewer_support: true` und fünf Prognosetagen. Kein öffentlich erratbarer globaler HTTP-Endpunkt und keine Möglichkeit für Viewer, Wetterzustände zu setzen. HTTPS-CAPS und Agent-/Region-Lebenszyklus folgen der normalen OpenSim-CAPS-Anmeldung. Der Viewer sollte höchstens alle 30–60 Sekunden abrufen, Wetter weich überblenden und Effekte bei Teleport, Logout und deaktiviertem Wetter bereinigen.
+### Automatische Emitter-Konfiguration
 
-Die Konfigurationshöhe `CloudBaseMeters` (64–2048 m, Vorgabe 200 m) ist eine mögliche visuelle Partikelstart-Höhe im zukünftigen Viewer, keine versprochene automatische Zuordnung zum EEP-Wolkenlayer. 
+```ini
+[OGLWeather]
+Enabled = true
+LegacyParticleEmitters = true
+EmitterHeightMeters = 65
+EmitterSpacingMeters = 96
+MaxEmittersPerRegion = 16
+VisualRefreshSeconds = 60
+CloudBaseMeters = 200
+```
+
+- `Enabled` bleibt in der bereitgestellten Beispiel-INI aus Sicherheitsgründen **false**. Erst beim bewussten Aktivieren greift der Fallback.
+- `EmitterHeightMeters`: **20–150 m oberhalb des lokalen Terrains**, Standard 65 m. Auf hügeligem Terrain wird jede Position einzeln berechnet. Es ist eine **sichtbare Niederschlagszone aus Richtung Wolken**, kein physikalisch garantierter Start exakt auf der EEP-Wolkenoberfläche. Partikel besitzen begrenzte Lebensdauer; bei unrealistisch hohen Emitttern können sie über dem Boden verschwinden.
+- `EmitterSpacingMeters`: 32–256 m, Standard 96 m. Typische 256×256 m Region: **3×3 = 9 Emitter**. Bei großen Varregions begrenzt `MaxEmittersPerRegion` die Anzahl und verteilt die Punkte über die ganze Fläche; dadurch kann bei sehr großen Regionen nur teilweise Niederschlag sichtbar sein.
+- `MaxEmittersPerRegion`: 1–64, Standard 16. Bei Regen und Schnee sind gleichzeitig mehrere Tausend Partikel im Firestorm-Viewer möglich. Nicht alle Viewer zeigen alle Partikel; Grafik-/Partikelbudget kann die Menge begrenzen.
+- `VisualRefreshSeconds`: 30–300 Sekunden, Standard 60. Dauerhaftes Wetter verwendet dieselben Objekte weiter, statt alle 60 Sekunden neue zu rezzen.
+- Bei Sonne/Wolken oder wenn keine Viewer verbunden sind, werden **alle nur vom Modul erzeugten Emitter** aus dieser Region entfernt. Beim Entladen einer Region und beim Schließen des Moduls erfolgt die Bereinigung ebenfalls.
+- Die Prims werden mit `Scene.AddNewSceneObject(group, false)` erzeugt: **nicht dauerhaft in der Regionsdatenbank gespeichert**, ohne Skriptinventar, physikfrei und phantom. Owner ist der Estate-Owner der Region. Es werden keine Objekte von Bewohnern gesucht oder gelöscht. Dennoch sind es echte temporäre Scene-Objekte und können bis zu ihrer Entfernung kurz in Objekt-/Primzählungen erscheinen.
+- Keine neue Script- oder Inventar-Asset-Abhängigkeit. Ein Emitter-Primsystem ist nötig, weil Standard-LL-Partikel objektgebunden sind. Ein Wettermodus ohne Objekte ist in unverändertem Firestorm technisch nicht möglich. <https://create.secondlife.com/script/lsl-reference/functions/llparticlesystem/>
+
+Der Native-CAPS `OGLWeatherState` liefert weiterhin JSON (`ogl.weather`, v1) mit aktueller Lage, Temperatur, Wind, Stärke, Wolkenhöhe und fünf Prognosetagen. Für den späteren nativen Renderer gilt weiterhin die Kompatibilitätsaufgabe [OGL Viewer Issue #28](https://github.com/opengenesislink/opengenesislinkviewer/issues/28).
+
+**Betriebsgrenzen:** Sichtbarkeit hängt von Firestorm-Sichtweite, Viewer-Partikellimit, Höhe über Gelände, Quellposition und Wind ab. Regen wird nicht vollständig über jeder Stelle eines riesigen Simulators garantiert; vor einem Produktions-Rollout im Viewer prüfen. Kein meteorologischer DWD-Livefeed.
 
 ## Wettertafel
 
@@ -68,8 +91,8 @@ LSL akzeptiert ausschließlich die exakten Protokollkennungen, Channel, Quellnam
 ## Tests und Betrieb
 
 - `tools/ci/OglWeatherRegression`: Prognose gegen tatsächliche zukünftige 24-Stunden-Zustände an 365 Tagen, mehrere Jahreszeiten, Temperatur-/Niederschlagsgrenzen, DST und identischer Seed.
-- `tools/ci/verify_ogl_weather.py`: CAPS-/Plugin-Vertrag, sichere Defaults, garantiert kein Wetter-Prim-Code und keine Reste der aktiven OGLSeasons-Integration.
+- `tools/ci/verify_ogl_weather.py`: CAPS-/Plugin-Vertrag, sichere Defaults, gebundener automatischer Legacy-Emitter-Fallback und keine Reste der aktiven OGLSeasons-Integration.
 - `.github/workflows/nexjast-ci.yml`: eigenständiger Release-Build und Regressionen. Historische Release-Dokumente bleiben unberührt.
-- Live-Abnahme: mindestens zwei Regionen im selben Prozess, eine Wettertafel, CAPS-GET / falsche Methode / Logout / Region-Crossing. Später einen **tatsächlich renderfähigen Viewer** auf Regen, Schnee, Wolkenhöhe, Wetterwechsel und Leistung testen. Derzeit ist Firestorm nur für Wetterstatus/EEP kompatibel, nicht für native OGL-Niederschläge. Zusätzlich anderen Simulatorprozess mit gleichem Seed auf dieselben Temperaturen prüfen.
+- Live-Abnahme: mindestens zwei Regionen im selben Prozess, eine Wettertafel, Firestorm-Regen/Schnee mit automatisch erstellten Emitttern, Statuswechsel, Entfernung bei trockenem Wetter, CAPS-GET / falsche Methode / Logout / Region-Crossing. Später nativen OGL Viewer und Wolkenhöhe separat prüfen. Zusätzlich anderen Simulatorprozess mit gleichem Seed auf dieselben Temperaturen prüfen.
 
 **Hinweis:** Das geplante Wetter ist garantierte **Spielwelt-Simulation**, nicht reale Wetterdaten aus der Umgebung. Änderungen an Seed, Zeitzone oder Algorithmen verändern die zukünftige Wetterkurve. Keine EEP-/Terrainänderungen. Der native Viewer-Renderer ist ein separater noch offener Entwicklungsteil.
