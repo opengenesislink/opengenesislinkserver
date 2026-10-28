@@ -12,7 +12,13 @@ for rel, arch, enabled, http, xmlrpc in (
     cfg = ConfigParser(interpolation=None, strict=True)
     cfg.optionxform = str
     cfg.read_string(src)
-    assert len(src.splitlines()) < 320, rel
+    # The active Stadt-NexVerse simulator INI now contains four fully
+    # configured Generation-1 city modules. Keep the compactness gate for
+    # the reusable Standalone example and a bounded site-specific allowance
+    # for the active simulator INI, without dropping the strict INI parser,
+    # HTTP auto-port checks or disabled-Experiences contract.
+    max_lines = 380 if rel == "bin/OpenSim.ini" else 320
+    assert len(src.splitlines()) < max_lines, rel
     assert "[Startup] section below." not in src
     assert not any(k in cfg.sections() for k in ("OGLPathfinding", "OGLNpcNavigation"))
     assert cfg.get("Architecture", "Include-Architecture").strip('"') == arch
