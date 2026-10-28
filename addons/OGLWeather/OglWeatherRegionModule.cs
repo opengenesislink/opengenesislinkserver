@@ -23,7 +23,8 @@ namespace OpenGenesisLINK.Addons.OGLWeather
     /// One shared module instance serves EVERY region of this simulator.
     /// Provides one shared forecast for every region in this simulator and a
     /// read-only per-agent CAPS snapshot for future viewer-native precipitation.
-    /// Never creates, stores or rezzes a prim for weather visualization.
+    /// For unmodified Firestorm, temporarily creates nonpersistent weather emitters;
+    /// never persists them or touches resident-owned scene objects.
     /// </summary>
     [Extension(Path = "/OpenSim/RegionModules", NodeName = "RegionModule", Id = "OGLWeather")]
     public sealed class OglWeatherRegionModule : ISharedRegionModule
@@ -167,10 +168,27 @@ namespace OpenGenesisLINK.Addons.OGLWeather
 
             try
             {
+                // WeatherLock serializes this snapshot against Apply/Clear on
+                // the region frame, crossing, or shutdown paths. Counting only
+                // living, tracked scene objects avoids reporting "active" when
+                // emitters are configured but none could be created.
+                bool legacyActive;
+                lock (runtime.WeatherLock)
+                {
+                    int liveEmitters = 0;
+                    foreach (SceneObjectGroup emitter in runtime.Emitters)
+                    {
+                        if (emitter != null && !emitter.IsDeleted)
+                            liveEmitters++;
+                    }
+                    legacyActive = OglWeatherViewerState.LegacyEmittersActive(
+                        m_LegacyParticleEmitters, liveEmitters);
+                }
+
                 string payload = OglWeatherViewerState.Serialize(
                     runtime.Scene.RegionInfo.RegionID.ToString(),
                     DateTimeOffset.UtcNow, m_Seed, m_TimeZone,
-                    m_CloudBaseMeters, m_LegacyParticleEmitters);
+                    m_CloudBaseMeters, legacyActive);
                 response.RawBuffer = Encoding.UTF8.GetBytes(payload);
                 response.StatusCode = (int)HttpStatusCode.OK;
             }

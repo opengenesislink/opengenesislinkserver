@@ -78,7 +78,7 @@ CloudBaseMeters = 200
 OGLWeather nutzt **ein gemeinsames Wettermodell** und bietet zwei Darstellungen:
 
 - **Firestorm, ohne Viewer-Modifikation:** Der Server erzeugt automatisch, nur während Regen oder Schnee, eine begrenzte Anzahl **temporärer, unsichtbarer, nichtphysischer Emitter-Prims** in jeder besuchten Region. **Keine manuelle Platzierung, kein Rezz-Skript und keine LSL-Skripte in den Emitttern erforderlich.** Der Server setzt den SL/OpenSim-Standard-Partikelblock direkt auf die Prims. Regen/Snow und Stärke ändern sich aus der selben Vorhersage wie die Wettertafel.
-- **Künftiger OGL Viewer mit native Renderer:** Die read-only, pro Region/Avatar gebundene CAPS `OGLWeatherState` liefert die Daten für echte GPU-Partikel mit Ursprung in der Wolkendecke. `legacy_prim_emitters_active: true` kennzeichnet den Firestorm-Fallback, damit ein kompatibler künftiger Viewer seinen nativen Effekt bei Bedarf unterdrücken kann. **Der Viewer-Renderer ist noch nicht implementiert.**
+- **Künftiger OGL Viewer mit native Renderer:** Die read-only, pro Region/Avatar gebundene CAPS `OGLWeatherState` liefert die Daten für echte GPU-Partikel mit Ursprung in der Wolkendecke. `legacy_prim_emitters_active: true` wird **nur bei mindestens einem tatsächlich vorhandenen, nicht gelöschten, serververwalteten Emitter der Region** gesetzt – nicht bloß, weil `LegacyParticleEmitters=true` konfiguriert wurde. Wenn keine Emitter rezzbar sind (z. B. fehlender Estate-Owner), eine Region leer ist oder der Fallback deaktiviert ist, meldet die CAPS `false`. Der native Viewer kann so Doppelregen vermeiden, ohne bei nicht vorhandenen Legacy-Partikeln den eigenen Effekt zu unterdrücken. **Der Viewer-Renderer ist noch nicht implementiert.**
 
 ### Automatische Emitter-Konfiguration
 
