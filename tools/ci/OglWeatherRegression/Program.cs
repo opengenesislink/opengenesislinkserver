@@ -151,6 +151,28 @@ internal static class Program
         Require(small.Count <= 64, "malicious config remains bounded");
         Require(OglWeatherEmitterPlan.Positions(128, 128, 256, 16).Count == 1,
             "small region has exactly one fallback emitter");
+        // Feature configuration alone never indicates working Firestorm
+        // emitters. In particular, an empty region or a failed object add
+        // must not switch off future native viewer precipitation.
+        Require(!OglWeatherViewerState.LegacyEmittersActive(false, 9),
+            "disabled legacy fallback must not suppress native rendering");
+        Require(!OglWeatherViewerState.LegacyEmittersActive(true, 0),
+            "configured fallback without live prims must report inactive");
+        Require(!OglWeatherViewerState.LegacyEmittersActive(true, -1),
+            "invalid emitter count must not report active");
+        Require(OglWeatherViewerState.LegacyEmittersActive(true, 1),
+            "one live managed emitter reports active");
+        Require(OglWeatherViewerState.LegacyEmittersActive(true, 9),
+            "multiple live managed emitters report active");
+        using (JsonDocument inactive = JsonDocument.Parse(
+            OglWeatherViewerState.Serialize(
+                "region", now, seed, berlin, 200,
+                OglWeatherViewerState.LegacyEmittersActive(true, 0))))
+        {
+            Require(!inactive.RootElement.GetProperty("precipitation")
+                .GetProperty("legacy_prim_emitters_active").GetBoolean(),
+                "CAPS must not claim legacy emitters when region has none");
+        }
         using (JsonDocument legacy = JsonDocument.Parse(
             OglWeatherViewerState.Serialize(
                 "region", now, seed, berlin, 200, true)))
