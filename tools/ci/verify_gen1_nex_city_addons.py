@@ -59,4 +59,5 @@ assert 'NexTraffic|NexTransit|NexSmartLight' in builder
 assert 'test -f "$TARGET/OpenSim.Region.Framework.dll"' not in builder or "robust" in builder.lower()
 assert 'dotnet build "addons/$NAME/OpenGenesisLINK.Addons.$NAME.csproj"' in builder
 assert "runprebuild.sh" in builder
+assert 'ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"' in builder
 print("NexCity addon contracts PASS: independent plugins, bounded wire, safe disabled defaults")
