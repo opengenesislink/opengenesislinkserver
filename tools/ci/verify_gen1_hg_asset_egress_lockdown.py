@@ -33,7 +33,24 @@ assert 'String.Equals(m_ConfigName, "HGAssetService"' in connector
 assert 'serverConfig.GetBoolean("DisallowAllExport", false)' in connector
 assert "if (!hgExportLocked)" in connector
 assert "new AssetServerGetHandler(m_AssetService, auth, redirectURL)" in connector.split("if (!hgExportLocked)", 1)[1].split("}", 1)[0]
-assert "new AssetsExistHandler(m_AssetService)" in connector.split("if (!hgExportLocked)", 1)[1].split("}", 1)[0]
+assert "new AssetsExistHandler(m_AssetService)" in connector  # private connector remains unbounded
+assert 'bool isHGAssetService = String.Equals(m_ConfigName, "HGAssetService"' in connector
+assert 'serverConfig.GetInt("MaxHGAssetExistIds", 16384)' in connector
+assert 'serverConfig.GetInt("MaxHGAssetExistXmlChars", 4194304)' in connector
+assert 'new AssetsExistHandler(m_AssetService, maxIds, maxXml)' in connector
+
+exist = read("OpenSim/Server/Handlers/Asset/AssetsExistHandler.cs")
+for marker in (
+    'public AssetsExistHandler(IAssetService service, int maxIds, long maxXmlCharacters)',
+    'DtdProcessing = DtdProcessing.Prohibit',
+    'XmlResolver = null',
+    'MaxCharactersInDocument = m_MaxXmlCharacters',
+    'if (m_MaxIds > 0 && ids.Length > m_MaxIds)',
+    'HttpStatusCode.RequestEntityTooLarge',
+    'm_AssetService.AssetsExist(ids)',
+):
+    assert marker in exist, marker
+assert exist.index('if (m_MaxIds > 0 && ids.Length > m_MaxIds)') < exist.index('m_AssetService.AssetsExist(ids)')
 assert "server.AddStreamHandler(new AssetServerPostHandler(m_AssetService, auth));" in connector
 
 for path, base_get, base_meta, exists in [
@@ -63,6 +80,8 @@ for name in (
 ):
     hg = section(name, "HGAssetService")
     assert "DisallowAllExport = false" in hg, name
+    assert "MaxHGAssetExistIds = 16384" in hg, name
+    assert "MaxHGAssetExistXmlChars = 4194304" in hg, name
     assert not any(line.strip().startswith("DisallowImport =")
                    for line in hg.splitlines()), name
 
@@ -76,4 +95,4 @@ for name in (
 
 notes = read("doc/NexVerse/GEN1_ASSET_EGRESS_LOCKDOWN.md")
 assert "no secure server-side switch" in notes and "Open Hypergrid commerce" in notes
-print("Generation 1 HG: commerce defaults open; emergency lockdown code and policy verified")
+print("Generation 1 HG: commerce open, emergency lockdown opt-in, HG bulk-existence guard verified")

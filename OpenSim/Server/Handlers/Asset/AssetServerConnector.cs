@@ -115,13 +115,25 @@ namespace OpenSim.Server.Handlers.Asset
             // Hypergrid reads. A blocked HG service must never expose raw
             // asset, metadata or UUID-existence HTTP endpoints on the public port.
             // The private [AssetService] listener keeps its ordinary read routes.
-            bool hgExportLocked = String.Equals(m_ConfigName, "HGAssetService",
-                StringComparison.OrdinalIgnoreCase) &&
+            bool isHGAssetService = String.Equals(m_ConfigName, "HGAssetService",
+                StringComparison.OrdinalIgnoreCase);
+            bool hgExportLocked = isHGAssetService &&
                 serverConfig.GetBoolean("DisallowAllExport", false);
             if (!hgExportLocked)
             {
                 server.AddStreamHandler(new AssetServerGetHandler(m_AssetService, auth, redirectURL));
-                server.AddStreamHandler(new AssetsExistHandler(m_AssetService));
+                if (isHGAssetService)
+                {
+                    // Public HG traffic: cap high-volume UUID enumeration and
+                    // XML request size, not legal per-asset GETs or commerce.
+                    // A single normal large object can refer to many assets,
+                    // so defaults deliberately allow substantial HG batches.
+                    int maxIds = Math.Clamp(serverConfig.GetInt("MaxHGAssetExistIds", 16384), 256, 65536);
+                    int maxXml = Math.Clamp(serverConfig.GetInt("MaxHGAssetExistXmlChars", 4194304), 65536, 16777216);
+                    server.AddStreamHandler(new AssetsExistHandler(m_AssetService, maxIds, maxXml));
+                }
+                else
+                    server.AddStreamHandler(new AssetsExistHandler(m_AssetService));
             }
             server.AddStreamHandler(new AssetServerPostHandler(m_AssetService, auth));
 
