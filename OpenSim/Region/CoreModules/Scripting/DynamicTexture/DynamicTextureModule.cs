@@ -84,6 +84,20 @@ namespace OpenSim.Region.CoreModules.Scripting.DynamicTexture
         /// </remarks>
         private Cache m_reuseableDynamicTextures;
 
+        // Optional generation-1 handoff window: temporary superseded assets
+        // remain fetchable long enough for delayed viewer/cache requests.
+        private DynamicTextureRetirementQueue m_RetiredTextureQueue;
+        private System.Threading.Timer m_RetirementTimer;
+
+        private void RetirePreviousTexture(IAssetCache cache, UUID oldId)
+        {
+            DynamicTextureRetirementQueue queue = m_RetiredTextureQueue;
+            if (queue == null)
+                cache.Expire(oldId.ToString());
+            else
+                queue.Retire(() => cache.Expire(oldId.ToString()));
+        }
+
         /// <summary>
         /// This constructor is only here because of the Unit Tests...
         /// Don't use it.
@@ -188,6 +202,7 @@ namespace OpenSim.Region.CoreModules.Scripting.DynamicTexture
             if (RenderPlugins.ContainsKey(contentType))
             {
                 DynamicTextureUpdater updater = new DynamicTextureUpdater();
+                updater.RetirePreviousTexture = RetirePreviousTexture;
                 updater.SimUUID = simID;
                 updater.PrimID = primID;
                 updater.ContentType = contentType;
@@ -250,6 +265,7 @@ namespace OpenSim.Region.CoreModules.Scripting.DynamicTexture
                 disp = disp & ~DISP_EXPIRE;
 
             DynamicTextureUpdater updater = new DynamicTextureUpdater();
+                updater.RetirePreviousTexture = RetirePreviousTexture;
             updater.SimUUID = simID;
             updater.PrimID = primID;
             updater.ContentType = contentType;
@@ -337,6 +353,21 @@ namespace OpenSim.Region.CoreModules.Scripting.DynamicTexture
             IConfig texturesConfig = config.Configs["Textures"];
             if (texturesConfig != null)
             {
+                int retentionSeconds = Math.Clamp(
+                    texturesConfig.GetInt("DynamicTexturePreviousRetentionSeconds", 0), 0, 120);
+                int retentionCapacity = Math.Clamp(
+                    texturesConfig.GetInt("DynamicTexturePreviousRetentionLimit", 256), 1, 2048);
+                if (retentionSeconds > 0)
+                {
+                    m_RetiredTextureQueue = new DynamicTextureRetirementQueue(
+                        retentionSeconds, retentionCapacity,
+                        onError: e => m_log.WarnFormat(
+                            "[DYNAMIC TEXTURE MODULE]: Deferred expiration failed: {0}", e));
+                    m_RetirementTimer = new System.Threading.Timer(
+                        _ => m_RetiredTextureQueue?.ExpireDue(), null,
+                        TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(5));
+                }
+
                 ReuseTextures = texturesConfig.GetBoolean("ReuseDynamicTextures", false);
                 ReuseLowDataTextures = texturesConfig.GetBoolean("ReuseDynamicLowDataTextures", false);
 
@@ -373,6 +404,11 @@ namespace OpenSim.Region.CoreModules.Scripting.DynamicTexture
 
         public void Close()
         {
+            m_RetirementTimer?.Dispose();
+            m_RetirementTimer = null;
+            DynamicTextureRetirementQueue pending = m_RetiredTextureQueue;
+            m_RetiredTextureQueue = null;
+            pending?.Flush();
         }
 
         public string Name
@@ -405,6 +441,7 @@ namespace OpenSim.Region.CoreModules.Scripting.DynamicTexture
             public int Disp;
             public string Url;
             public UUID newTextureID;
+            public Action<IAssetCache, UUID> RetirePreviousTexture;
 
             public DynamicTextureUpdater()
             {
@@ -479,10 +516,16 @@ namespace OpenSim.Region.CoreModules.Scripting.DynamicTexture
 
                 if (part == null || data == null || data.Length <= 1)
                 {
-                    string msg = string.Format("DynamicTextureModule: Error preparing image using URL {0}", Url);
-                    scene.SimChat(Utils.StringToBytes(msg), ChatTypeEnum.Say,
-                                  0, part.ParentGroup.RootPart.AbsolutePosition, part.Name, part.UUID, false);
-
+                    // A removed prim is a normal outcome of asynchronous URL rendering.
+                    // Never dereference it while reporting a failed conversion.
+                    if (part != null)
+                    {
+                        string msg = string.Format(
+                            "DynamicTextureModule: Error preparing image using URL {0}", Url);
+                        scene.SimChat(Utils.StringToBytes(msg), ChatTypeEnum.Say,
+                            0, part.ParentGroup.RootPart.AbsolutePosition, part.Name,
+                            part.UUID, false);
+                    }
                     return UUID.Zero;
                 }
 
@@ -546,7 +589,12 @@ namespace OpenSim.Region.CoreModules.Scripting.DynamicTexture
                     if (oldAsset != null)
                     {
                         if (oldAsset.Temporary)
-                            iac.Expire(oldID.ToString());
+                        {
+                            if (RetirePreviousTexture != null)
+                                RetirePreviousTexture(iac, oldID);
+                            else
+                                iac.Expire(oldID.ToString());
+                        }
                     }
                 }
 
