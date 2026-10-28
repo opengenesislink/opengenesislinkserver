@@ -25,6 +25,18 @@ EmitterHeightMeters = 65
 EmitterSpacingMeters = 96
 MaxEmittersPerRegion = 16
 VisualRefreshSeconds = 60
+
+; Operator testing only, OFF by default. A rain/snow startup test
+; automatically expires after 1..60 minutes; auto uses the real forecast.
+; The simulator console also accepts:
+;   ogl weather rain 80 10
+;   ogl weather snow 70 10
+;   ogl weather status
+;   ogl weather auto
+; No HTTP/World API write controls and no permanent weather override.
+TestWeatherMode = auto
+TestWeatherIntensity = 70
+TestWeatherDurationMinutes = 15
 ; Hybrid weather rendering:
 ; - Firestorm: the simulator automatically creates and removes ephemeral,
 ;   nonpersistent particle emitter prims when LegacyParticleEmitters=true.

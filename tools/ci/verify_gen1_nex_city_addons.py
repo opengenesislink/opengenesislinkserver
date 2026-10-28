@@ -137,6 +137,8 @@ active = {
         "CloudBaseMeters": "200", "LegacyParticleEmitters": "true",
         "EmitterHeightMeters": "65", "EmitterSpacingMeters": "96",
         "MaxEmittersPerRegion": "16", "VisualRefreshSeconds": "60",
+        "TestWeatherMode": "auto", "TestWeatherIntensity": "70",
+        "TestWeatherDurationMinutes": "15",
     },
 }
 for section, expected in active.items():

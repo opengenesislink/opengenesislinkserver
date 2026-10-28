@@ -261,6 +261,77 @@ internal static class Program
         Require(OglWeatherPortalProjection.ConditionIcon("rain") == "cloud-rain",
             "weather icon mapping");
 
+        // Operator-only overrides are bounded and expire automatically; the
+        // shared deterministic model and future forecast are never changed.
+        var testMode = new OglWeatherTestOverride();
+        WeatherReading baseline = OglWeatherModel.At(now, seed, berlin);
+        Require(!testMode.TryGet(now, baseline, out WeatherReading auto) &&
+            auto.Condition == baseline.Condition &&
+            auto.Intensity == baseline.Intensity, "default mode is automatic");
+        Require(!testMode.Activate("sun", 80, 10, now),
+            "only rain/snow can be forced");
+        Require(!testMode.Activate("rain", 0, 10, now) &&
+            !testMode.Activate("snow", 101, 10, now) &&
+            !testMode.Activate("rain", 50, 0, now) &&
+            !testMode.Activate("rain", 50, 61, now),
+            "reject zero, excessive intensity or test duration");
+        Require(testMode.Activate("rain", 80, 10, now),
+            "operator can activate 80 percent rain");
+        Require(testMode.TryGet(now, baseline, out WeatherReading rain) &&
+            rain.Condition == "rain" && rain.Intensity == 80 &&
+            rain.TemperatureC > 1 && rain.WindKmh == baseline.WindKmh,
+            "rain test must yield viewer-compatible wet conditions");
+        Require(OglWeatherTestOverride.NowWire(now, berlin, baseline) ==
+            OglWeatherModel.NowWire(now, seed, berlin),
+            "test NOW wire must preserve LSL protocol exactly");
+        Require(OglWeatherTestOverride.NowWire(now, berlin, rain)
+            .Split('|')[4] == "rain", "rain test LSL NOW matches override");
+        using (JsonDocument viewerTest = JsonDocument.Parse(
+            OglWeatherViewerState.Serialize("region", now, seed, berlin, 200,
+                true, rain)))
+        {
+            JsonElement p = viewerTest.RootElement.GetProperty("precipitation");
+            Require(p.GetProperty("condition").GetString() == "rain" &&
+                p.GetProperty("intensity").GetInt32() == 80 &&
+                p.GetProperty("test_override_active").GetBoolean(),
+                "CAPS reports manually forced rain");
+            Require(p.GetProperty("legacy_prim_emitters_active").GetBoolean(),
+                "test weather retains actual legacy emitter flag");
+        }
+        Require(testMode.Activate("snow", 65, 1, now),
+            "operator can switch rain to snow");
+        Require(testMode.TryGet(now, baseline, out WeatherReading snow) &&
+            snow.Condition == "snow" && snow.Intensity == 65 &&
+            snow.TemperatureC <= 1, "snow test temperature must be valid");
+        Require(!testMode.TryGet(now.AddMinutes(1), baseline,
+                out WeatherReading expired) &&
+            expired.Condition == baseline.Condition &&
+            testMode.Status(now.AddMinutes(1)) == "auto",
+            "test override automatically expires without persistence");
+        Require(testMode.Activate("rain", 90, 15, now),
+            "operator can reactivate after expiry");
+        testMode.Clear();
+        Require(!testMode.TryGet(now, baseline, out WeatherReading cleared) &&
+            cleared.Condition == baseline.Condition, "auto restores climate now");
+        using (JsonDocument noOverride = JsonDocument.Parse(
+            OglWeatherViewerState.Serialize("region", now, seed, berlin, 200)))
+        {
+            Require(!noOverride.RootElement.GetProperty("precipitation")
+                .GetProperty("test_override_active").GetBoolean(),
+                "normal CAPS must advertise no test mode");
+        }
+        Require(OglWeatherModel.At(now, seed, berlin).Condition ==
+            baseline.Condition,
+            "temporary override never mutates the shared climate model");
+        using (JsonDocument portalUnchanged = JsonDocument.Parse(
+            OglWeatherPortalProjection.Serialize(now, seed, berlin,
+                "Stadt-NexVerse")))
+        {
+            Require(portalUnchanged.RootElement.GetProperty("current")
+                .GetProperty("condition").GetString() == baseline.Condition,
+                "the public portal remains based on deterministic climate");
+        }
+
         Console.WriteLine("OGLWeather: " + checks + " checks PASS, " +
             wetDays + " wet days, " + dryDays + " dry days, " + snowDays + " snowy days");
     }

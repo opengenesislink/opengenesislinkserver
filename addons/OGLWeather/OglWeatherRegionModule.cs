@@ -9,6 +9,7 @@ using Mono.Addins;
 using Nini.Config;
 using OpenMetaverse;
 using OpenSim.Framework;
+using OpenSim.Framework.Console;
 using Caps = OpenSim.Framework.Capabilities.Caps;
 using OpenSim.Framework.Servers.HttpServer;
 using OpenSim.Region.Framework.Interfaces;
@@ -44,6 +45,9 @@ namespace OpenGenesisLINK.Addons.OGLWeather
 
         private static readonly ILog Log = LogManager.GetLogger(typeof(OglWeatherRegionModule));
         private readonly ConcurrentDictionary<UUID, RegionRuntime> m_Regions = new();
+        private readonly OglWeatherTestOverride m_TestOverride = new();
+        private int m_TestWeatherIntensity;
+        private int m_TestWeatherDurationMinutes;
         private bool m_Enabled;
         private bool m_Closing;
         private int m_Seed;
@@ -97,8 +101,93 @@ namespace OpenGenesisLINK.Addons.OGLWeather
                 return;
             }
 
+            // Test weather is a bounded, simulator-local operator override.
+            // Never enable indefinitely, expose a public write API, or
+            // change the immutable World API / five-day climate forecast.
+            m_TestWeatherIntensity = Math.Clamp(cfg.GetInt("TestWeatherIntensity", 70), 1, 100);
+            m_TestWeatherDurationMinutes = Math.Clamp(
+                cfg.GetInt("TestWeatherDurationMinutes", 15), 1, 60);
+            string initialMode = cfg.GetString("TestWeatherMode", "auto")
+                .Trim().ToLowerInvariant();
+            if (initialMode == "rain" || initialMode == "snow")
+                m_TestOverride.Activate(initialMode, m_TestWeatherIntensity,
+                    m_TestWeatherDurationMinutes, DateTimeOffset.UtcNow);
+            else if (initialMode != "auto")
+                Log.Warn("[OGL-WEATHER]: Invalid TestWeatherMode, using auto.");
+
+            // Available only from the trusted simulator operator console.
+            // Not an inworld chat command, LSL endpoint or HTTP route.
+            MainConsole.Instance?.Commands.AddCommand("Weather", true,
+                "ogl weather",
+                "ogl weather <status|auto|rain|snow> [intensity 1-100] [minutes 1-60]",
+                "Temporarily force rain or snow in all regions of this simulator.",
+                HandleWeatherConsole);
+
             Log.InfoFormat("[OGL-WEATHER]: Simulatorweite deterministische Wettervorhersage aktiv, Seed={0}, Zone={1}",
                 m_Seed, m_TimeZone.Id);
+        }
+
+        private void HandleWeatherConsole(string module, string[] cmd)
+        {
+            if (!m_Enabled || m_Closing || cmd.Length < 3 ||
+                cmd.Length > 5 || !string.Equals(cmd[0], "ogl",
+                    StringComparison.OrdinalIgnoreCase) ||
+                !string.Equals(cmd[1], "weather",
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                MainConsole.Instance?.Output(
+                    "Usage: ogl weather <status|auto|rain|snow> [intensity 1-100] [minutes 1-60]");
+                return;
+            }
+
+            string mode = cmd[2].ToLowerInvariant();
+            if (mode == "status" && cmd.Length == 3)
+            {
+                MainConsole.Instance?.Output("[OGL-WEATHER]: " +
+                    m_TestOverride.Status(DateTimeOffset.UtcNow));
+                return;
+            }
+            if (mode == "auto" && cmd.Length == 3)
+            {
+                m_TestOverride.Clear();
+                RefreshAllWeather();
+                MainConsole.Instance?.Output(
+                    "[OGL-WEATHER]: Automatic simulation restored.");
+                return;
+            }
+            if ((mode != "rain" && mode != "snow") || cmd.Length > 5)
+            {
+                MainConsole.Instance?.Output(
+                    "Usage: ogl weather <status|auto|rain|snow> [intensity 1-100] [minutes 1-60]");
+                return;
+            }
+
+            int intensity = m_TestWeatherIntensity;
+            int minutes = m_TestWeatherDurationMinutes;
+            if ((cmd.Length >= 4 && !int.TryParse(cmd[3], out intensity)) ||
+                (cmd.Length >= 5 && !int.TryParse(cmd[4], out minutes)) ||
+                !m_TestOverride.Activate(mode, intensity, minutes,
+                    DateTimeOffset.UtcNow))
+            {
+                MainConsole.Instance?.Output(
+                    "[OGL-WEATHER]: Intensity must be 1..100, duration 1..60 minutes.");
+                return;
+            }
+
+            RefreshAllWeather();
+            MainConsole.Instance?.Output("[OGL-WEATHER]: Test " + mode +
+                " at " + intensity + "% for " + minutes + " minutes (all simulator regions).");
+        }
+
+        private void RefreshAllWeather()
+        {
+            // The next region frame immediately re-publishes NOW and
+            // reconfigures only module-owned temporary emitters.
+            foreach (RegionRuntime state in m_Regions.Values)
+            {
+                state.NextNow = 0;
+                state.NextVisual = 0;
+            }
         }
 
         public void PostInitialise() { }
@@ -185,10 +274,15 @@ namespace OpenGenesisLINK.Addons.OGLWeather
                         m_LegacyParticleEmitters, liveEmitters);
                 }
 
+                DateTimeOffset utc = DateTimeOffset.UtcNow;
+                WeatherReading natural = OglWeatherModel.At(utc, m_Seed, m_TimeZone);
+                bool testActive = m_TestOverride.TryGet(utc, natural,
+                    out WeatherReading effective);
                 string payload = OglWeatherViewerState.Serialize(
                     runtime.Scene.RegionInfo.RegionID.ToString(),
-                    DateTimeOffset.UtcNow, m_Seed, m_TimeZone,
-                    m_CloudBaseMeters, legacyActive);
+                    utc, m_Seed, m_TimeZone,
+                    m_CloudBaseMeters, legacyActive,
+                    testActive ? effective : null);
                 response.RawBuffer = Encoding.UTF8.GetBytes(payload);
                 response.StatusCode = (int)HttpStatusCode.OK;
             }
@@ -218,13 +312,19 @@ namespace OpenGenesisLINK.Addons.OGLWeather
                 Vector3 location = new Vector3(state.Scene.RegionInfo.RegionSizeX / 2f,
                     state.Scene.RegionInfo.RegionSizeY / 2f, 20f);
                 DateTimeOffset utc = DateTimeOffset.UtcNow;
+                WeatherReading natural = OglWeatherModel.At(utc, m_Seed, m_TimeZone);
+                bool testActive = m_TestOverride.TryGet(utc, natural,
+                    out WeatherReading effective);
 
                 if (comm != null && now >= state.NextNow)
                 {
                     state.NextNow = now + m_CurrentSeconds;
                     comm.DeliverMessage(ChatTypeEnum.Region, m_Channel,
                         "OGLWeather", UUID.Zero,
-                        OglWeatherModel.NowWire(utc, m_Seed, m_TimeZone), location);
+                        testActive
+                            ? OglWeatherTestOverride.NowWire(utc, m_TimeZone, effective)
+                            : OglWeatherModel.NowWire(utc, m_Seed, m_TimeZone),
+                        location);
                 }
                 if (comm != null && now >= state.NextDays)
                 {
@@ -242,8 +342,7 @@ namespace OpenGenesisLINK.Addons.OGLWeather
                 if (m_LegacyParticleEmitters && now >= state.NextVisual)
                 {
                     state.NextVisual = now + m_VisualRefreshSeconds;
-                    WeatherReading weather = OglWeatherModel.At(
-                        utc, m_Seed, m_TimeZone);
+                    WeatherReading weather = effective;
                     string signature = weather.Condition + "|" +
                         weather.Intensity.ToString();
                     lock (state.WeatherLock)
@@ -298,6 +397,7 @@ namespace OpenGenesisLINK.Addons.OGLWeather
                     OglWeatherLegacyEmitters.Clear(state.Scene, state.Emitters);
             }
             m_Regions.Clear();
+            m_TestOverride.Clear();
             m_Enabled = false;
         }
     }
