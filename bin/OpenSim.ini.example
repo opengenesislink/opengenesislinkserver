@@ -99,6 +99,8 @@
     DrawPrimOnMapTile = true
     TexturePrims = true
     RenderMeshes = true
+    ; Optional Warp3D world-map Z limit, measured in absolute region meters:
+    ; RenderMaxHeight = 500
 
 [Permissions]
     automatic_gods = false
