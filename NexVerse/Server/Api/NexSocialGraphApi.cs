@@ -24,8 +24,9 @@ namespace NexVerse.Server.Api
         private readonly IMuteListService m_Mutes;
         private readonly INexAuditSink m_Audit;
         private readonly IPresenceService m_Presence;
+        private readonly IGridUserService m_GridUsers;
 
-        public NexSocialGraphApi(IUserAccountService accounts, IFriendsService friends, NexApiAuthenticator auth, IMuteListService mutes, INexAuditSink audit, IPresenceService presence)
+        public NexSocialGraphApi(IUserAccountService accounts, IFriendsService friends, NexApiAuthenticator auth, IMuteListService mutes, INexAuditSink audit, IPresenceService presence, IGridUserService gridUsers = null)
         {
             m_Accounts = accounts ?? throw new ArgumentNullException(nameof(accounts));
             m_Friends = friends ?? throw new ArgumentNullException(nameof(friends));
@@ -33,6 +34,7 @@ namespace NexVerse.Server.Api
             m_Mutes = mutes ?? throw new ArgumentNullException(nameof(mutes));
             m_Audit = audit ?? NullNexAuditSink.Instance;
             m_Presence = presence;
+            m_GridUsers = gridUsers;
         }
 
         public void Handle(IOSHttpRequest request, IOSHttpResponse response)
@@ -65,7 +67,9 @@ namespace NexVerse.Server.Api
                 Write(response, HttpStatusCode.OK, new
                 {
                     principal_id = owner.ToString(),
-                    relationships = friends.Select(Project).ToArray()
+                    relationships = friends.Where(f =>
+                        f != null && NexRelationshipPresenceModel.TryParseIdentity(
+                            f.Friend, out _)).Select(Project).ToArray()
                 });
                 return;
             }
@@ -228,30 +232,103 @@ namespace NexVerse.Server.Api
 
         private object Project(FriendInfo f)
         {
-            UUID.TryParse(f.Friend, out UUID id);
-            UserAccount account = id.IsZero() ? null : m_Accounts.GetUserAccount(UUID.Zero, id);
+            // GetFriends(UUID) returns the authoritative FULL Friend string:
+            // local UUID, or HG UUI "uuid;homeUri;First Last;secret".
+            // Never expose the secret, and never mistake a remote UUID
+            // for a locally registered account with the same numeric ID.
+            NexRelationshipPresenceModel.TryParseIdentity(
+                f.Friend, out NexRelationshipPresenceModel.Identity identity);
+            UUID id = new UUID(identity.Id.ToString());
+
+            UserAccount account = identity.IsHypergrid
+                ? null : m_Accounts.GetUserAccount(UUID.Zero, id);
+            bool confirmed = f.MyFlags >= 0 && f.TheirFlags >= 0;
+            // TheirFlags describe what THIS friend permits the owner to see.
+            bool canSeeOnline = confirmed && (f.TheirFlags & 1) != 0;
+            bool online = false;
+            bool presenceKnown = canSeeOnline &&
+                TryGetOnline(id, out online);
+
+            // Local GridUser.Logout is authoritative only for activity on
+            // THIS grid. With a HG user the key must remain the full UUI,
+            // never the bare UUID (which could name a local avatar).
+            // No request to the foreign home grid is performed.
+            NexRelationshipPresenceModel.Activity activity =
+                new NexRelationshipPresenceModel.Activity();
+            if (canSeeOnline && presenceKnown && !online &&
+                m_GridUsers != null)
+            {
+                try
+                {
+                    GridUserInfo gridUser =
+                        m_GridUsers.GetGridUserInfo(
+                            identity.IsHypergrid ? f.Friend : id.ToString());
+                    if (gridUser != null)
+                        activity = NexRelationshipPresenceModel.LastLogout(
+                            gridUser.Logout, DateTimeOffset.UtcNow, true, false);
+                }
+                catch
+                {
+                    // Optional GridUser backend unavailable: do not turn the
+                    // entire private friend list into a 500 or fabricate time.
+                }
+            }
+
+            string username = account?.Username ??
+                (identity.IsHypergrid ? identity.ForeignName : string.Empty);
+            string display = account?.EffectiveDisplayName ??
+                (identity.IsHypergrid ? identity.ForeignName : string.Empty);
             return new
             {
                 principal_id = id.ToString(),
-                username = account?.Username ?? string.Empty,
-                display_name = account?.EffectiveDisplayName ?? string.Empty,
-                state = f.TheirFlags == -1 ? "incoming_pending" : (f.MyFlags == -1 ? "outgoing_pending" : "friends"),
+                username,
+                display_name = display,
+                is_hypergrid = identity.IsHypergrid,
+                home_grid = identity.HomeGrid,
+                state = f.TheirFlags == -1 ? "incoming_pending" :
+                    (f.MyFlags == -1 ? "outgoing_pending" : "friends"),
                 rights = f.MyFlags,
                 their_rights = f.TheirFlags,
-                // TheirFlags describe what the friend grants this avatar.
-                can_see_online = f.MyFlags >= 0 && f.TheirFlags >= 0 && (f.TheirFlags & 1) != 0,
-                online = f.MyFlags >= 0 && f.TheirFlags >= 0 && (f.TheirFlags & 1) != 0 && IsOnline(id),
-                can_see_on_map = f.MyFlags >= 0 && f.TheirFlags >= 0 && (f.TheirFlags & 2) != 0,
-                can_modify_objects = f.MyFlags >= 0 && f.TheirFlags >= 0 && (f.TheirFlags & 4) != 0
+                can_see_online = canSeeOnline,
+                // Backward compatible bool: presence on THIS grid only.
+                // For a foreign HG friend false does NOT mean globally offline.
+                online,
+                online_status = !presenceKnown
+                    ? "unknown"
+                    : online ? "online" :
+                        identity.IsHypergrid ? "unknown" : "offline",
+                online_scope = "local_grid",
+                can_see_on_map = confirmed && (f.TheirFlags & 2) != 0,
+                can_modify_objects = confirmed && (f.TheirFlags & 4) != 0,
+                last_online_at_utc = activity.LastOnlineAtUtc,
+                last_online_minutes = activity.LastOnlineMinutes,
+                last_online_hours = activity.LastOnlineHours,
+                last_online_label = activity.LastOnlineLabel,
+                last_online_scope = activity.LastOnlineAtUtc == null
+                    ? "unknown" : "local_grid_logout"
             };
         }
 
-
-        private bool IsOnline(UUID id)
+        private bool TryGetOnline(UUID id, out bool online)
         {
-            if (m_Presence == null || id.IsZero()) return false;
-            PresenceInfo[] presences = m_Presence.GetAgents(new[] { id.ToString() });
-            return presences != null && presences.Any(x => x != null && !x.RegionID.IsZero());
+            online = false;
+            if (m_Presence == null || id.IsZero())
+                return false;
+            try
+            {
+                PresenceInfo[] presences =
+                    m_Presence.GetAgents(new[] { id.ToString() });
+                if (presences == null)
+                    return false;
+                online = presences.Any(
+                    x => x != null && !x.RegionID.IsZero());
+                return true;
+            }
+            catch
+            {
+                // Unavailable presence must report UNKNOWN, not "offline".
+                return false;
+            }
         }
 
         private bool Authenticate(IOSHttpRequest request, IOSHttpResponse response, string scope, out NexPrincipal principal)

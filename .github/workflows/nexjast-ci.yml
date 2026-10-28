@@ -457,6 +457,13 @@ jobs:
           bash addon-modules/NexSmartLight/build.sh Release
 
 
+      - name: Regression-test World API Hypergrid friends and last online
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/ci/verify_worldapi_hg_friend_activity.py
+          dotnet run --configuration Release --project tools/ci/NexRelationshipPresenceRegression/NexRelationshipPresenceRegression.csproj
+
       - name: Verify citizen social and profile integration
         shell: bash
         run: python3 tools/ci/verify_citizen_social_profile.py

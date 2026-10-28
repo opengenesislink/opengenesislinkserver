@@ -20,6 +20,78 @@ und die World API verwenden.
 - `PUT /api/v1/relationships/{principalId}/blocks/{friendId}` —
   blockiert Avatar und beendet Freundschaft.
 
+### Hypergrid-Freunde und „zuletzt online“
+
+`GET /api/v1/relationships/{principalId}` liefert jetzt **lokale und
+Hypergrid-Freunde aus derselben OpenSim-Friends-Datenbank**. OpenSim
+speichert externe Kontakte als Universal User Identifier
+`UUID;HomeGridURI;Vorname Nachname[;FriendshipSecret]`. Die API
+wertet diese Identität aus, zeigt den tatsächlichen HG-Namen und das
+Heimatgrid und **überträgt das FriendshipSecret niemals an den Client**.
+
+Die bisherigen Felder `principal_id`, `username`, `display_name`,
+`state`, `rights`, `their_rights`, `can_see_online`, `online`,
+`can_see_on_map` und `can_modify_objects` bleiben erhalten.
+Zusätzlich pro Eintrag:
+
+| Feld | Bedeutung |
+| --- | --- |
+| `is_hypergrid` | `true` bei gespeichertem fremden UUI |
+| `home_grid` | Heimatgrid-URL oder `null` bei lokalem Avatar |
+| `online_status` | `online`, `offline` oder `unknown` |
+| `online_scope` | Aktuell immer `local_grid` |
+| `last_online_at_utc` | Tatsächlich gespeicherter letzter Logout als UTC-ISO8601, sonst `null` |
+| `last_online_minutes` | Ganze Minuten seit diesem Logout, sonst `null` |
+| `last_online_hours` | Ganze Stunden seit diesem Logout, sonst `null` |
+| `last_online_label` | UI-Text, etwa `vor 12 Minuten` oder `vor 3 Stunden` |
+| `last_online_scope` | `local_grid_logout` (nur hier zuletzt gesehen), sonst `unknown` |
+
+Beispiel für einen **lokalen**, berechtigten Offline-Freund:
+
+```json
+{
+  "principal_id": "11111111-1111-4111-8111-111111111111",
+  "username": "Beispiel Avatar",
+  "is_hypergrid": false,
+  "home_grid": null,
+  "can_see_online": true,
+  "online": false,
+  "online_status": "offline",
+  "online_scope": "local_grid",
+  "last_online_at_utc": "2026-10-28T18:00:00Z",
+  "last_online_minutes": 125,
+  "last_online_hours": 2,
+  "last_online_label": "vor 2 Stunden",
+  "last_online_scope": "local_grid_logout"
+}
+```
+
+Die Zeitangaben sind Beispielwerte, **nicht** die echte Datenbankzeit des
+oben genannten Avatarbeispiels. Zum Rendern einer dynamischen Freundesliste
+die Minuten/Stunden anhand `last_online_at_utc` im Portal laufend
+aktualisieren; der API-Response ist eine Momentaufnahme.
+
+**Privatsphäre und technische Grenze:** Nur bestätigte Freundschaften
+mit durch `TheirFlags & 1` eingeräumtem Online-Sichtrecht dürfen einen
+Online-Status bzw. Logout-Zeitpunkt erhalten. Pending-Freundschaften
+und entzogene Sichtrechte liefern `null` bei allen „zuletzt online“-Feldern.
+`GridUser.Logout` ist der letzte **lokal** dokumentierte Logout.
+Bei Hypergrid-Freunden sind Login-/Logout-Zeitpunkte auf
+**anderen Grids** nicht zuverlässig verfügbar. Wenn der Gast dagegen
+**unser Grid besucht** hat, kann ein hier gespeicherter letzter Logout
+unter seinem exakten UUI angezeigt werden (`last_online_scope =
+local_grid_logout`). Fehlt eine solche lokale Aufzeichnung, bleiben
+die `last_online_*`-Felder `null`. `online_status` ist bei auswärtigen
+Freunden außerhalb einer beobachteten aktiven Präsenz `unknown`.
+Das bisherige boolesche `online=false` darf bei HG-Freunden **nicht**
+als „weltweit offline“ interpretiert werden. Diese Version startet
+keine HTTP-Abfragen an beliebige externe Heimatsysteme und speichert
+keine zusätzlichen privaten Verlaufsdaten.
+
+Der Avatarbesitzer wird weiterhin über OAuth und `relationships:read`
+authentifiziert, die Ownerprüfung bleibt bestehen; die REST-Ausgabe
+wird mit `Cache-Control: no-store` geliefert.
+
 Der API-Scope ist `relationships:read` bzw. `relationships:write`.
 **Ownerprüfung gilt zusätzlich**. Der Online-Status eines Freundes
 wird nur gezeigt, soweit dieser die notwendigen Viewer-Freundesrechte

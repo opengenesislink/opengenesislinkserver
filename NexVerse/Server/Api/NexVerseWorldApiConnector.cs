@@ -1099,7 +1099,7 @@ namespace NexVerse.Server.Api
 
                 FriendsService friendsService = new FriendsService(config);
                 NexSocialGraphApi socialGraph =
-                    new NexSocialGraphApi(userAccounts, friendsService, authenticator, new MuteListService(config), auditSink, presence);
+                    new NexSocialGraphApi(userAccounts, friendsService, authenticator, new MuteListService(config), auditSink, presence, gridUsers);
                 server.AddSimpleStreamHandler(
                     new SimpleStreamHandler(
                         "/api/v1/relationships",
