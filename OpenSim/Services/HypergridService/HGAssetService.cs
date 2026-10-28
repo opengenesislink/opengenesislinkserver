@@ -109,6 +109,9 @@ namespace OpenSim.Services.HypergridService
         #region IAssetService
         public  AssetBase Get(string id)
         {
+            if (m_AssetPerms.BlockAllExports)
+                return null;
+
             AssetBase asset = m_assetService.Get(id);
 
             if (asset == null)
@@ -137,6 +140,9 @@ namespace OpenSim.Services.HypergridService
 
         public AssetMetadata GetMetadata(string id)
         {
+            if (m_AssetPerms.BlockAllExports)
+                return null;
+
             AssetMetadata meta = m_assetService.GetMetadata(id);
 
             if (meta == null)
@@ -194,6 +200,9 @@ namespace OpenSim.Services.HypergridService
 
         public AssetBase GetCached(string id)
         {
+            if (m_AssetPerms.BlockAllExports)
+                return null;
+
             AssetBase asset = m_assetService.GetCached(id);
 
             if (asset == null)
@@ -221,6 +230,8 @@ namespace OpenSim.Services.HypergridService
 
         public bool[] AssetsExist(string[] ids)
         {
+            if (m_AssetPerms.BlockAllExports)
+                return new bool[ids == null ? 0 : ids.Length];
             return m_assetService.AssetsExist(ids);
         }
 
