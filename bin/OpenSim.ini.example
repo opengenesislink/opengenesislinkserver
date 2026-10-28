@@ -79,6 +79,12 @@
     CertHostIp = "127.0.0.1"
 
 [AccessControl]
+    ; Generation 1 viewer admission: local login, Hypergrid arrival and region entry.
+    ; Approved product families: Firestorm, OpenGenesisLINK (including OGL Viewer).
+    ; Unknown, Darkstorm, Hydrastorm and other nonapproved viewer names are refused.
+    ; WARNING: viewer-reported channel/version can be spoofed. Not DRM or proof of identity.
+    OGLApprovedViewersOnly = true
+
 
 [Map]
     GenerateMaptiles = true

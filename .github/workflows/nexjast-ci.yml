@@ -827,6 +827,13 @@ jobs:
         shell: bash
         run: python3 tools/ci/verify_gen1_hg_asset_egress_lockdown.py
 
+      - name: Verify Generation 1 approved-viewer admission policy
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/ci/verify_gen1_approved_viewer_access.py
+          dotnet run --project tools/ci/OglApprovedViewerRegression/OglApprovedViewerRegression.csproj --configuration Release
+
       - name: Runtime smoke test LLLogin protocol
         shell: bash
         run: bash tools/ci/smoke_lllogin_protocol.sh
