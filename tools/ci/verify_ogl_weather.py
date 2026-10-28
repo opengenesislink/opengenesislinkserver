@@ -14,7 +14,7 @@ builder = read("addon-modules/OGLWeather/build.sh")
 csproj = read("addons/OGLWeather/OpenGenesisLINK.Addons.OGLWeather.csproj")
 workflow = read(".github/workflows/nexjast-ci.yml")
 for term in ("public static WeatherReading At(", "public static WeatherDay ForecastDay(",
-             "AtLocal(date.AddHours(hour), seed)", "NowWire(", "DayWire(",
+             "TimeZoneInfo.ConvertTimeFromUtc(hourUtc, zone)", "NowWire(", "DayWire(",
              '"OGLWX|1|NOW|"', '"OGLWX|1|DAY|"'):
     assert term in model, term
 for term in ("ISharedRegionModule", 'Id = "OGLWeather"',
