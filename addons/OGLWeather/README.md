@@ -80,6 +80,56 @@ OGLWeather nutzt **ein gemeinsames Wettermodell** und bietet zwei Darstellungen:
 - **Firestorm, ohne Viewer-Modifikation:** Der Server erzeugt automatisch, nur während Regen oder Schnee, eine begrenzte Anzahl **temporärer, unsichtbarer, nichtphysischer Emitter-Prims** in jeder besuchten Region. **Keine manuelle Platzierung, kein Rezz-Skript und keine LSL-Skripte in den Emitttern erforderlich.** Der Server setzt den SL/OpenSim-Standard-Partikelblock direkt auf die Prims. Regen/Snow und Stärke ändern sich aus der selben Vorhersage wie die Wettertafel.
 - **Künftiger OGL Viewer mit native Renderer:** Die read-only, pro Region/Avatar gebundene CAPS `OGLWeatherState` liefert die Daten für echte GPU-Partikel mit Ursprung in der Wolkendecke. `legacy_prim_emitters_active: true` wird **nur bei mindestens einem tatsächlich vorhandenen, nicht gelöschten, serververwalteten Emitter der Region** gesetzt – nicht bloß, weil `LegacyParticleEmitters=true` konfiguriert wurde. Wenn keine Emitter rezzbar sind (z. B. fehlender Estate-Owner), eine Region leer ist oder der Fallback deaktiviert ist, meldet die CAPS `false`. Der native Viewer kann so Doppelregen vermeiden, ohne bei nicht vorhandenen Legacy-Partikeln den eigenen Effekt zu unterdrücken. **Der Viewer-Renderer ist noch nicht implementiert.**
 
+### Manuell Regen/Schnee testen (Simulator-Konsole)
+
+Ab Generation 1 kann der **Serverbetreiber** Regen oder Schnee während
+laufendem Simulatorbetrieb erzwingen, ohne manuelle Partikelprims aufzustellen.
+Die Kommandos gehören in die **Simulator-Konsole**, nicht nach ROBUST oder in
+Firestorms lokalen Chat:
+
+```text
+ogl weather rain 80 10
+ogl weather snow 70 10
+ogl weather status
+ogl weather auto
+```
+
+`rain 80 10` = Regen mit 80 % Partikelintensität für 10 Minuten;
+`snow 70 10` = Schnee mit 70 % für 10 Minuten;
+`auto` setzt die reguläre Wettersimulation sofort wieder ein.
+Die Intensität ist eine **Partikelstufe**, keine Regenwahrscheinlichkeit.
+Intensität nur 1–100, Dauer nur 1–60 Minuten; ohne Angaben gelten
+die INI-Werte 70 % und 15 Minuten. Nach Ablauf des Testfensters oder beim
+Neustart mit `TestWeatherMode=auto` wird automatisch wieder der reale
+simulierte Verlauf verwendet.
+
+Optional lässt sich **einmalig beim Simulatorstart** ein zeitbegrenzter
+Test einrichten:
+
+```ini
+[OGLWeather]
+Enabled = true
+LegacyParticleEmitters = true
+TestWeatherMode = auto
+TestWeatherIntensity = 70
+TestWeatherDurationMinutes = 15
+```
+
+Nur `auto`, `rain` und `snow` sind erlaubt. Der Standard bleibt
+`auto`; `TestWeatherMode = rain` oder `snow` wirkt maximal 60 Minuten
+ab Simulatorstart. **Keine dauerhafte Zwangswetterlage** und keine
+öffentliche Schreib-API. Ein einzelner Simulatorprozess steuert alle
+seine Regionen gemeinsam; andere Simulatoren werden nicht verändert.
+
+Der Override ist auf **den augenblicklichen Zustand** beschränkt:
+Firestorm-Emitter, Inworld-NOW-Meldungen und `OGLWeatherState` melden
+den Testzustand (`test_override_active=true`). Die zukünftigen fünf
+Prognosetage und `GET /api/v1/weather` auf ROBUST bleiben unverändert
+und zeigen weiterhin das reguläre deterministische Klima. Daher kann
+die Stadtportal-Anzeige während des Tests von der tatsächlichen
+Inworld-Wetterlage abweichen. Portal-Administration ist ein separates,
+künftig zu authentifizierendes Entwicklungsziel.
+
 ### Automatische Emitter-Konfiguration
 
 ```ini
