@@ -85,8 +85,18 @@ namespace OpenSim.Services.HypergridService
         }
 
         #region IAssetService overrides
+
+        public override bool[] AssetsExist(string[] ids)
+        {
+            if (m_AssetPerms.BlockAllExports)
+                return new bool[ids == null ? 0 : ids.Length];
+            return base.AssetsExist(ids);
+        }
         public override AssetBase Get(string id)
         {
+            if (m_AssetPerms.BlockAllExports)
+                return null;
+
             AssetBase asset = base.Get(id);
 
             if (asset == null)
@@ -105,6 +115,9 @@ namespace OpenSim.Services.HypergridService
 
         public override AssetMetadata GetMetadata(string id)
         {
+            if (m_AssetPerms.BlockAllExports)
+                return null;
+
             AssetMetadata meta = base.GetMetadata(id);
 
             if (meta == null)
@@ -117,6 +130,9 @@ namespace OpenSim.Services.HypergridService
 
         public override byte[] GetData(string id)
         {
+            if (m_AssetPerms.BlockAllExports)
+                return null;
+
             AssetBase asset = Get(id);
 
             if (asset == null)
