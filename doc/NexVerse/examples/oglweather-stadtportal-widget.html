@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>OGLWeather · Stadt-NexVerse</title>
+<style>
+  :root{color-scheme:dark;font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+  *{box-sizing:border-box}
+  body{margin:0;padding:24px;background:#111d31;color:#f7faff;min-height:100vh}
+  .weather{max-width:940px;margin:0 auto;border:1px solid #8eb3e750;border-radius:24px;overflow:hidden;
+    background:linear-gradient(135deg,#143968 0%,#164982 45%,#22316b 100%);
+    box-shadow:0 16px 45px #060f2688}
+  .hero{padding:30px 32px 24px;display:flex;align-items:center;gap:22px;justify-content:space-between}
+  .eyebrow{font-size:.76rem;letter-spacing:.14em;text-transform:uppercase;color:#b6ddff;font-weight:700}
+  h1{margin:8px 0 4px;font-size:1.55rem;line-height:1.25}
+  .detail{color:#d7ebff;font-size:.92rem}
+  .reading{display:flex;align-items:center;gap:14px;margin-top:15px}
+  .mainicon{font-size:4.1rem;line-height:1;filter:drop-shadow(0 3px 8px #001e3d88)}
+  .temp{font-size:4.8rem;line-height:1;font-weight:300;letter-spacing:-.07em}
+  .summary{font-size:1.04rem;margin:10px 0 0;color:#f3faff}
+  .metrics{display:flex;gap:20px;flex-wrap:wrap;margin-top:16px;color:#d9e8ff;font-size:.94rem}
+  .stamp{margin-top:12px;color:#b8d8fa;font-size:.76rem}
+  .dayrange{border-radius:17px;background:#ffffff15;padding:16px 19px;min-width:140px}
+  .dayrange strong{font-size:1.4rem;display:block;margin-top:7px}
+  .lower{padding:24px 32px 28px;background:#06152a70;border-top:1px solid #ffffff22}
+  h2{font-size:1rem;margin:0 0 17px;letter-spacing:.02em}
+  .hourly{display:flex;gap:11px;overflow-x:auto;padding-bottom:15px;margin-bottom:22px;scrollbar-color:#9dbadb66 transparent}
+  .hour{flex:0 0 85px;text-align:center;border:1px solid #ffffff2b;border-radius:14px;background:#ffffff0c;padding:13px 8px}
+  .hour .icon{font-size:1.6rem;display:block;margin:9px 0}
+  .hour .clock{font-size:.78rem;color:#cbdff9}
+  .hour .value{font-weight:700}
+  .days{display:grid;gap:1px}
+  .day{display:grid;grid-template-columns:1fr 48px minmax(100px,1.6fr) 94px;align-items:center;gap:12px;
+    padding:13px 8px;border-bottom:1px solid #ffffff21}
+  .day:last-child{border-bottom:0}
+  .day .icon{font-size:1.4rem}
+  .condition{color:#c9def9;font-size:.84rem}
+  .range{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums;font-weight:700}
+  .range .min{color:#a7c7e7;margin-right:12px}
+  .hint{font-size:.79rem;color:#bacfe6;margin-top:22px;line-height:1.5}
+  .error{margin:0 auto;max-width:940px;color:#ffe3b5;padding:12px 0}
+  [hidden]{display:none!important}
+  @media(max-width:600px){body{padding:10px}.hero{padding:22px 20px;align-items:flex-start}
+    h1{font-size:1.25rem}.temp{font-size:3.7rem}.mainicon{font-size:3.2rem}
+    .dayrange{display:none}.lower{padding:18px 18px 22px}
+    .day{grid-template-columns:1fr 30px 72px;gap:5px}.condition{display:none}
+    .range .min{margin-right:4px}}
+  @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}
+</style>
+</head>
+<body>
+<main class="weather" aria-label="Virtuelles Stadt-NexVerse Wetter">
+  <header class="hero">
+    <div>
+      <div class="eyebrow">OGLWeather · Live-Simulation</div>
+      <h1 id="location">Stadt-NexVerse</h1>
+      <div class="detail" id="when">Wetter wird geladen…</div>
+      <div class="reading"><span class="mainicon" id="icon" aria-hidden="true">☁️</span>
+        <span class="temp" id="temperature">–°</span></div>
+      <div class="summary" id="summary">Lade aktuelle Wetterlage</div>
+      <div class="metrics"><span id="wind">Wind: –</span><span id="rain">Niederschlag: –</span></div>
+      <div class="stamp" id="updated"></div>
+    </div>
+    <div class="dayrange"><span>Heute</span><strong id="today">–</strong><span id="todayText">Tageswerte</span></div>
+  </header>
+  <section class="lower">
+    <h2>Die nächsten 24 Stunden</h2>
+    <div class="hourly" id="hourly" aria-label="Stündlicher Wetterverlauf"></div>
+    <h2>5-Tage-Vorhersage</h2>
+    <div class="days" id="forecast" aria-label="Wettervorhersage für fünf Tage"></div>
+    <p class="hint">Simuliertes Wetter aus OpenGenesisLINK, keine realen Wetterdaten.
+      Die Vorhersage entspricht der Inworld-Wettersimulation, sofern Server und World API
+      mit gleichem Seed und gleicher Zeitzone konfiguriert sind.</p>
+  </section>
+</main>
+<div class="error" id="error" role="status" aria-live="polite" hidden></div>
+<script>
+"use strict";
+// Configure a SAME-ORIGIN reverse proxy from your portal backend:
+// /api/v1/weather -> World API GET /api/v1/weather.
+// Do not embed secret API tokens or disable CORS protections.
+const WEATHER_URL = "/api/v1/weather";
+const $ = id => document.getElementById(id);
+const icon = {sun:"☀️",cloud:"☁️",rain:"🌧️",snow:"🌨️"};
+const asText = value => String(value ?? "–");
+const number = value => Number.isFinite(Number(value)) ? Number(value) : null;
+function node(tag, className, content) {
+  const el = document.createElement(tag);
+  if(className) el.className = className;
+  el.textContent = asText(content);
+  return el;
+}
+function safeIcon(condition){return icon[condition] || "☁️"}
+function updateWeather(w) {
+  if(w?.protocol !== "ogl.weather.portal" || w.version !== 1 || !w.current ||
+     !Array.isArray(w.hourly) || !Array.isArray(w.forecast)) {
+    throw new Error("Unbekanntes OGLWeather-Datenformat");
+  }
+  const temp=number(w.current.temperature_c);
+  $("location").textContent=asText(w.display_name);
+  $("when").textContent=new Intl.DateTimeFormat("de-DE",{
+    dateStyle:"full", timeStyle:"short", timeZone:w.timezone
+  }).format(new Date(w.observed_at_utc));
+  $("icon").textContent=safeIcon(w.current.condition);
+  $("temperature").textContent=temp===null?"–":temp+"°";
+  $("summary").textContent=asText(w.current.condition_label_de);
+  $("wind").textContent="Wind: "+asText(w.current.wind_kmh)+" km/h";
+  $("rain").textContent="Intensität: "+asText(w.current.precipitation_intensity_percent)+" %";
+  $("today").textContent=asText(w.today.temperature_max_c)+"° / "+asText(w.today.temperature_min_c)+"°";
+  $("todayText").textContent=asText(w.today.condition_label_de);
+  $("updated").textContent="Aktualisiert: "+
+    new Intl.DateTimeFormat("de-DE",{hour:"2-digit",minute:"2-digit",timeZone:w.timezone})
+    .format(new Date(w.observed_at_utc));
+  const hourly=$("hourly");
+  hourly.replaceChildren();
+  for(const item of w.hourly.slice(0,24)){
+    const card=node("div","hour","");
+    card.append(node("div","clock",item.hour),node("span","icon",safeIcon(item.condition)),
+      node("div","value",asText(item.temperature_c)+"°"));
+    hourly.append(card);
+  }
+  const forecast=$("forecast");
+  forecast.replaceChildren();
+  for(const day of w.forecast.slice(0,5)){
+    const row=node("div","day","");
+    row.append(node("strong","weekday",day.weekday_de),
+      node("span","icon",safeIcon(day.condition)),
+      node("span","condition",day.condition_label_de));
+    const range=node("div","range","");
+    range.append(node("span","min",asText(day.temperature_min_c)+"°"),
+      node("span","max",asText(day.temperature_max_c)+"°"));
+    row.append(range);
+    forecast.append(row);
+  }
+  $("error").hidden=true;
+}
+async function refresh() {
+  try {
+    const response=await fetch(WEATHER_URL,{
+      method:"GET",headers:{"Accept":"application/json"},credentials:"omit",
+      signal:AbortSignal.timeout(10000)
+    });
+    if(!response.ok) throw new Error("Wetterdienst nicht verfügbar (HTTP "+response.status+")");
+    updateWeather(await response.json());
+  } catch(e) {
+    $("error").textContent=String(e.message || e);
+    $("error").hidden=false;
+  }
+}
+refresh();
+setInterval(refresh,60000);
+</script>
+</body>
+</html>
