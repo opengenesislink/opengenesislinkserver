@@ -252,6 +252,7 @@
     <Compile Include="SLUtil.cs">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="OglApprovedViewerPolicy.cs" />
     <Compile Include="AssetPermissions.cs">
       <SubType>Code</SubType>
     </Compile>
