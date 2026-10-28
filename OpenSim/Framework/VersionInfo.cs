@@ -31,11 +31,14 @@ namespace OpenSim
     {
         // NexVerse maintains its own version line from the OpenSimulator 0.9.3.0 baseline.
         public const string ProductName = "OpenGenesisLINK";
-        public const string VersionNumber = "0.9.3.14";
-        public const string AssemblyVersionNumber = "0.9.3.14";
+        public const string VersionNumber = "0.9.4.0";
+        public const string AssemblyVersionNumber = "0.9.4.0";
 
-        // Development resumes after the immutable 0.9.3.13 Stable release.
-        // The latest Stable source remains available at tag v0.9.3.13.
+        // Generation 1 is the public product designation. VersionNumber is the
+        // internal .NET / Mono.Addins build identity and not the marketing name.
+        // The released 0.9.3.13 Stable sources remain at immutable tag v0.9.3.13.
+        public const string PublicGenerationName = "Generation 1";
+        public const string PublicVersionName = ProductName + " " + PublicGenerationName;
         public const Flavour VERSION_FLAVOUR = Flavour.Dev;
 
         public enum Flavour
@@ -52,7 +55,13 @@ namespace OpenSim
 
         public static string Version
         {
-            get { return GetVersionString(VersionNumber, VERSION_FLAVOUR); }
+            get { return PublicVersionName.PadRight(VERSIONINFO_VERSION_LENGTH); }
+        }
+
+        // For diagnostic/build-compatibility use only, not customer-facing branding.
+        public static string InternalBuildVersion
+        {
+            get { return GetVersionString(VersionNumber, VERSION_FLAVOUR).Trim(); }
         }
 
         public static string GetVersionString(string versionNumber, Flavour flavour)
