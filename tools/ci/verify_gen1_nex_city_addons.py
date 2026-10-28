@@ -88,3 +88,70 @@ print("NexCity + OGLWeather solution bundling: all 4 DLLs checked")
 
 assert "Verify Generation-1 Inworld LSL companion scripts" in workflow
 print("NexCity addon contracts PASS: independent plugins, bounded wire, safe disabled defaults")
+
+
+# Stadt-NexVerse active deployment config is intentionally enabled, while
+# reusable addon examples stay disabled for independent installations.
+# Catch duplicate INI sections, wrong host placement and protocol drift.
+def active_ini_section(path, section):
+    raw = content(path)
+    header = re.compile(r"(?m)^[ \\t]*\\[" + re.escape(section) + r"\\][ \\t]*$")
+    matches = list(header.finditer(raw))
+    assert len(matches) == 1, f"{path}: expected exactly one [{section}]"
+    remainder = raw[matches[0].end():]
+    next_header = re.search(r"(?m)^[ \\t]*\\[[^]\\r\\n]+\\][ \\t]*$", remainder)
+    block = remainder[:next_header.start()] if next_header else remainder
+    values = {}
+    for raw_line in block.splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith((";", "#")):
+            continue
+        assert "=" in line, f"{path} [{section}]: invalid line {line}"
+        key, value = (item.strip() for item in line.split("=", 1))
+        assert key not in values, f"{path} [{section}]: duplicate {key}"
+        values[key] = value.strip('"')
+    return values
+
+simulator_ini = "bin/OpenSim.ini"
+robust_ini = "bin/Robust.HG.ini"
+active = {
+    "NexTraffic": {
+        "Enabled": "true", "LSLChannel": "-835421", "RefreshSeconds": "5",
+        "GreenSeconds": "30", "YellowSeconds": "5", "AllRedSeconds": "3",
+        "Junctions": "Hauptstrasse:0;Marktplatz:11",
+    },
+    "NexTransit": {
+        "Enabled": "true", "LSLChannel": "-835422", "RefreshSeconds": "30",
+        "TimeZone": "Europe/Berlin", "MaxDepartures": "5",
+        "Routes": "101,Magdeburg,10,0,*;150,Jenseits,20,15,*",
+    },
+    "NexSmartLight": {
+        "Enabled": "true", "LSLChannel": "-835423", "RefreshSeconds": "60",
+        "TimeZone": "Europe/Berlin", "NightStarts": "18:00",
+        "NightEnds": "06:00",
+    },
+    "OGLWeather": {
+        "Enabled": "true", "WeatherSeed": "20261028",
+        "TimeZone": "Europe/Berlin", "LSLChannel": "-835311",
+        "CurrentBroadcastSeconds": "60", "ForecastBroadcastSeconds": "300",
+        "CloudBaseMeters": "200", "LegacyParticleEmitters": "true",
+        "EmitterHeightMeters": "65", "EmitterSpacingMeters": "96",
+        "MaxEmittersPerRegion": "16", "VisualRefreshSeconds": "60",
+    },
+}
+for section, expected in active.items():
+    actual = active_ini_section(simulator_ini, section)
+    assert actual == expected, f"{simulator_ini} [{section}] drift: {actual}"
+    assert not re.search(r"(?m)^\\[" + re.escape(section) + r"\\]$", content(robust_ini)), (
+        f"Simulator-only [{section}] must not appear in ROBUST"
+    )
+
+portal = active_ini_section(robust_ini, "OGLWeatherPortal")
+assert portal == {
+    "Enabled": "true", "WeatherSeed": active["OGLWeather"]["WeatherSeed"],
+    "TimeZone": active["OGLWeather"]["TimeZone"],
+    "DisplayName": "Stadt-NexVerse",
+}, "Portal climate or activation mismatches simulator"
+assert not re.search(r"(?m)^\\[OGLWeatherPortal\\]$", content(simulator_ini))
+assert active_ini_section(robust_ini, "NexVerseWorldApi")["Enabled"].lower() == "true"
+print("Gen1 active INIs PASS: 4 simulator modules + ROBUST portal enabled, unique and synchronized")
