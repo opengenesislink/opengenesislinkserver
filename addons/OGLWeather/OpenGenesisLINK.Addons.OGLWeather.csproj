@@ -3,6 +3,7 @@
     <TargetFramework>net8.0</TargetFramework>
     <OutputType>Library</OutputType>
     <AssemblyName>OpenGenesisLINK.Addons.OGLWeather</AssemblyName>
+    <ProjectGuid>{AF51F7E2-91D2-4801-AB77-F512A0430104}</ProjectGuid>
     <ImplicitUsings>disable</ImplicitUsings>
     <Nullable>disable</Nullable>
     <CopyLocalLockFileAssemblies>false</CopyLocalLockFileAssemblies>
@@ -16,4 +17,13 @@
     <Reference Include="OpenMetaverseTypes"><HintPath>../../bin/OpenMetaverseTypes.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="log4net"><HintPath>../../bin/log4net.dll</HintPath><Private>false</Private></Reference>
   </ItemGroup>
+  <!-- Copy only the module assembly, never dependencies, into the normal
+       simulator bin on every standard Debug or Release solution build. -->
+  <Target Name="CopyAddonToSimulatorBin" AfterTargets="Build"
+          Condition="'$(DesignTimeBuild)' != 'true'">
+    <MakeDir Directories="$(MSBuildThisFileDirectory)../../bin" />
+    <Copy SourceFiles="$(TargetPath)"
+          DestinationFiles="$(MSBuildThisFileDirectory)../../bin/$(TargetFileName)"
+          SkipUnchangedFiles="true" />
+  </Target>
 </Project>
