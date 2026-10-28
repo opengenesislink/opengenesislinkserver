@@ -1,5 +1,19 @@
 # OGLWeather – OpenGenesisLINK Generation 1
 
+## Anzeige im Stadtportal über World API
+
+Zusätzlich zu den Inworld-Partikeln und LSL-Wettertafeln gibt es einen
+**opt-in, öffentlich lesbaren** World-API-Endpunkt
+`GET /api/v1/weather` mit aktuellen Temperaturen und Wetterlage,
+24-Stunden-Verlauf und fünf Vorhersagetagen. Er verwendet **genau das
+gleiche, jetzt in `NexVerse.Core` geteilte Wettermodell**.
+Die Konfiguration `[OGLWeatherPortal]` liegt auf **ROBUST** und
+muss den gleichen `WeatherSeed` und die gleiche `TimeZone` wie
+`[OGLWeather]` auf den Simulatoren verwenden.
+Mitgeliefert wird eine responsive Wetterkarte für das Stadtportal.
+
+Siehe [World-API-Wetterdokumentation](../../doc/NexVerse/WORLD_API_OGLWEATHER_PORTAL.md).
+
 ## Alle passenden LSL-Skripte
 
 Die zusätzlichen Inworld-Skripte, Voraussetzungen, Prim-Linknamen und

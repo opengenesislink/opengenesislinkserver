@@ -319,6 +319,17 @@ namespace NexVerse.Server.Api
             server.AddSimpleStreamHandler(new SimpleStreamHandler("/api/v1/chatgpt-buergerportal.md", apiGate.Wrap(chatGptInstructions.HandleCitizen), "NexVerse ChatGPT Citizen Portal Instructions"));
             server.AddSimpleStreamHandler(new SimpleStreamHandler("/api/v1/chatgpt-admin.md", apiGate.Wrap(chatGptInstructions.HandleAdmin), "NexVerse ChatGPT Admin Instructions"));
             server.AddSimpleStreamHandler(new SimpleStreamHandler("/api/v1/health", apiGate.Wrap(handlers.Health), "NexVerse World API Health"));
+            // Public opt-in weather state is available even when later
+            // privileged API services fail to initialize. Existing request
+            // gate applies to this non-sensitive simulated weather endpoint.
+            NexWorldWeatherApi portalWeather = new NexWorldWeatherApi(config);
+            server.AddSimpleStreamHandler(
+                new SimpleStreamHandler(
+                    "/api/v1/weather",
+                    apiGate.Wrap(portalWeather.Handle),
+                    "OpenGenesisLINK World Weather Portal"),
+                true);
+
             // Register statistics before the much larger privileged service graph.
             // A failure later in connector startup must never silently remove
             // this public endpoint or fall through to OpenSim's default 404.

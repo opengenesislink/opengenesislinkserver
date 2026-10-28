@@ -5,7 +5,8 @@ root = Path(__file__).resolve().parents[2]
 def read(path):
     return (root / path).read_text(encoding="utf-8-sig")
 
-model = read("addons/OGLWeather/OglWeatherModel.cs")
+model = read("NexVerse/Core/Weather/OglWeatherModel.cs")
+assert not (root / "addons/OGLWeather/OglWeatherModel.cs").exists(), "No independent weather model allowed"
 module = read("addons/OGLWeather/OglWeatherRegionModule.cs")
 viewer = read("addons/OGLWeather/OglWeatherViewerState.cs")
 legacy = read("addons/OGLWeather/OglWeatherLegacyEmitters.cs")

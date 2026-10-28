@@ -159,6 +159,86 @@ internal static class Program
                 .GetProperty("legacy_prim_emitters_active").GetBoolean(),
                 "native viewers can suppress double precipitation");
         }
+        // The portal's weather must be EXACTLY the simulated weather in
+        // every corresponding hour, including the CET/CEST clock change.
+        foreach (DateTimeOffset instant in new[]
+        {
+            now,
+            new DateTimeOffset(2027, 3, 28, 0, 15, 0, TimeSpan.Zero),
+            new DateTimeOffset(2027, 3, 28, 1, 15, 0, TimeSpan.Zero),
+            new DateTimeOffset(2027, 10, 31, 0, 15, 0, TimeSpan.Zero),
+            new DateTimeOffset(2027, 10, 31, 1, 15, 0, TimeSpan.Zero)
+        })
+        {
+            using JsonDocument portal = JsonDocument.Parse(
+                OglWeatherPortalProjection.Serialize(
+                    instant, seed, berlin, "Stadt-NexVerse"));
+            JsonElement data = portal.RootElement;
+            Require(data.GetProperty("protocol").GetString() ==
+                "ogl.weather.portal", "portal protocol");
+            Require(data.GetProperty("simulation").GetBoolean(),
+                "never claim that inworld weather is meteorological data");
+            Require(data.GetProperty("timezone").GetString() == berlin.Id,
+                "correct time zone");
+            WeatherReading current = OglWeatherModel.At(instant, seed, berlin);
+            JsonElement apiCurrent = data.GetProperty("current");
+            Require(apiCurrent.GetProperty("condition").GetString() ==
+                current.Condition, "portal current weather matches simulator");
+            Require(apiCurrent.GetProperty("temperature_c").GetInt32() ==
+                current.TemperatureC, "portal current temperature matches simulator");
+            Require(apiCurrent.GetProperty("wind_kmh").GetInt32() ==
+                current.WindKmh, "portal current wind matches simulator");
+            Require(apiCurrent.GetProperty("precipitation_intensity_percent").GetInt32() ==
+                current.Intensity, "portal current intensity matches simulator");
+            JsonElement day = data.GetProperty("today");
+            WeatherDay actualDay = OglWeatherModel.ForecastDay(
+                TimeZoneInfo.ConvertTime(instant, berlin).Date, seed, berlin);
+            Require(day.GetProperty("temperature_min_c").GetInt32() == actualDay.MinC,
+                "portal daily low matches simulator model");
+            Require(day.GetProperty("temperature_max_c").GetInt32() == actualDay.MaxC,
+                "portal daily high matches simulator model");
+            Require(day.GetProperty("precipitation_hours").GetInt32() ==
+                actualDay.PrecipitationHours, "portal wet hours match simulator");
+            JsonElement hourly = data.GetProperty("hourly");
+            Require(hourly.GetArrayLength() == 24, "24 truly consecutive UTC hours");
+            for (int h = 0; h < hourly.GetArrayLength(); h++)
+            {
+                JsonElement hour = hourly[h];
+                DateTimeOffset timestamp = DateTimeOffset.Parse(
+                    hour.GetProperty("time_utc").GetString());
+                if (h > 0)
+                {
+                    DateTimeOffset prev = DateTimeOffset.Parse(
+                        hourly[h - 1].GetProperty("time_utc").GetString());
+                    Require((timestamp - prev).TotalHours == 1,
+                        "hourly timestamps never skip UTC hours at DST");
+                }
+                WeatherReading simulation = OglWeatherModel.At(timestamp, seed, berlin);
+                Require(hour.GetProperty("condition").GetString() ==
+                    simulation.Condition, "hourly condition matches region weather");
+                Require(hour.GetProperty("temperature_c").GetInt32() ==
+                    simulation.TemperatureC, "hourly temperatures match region weather");
+            }
+            JsonElement days = data.GetProperty("forecast");
+            Require(days.GetArrayLength() == 5, "portal has five forecast days");
+            for (int i = 0; i < 5; i++)
+            {
+                WeatherDay actual = OglWeatherModel.ForecastDay(
+                    TimeZoneInfo.ConvertTime(instant, berlin).Date.AddDays(i + 1),
+                    seed, berlin);
+                Require(days[i].GetProperty("temperature_min_c").GetInt32() ==
+                    actual.MinC, "forecast low is deterministic");
+                Require(days[i].GetProperty("temperature_max_c").GetInt32() ==
+                    actual.MaxC, "forecast high is deterministic");
+                Require(days[i].GetProperty("condition").GetString() ==
+                    actual.Condition, "forecast condition is deterministic");
+            }
+        }
+        Require(OglWeatherPortalProjection.ConditionLabelDe("snow") == "Schnee",
+            "German snow condition");
+        Require(OglWeatherPortalProjection.ConditionIcon("rain") == "cloud-rain",
+            "weather icon mapping");
+
         Console.WriteLine("OGLWeather: " + checks + " checks PASS, " +
             wetDays + " wet days, " + dryDays + " dry days, " + snowDays + " snowy days");
     }
