@@ -21,7 +21,8 @@ namespace OpenGenesisLINK.Addons.OGLWeather
 
         public static string Serialize(string regionId, DateTimeOffset utc,
             int seed, TimeZoneInfo timeZone, int cloudBaseMeters,
-            bool legacyParticleEmitters = false)
+            bool legacyParticleEmitters = false,
+            WeatherReading testReading = null)
         {
             if (string.IsNullOrWhiteSpace(regionId))
                 throw new ArgumentException("Region ID required", nameof(regionId));
@@ -30,7 +31,7 @@ namespace OpenGenesisLINK.Addons.OGLWeather
 
             cloudBaseMeters = Math.Clamp(cloudBaseMeters, 64, 2048);
             DateTime local = TimeZoneInfo.ConvertTime(utc, timeZone).Date;
-            WeatherReading current = OglWeatherModel.At(utc, seed, timeZone);
+            WeatherReading current = testReading ?? OglWeatherModel.At(utc, seed, timeZone);
             var forecast = new object[5];
             for (int i = 0; i < 5; i++)
             {
@@ -64,6 +65,7 @@ namespace OpenGenesisLINK.Addons.OGLWeather
                     origin = "clouds",
                     rendering = "viewer_native",
                     requires_viewer_support = true,
+                    test_override_active = testReading != null,
                     legacy_prim_emitters_active = legacyParticleEmitters
                 },
                 forecast
