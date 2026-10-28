@@ -40,4 +40,16 @@ assert "llSetTexture(" not in board
 assert "OGLWeather" in csproj
 assert "robust/bin" in builder and "--sim-bin" in builder
 assert "Weather Forecast regression" in workflow
+assert not (root / "addons/OGLSeasons").exists(), "retired addon sources still tracked"
+assert not (root / "addon-modules/OGLSeasons").exists(), "retired build scripts still tracked"
+for path in (
+    "tools/ci/verify_ogl_seasons.py",
+    "tools/ci/verify_ogl_seasons_eep.py",
+    "tools/ci/OglSeasonsRegression",
+    "tools/ci/OglSeasonsEepRegression",
+):
+    assert not (root / path).exists(), "old weather test survived: " + path
+assert "OGLSeasons" not in workflow, "obsolete CI weather gate still active"
+assert "OGLSeasons" not in read("runprebuild.sh"), "obsolete compile step still active"
+assert "OGLWeather" in read("runprebuild.sh"), "new addon missing from compile script"
 print("OGLWeather static contracts: simulator-wide, deterministic, opt-in, LSL and isolation PASS")
