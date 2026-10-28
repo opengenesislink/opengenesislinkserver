@@ -65,7 +65,7 @@ assert "runprebuild.sh" in builder
 assert 'ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"' in builder
 # A plain checkout build and a regenerated solution must both compile
 # all four add-ons. CI also checks the actual bin output post-Release.
-solution = content("OpenSim.sln")
+solution = content("OpenSim.sln").replace(chr(92), "/")
 prebuild = content("runprebuild.sh")
 compile_script = content("compile.sh")
 for name in (*names, "OGLWeather"):
