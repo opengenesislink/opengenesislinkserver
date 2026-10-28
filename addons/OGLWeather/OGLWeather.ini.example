@@ -25,7 +25,11 @@ EmitterHeightMeters = 65
 EmitterSpacingMeters = 96
 MaxEmittersPerRegion = 16
 VisualRefreshSeconds = 60
-; Precipitation is viewer-native only: no prims, no automatic rezzing.
-; An unchanged Firestorm viewer cannot render this protocol yet.
-; Keine EEP-Aenderungen, keine dauerhaften Rezzed-Objekte.
-; Das Wettersystem benoetigt Wetter-Emitter-Prims fuer sichtbare Partikel.
+; Hybrid weather rendering:
+; - Firestorm: the simulator automatically creates and removes ephemeral,
+;   nonpersistent particle emitter prims when LegacyParticleEmitters=true.
+; - Future native OGL Viewer: the OGLWeatherState CAPS supplies weather
+;   state for a viewer-rendered effect; that native renderer is still pending.
+; No manual LSL rezzers, no persistent region objects, no EEP override.
+; IMPORTANT: the World API needs matching WeatherSeed / TimeZone in
+; [OGLWeatherPortal] on ROBUST to display the same inworld forecast.
