@@ -6,6 +6,7 @@
 
 - **Firestorm Viewer** – `Firestorm` und Firestorm-Channel wie `Firestorm-Releasex64`
 - **OpenGenesisLINK Viewer** – `OpenGenesisLINK` und der projektinterne Name `OGL Viewer`
+- **Radegast-ng** – `Radegast-ng` und kompatibler Alias `Radegast`
 
 Andere selbst gemeldete Viewernamen – einschließlich **Darkstorm**, **Hydrastorm**, Alchemy, Singularity, Cool VL und unbekannter Clients – sind nicht zugelassen.
 
@@ -27,7 +28,7 @@ OGLApprovedViewersOnly = true
 
 Das gilt sowohl für ROBUST (LoginService **und** GatekeeperService) als auch für jeden Simulator (`OpenSim.ini`). Nach einem Update müssen tatsächlich geladene Konfigurationen auf allen Nodes geprüft und die betroffenen Dienste neu gestartet werden. Für Tests kann die Option in einer isolierten Umgebung auf `false` gesetzt werden.
 
-Bisherige `AllowedClients`/`DeniedClients`-Regeln werden weiterhin angewandt; diese dürfen die zwei offiziellen Viewer nicht zusätzlich ungewollt ausschließen. Die bestehende OGL Viewer Advisor-Empfehlung ist unabhängig davon und bleibt deaktiviert.
+Bisherige `AllowedClients`/`DeniedClients`-Regeln werden weiterhin angewandt; diese dürfen die drei zugelassenen Viewer nicht zusätzlich ungewollt ausschließen. Die bestehende OGL Viewer Advisor-Empfehlung ist unabhängig davon und bleibt deaktiviert.
 
 ## Hypergrid und Marketplace bleiben offen
 
@@ -39,7 +40,7 @@ OutboundPermission = true
 DisallowAllExport = false
 ```
 
-Berechtigte ausländische Gäste mit Firestorm/OpenGenesisLINK können Gegenstände kaufen, in ihr eigenes Inventar übertragen, heimreisen und sie im Rahmen der üblichen Objektberechtigungen aufstellen. Die HG-Asset-Endpunkte bleiben für autorisierte Transaktionen offen. Die Begrenzung großer Asset-Existenzabfragen aus PR #330 bleibt erhalten.
+Berechtigte ausländische Gäste mit einem zugelassenen Viewer können Gegenstände kaufen, in ihr eigenes Inventar übertragen, heimreisen und sie im Rahmen der üblichen Objektberechtigungen aufstellen. Die HG-Asset-Endpunkte bleiben für autorisierte Transaktionen offen. Die Begrenzung großer Asset-Existenzabfragen aus PR #330 bleibt erhalten.
 
 ## Sicherheitsgrenze (verpflichtend klar kommunizieren)
 
