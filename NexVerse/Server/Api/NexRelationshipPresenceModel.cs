@@ -49,6 +49,11 @@ namespace NexVerse.Server.Api
             // Standard OpenSim UUI: UUID;homeGridURI;First Last[;secret].
             // Split at most four fields and discard the fourth immediately.
             // Require the UUID segment to be exactly 36 chars.
+            int separators = 0;
+            foreach (char ch in value)
+                if (ch == ';') separators++;
+            if (separators < 2 || separators > 3)
+                return false;
             string[] parts = value.Split(';', 4);
             if ((parts.Length != 3 && parts.Length != 4) ||
                 !Guid.TryParseExact(parts[0], "D", out Guid foreignId) ||
