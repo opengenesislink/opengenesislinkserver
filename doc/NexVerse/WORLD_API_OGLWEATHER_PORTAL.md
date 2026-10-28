@@ -20,6 +20,10 @@ TimeZone = "Europe/Berlin"
 DisplayName = "Stadt-NexVerse"
 ```
 
+Die Simulator-DLL heißt `OpenGenesisLINK.Addons.OGLWeather.dll`; sie
+wird weiterhin automatisch mit dem Standard-Server-Build erzeugt. Die
+World-API-Route ist dagegen Bestandteil der bestehenden `OGL.API.dll`.
+
 Die World API muss bereits durch `[NexVerseWorldApi]` und
 `[ServiceList]` aktiv sein. Ohne diese explizite
 `OGLWeatherPortal.Enabled=true`-Freigabe antwortet die Wetter-Route mit
