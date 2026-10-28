@@ -19,7 +19,8 @@ assert "bool accepted = bus.Receive(nexEvent);" in handler
 assert "catch (ObjectDisposedException)" in handler
 assert "HttpStatusCode.ServiceUnavailable" in handler
 assert 'new { error = "node_shutting_down" }' in handler
-assert handler.index("catch (ObjectDisposedException)") < handler.index("catch (Exception e)")
+receive_tail = handler.split("bool accepted = bus.Receive(nexEvent);", 1)[1]
+assert receive_tail.index("catch (ObjectDisposedException)") < receive_tail.index("catch (Exception e)")
 assert "NexBusProtocol.Verify(" in handler
 assert handler.index("NexBusProtocol.Verify(") < handler.index("bus.Receive(nexEvent)")
 assert 'HttpStatusCode.Unauthorized' in handler
