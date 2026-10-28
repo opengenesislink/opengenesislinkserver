@@ -58,6 +58,7 @@ namespace OpenSim.Services.HypergridService
         private static IGridUserService m_GridUserService;
         private static IBansService m_BansService;
 
+        private static bool m_OglApprovedViewersOnly;
         private static Regex m_AllowedClientsRegex = null;
         private static Regex m_DeniedClientsRegex = null;
         private static string m_DeniedMacs = string.Empty;
@@ -151,6 +152,8 @@ namespace OpenSim.Services.HypergridService
                         m_SimulationService = ServerUtils.LoadPlugin<ISimulationService>(simulationService, args);
 
                 string[] possibleAccessControlConfigSections = new string[] { "AccessControl", "GatekeeperService" };
+                m_OglApprovedViewersOnly = Util.GetConfigVarFromSections<bool>(config,
+                    "OGLApprovedViewersOnly", possibleAccessControlConfigSections, false);
                 string AllowedClients = Util.GetConfigVarFromSections<string>(config, "AllowedClients", possibleAccessControlConfigSections, string.Empty);
                 if (!string.IsNullOrEmpty(AllowedClients))
                 {
@@ -330,6 +333,16 @@ namespace OpenSim.Services.HypergridService
 
             string curViewer = Util.GetViewerName(aCircuit);
             string curMac = aCircuit.Mac.ToString();
+
+            // Reject before foreign presence registration, avatar placement or HG asset activity.
+            if (m_OglApprovedViewersOnly &&
+                !OglApprovedViewerPolicy.IsAllowed(aCircuit.Viewer, aCircuit.Channel))
+            {
+                reason = "Only Firestorm or OpenGenesisLINK Viewer is permitted";
+                m_log.InfoFormat("[OGL VIEWER ACCESS]: Rejected Hypergrid arrival using viewer {0}, channel {1}",
+                    aCircuit.Viewer, aCircuit.Channel);
+                return false;
+            }
 
 
             //
