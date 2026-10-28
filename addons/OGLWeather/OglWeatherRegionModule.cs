@@ -1,11 +1,15 @@
 // SPDX-License-Identifier: MPL-2.0
 using System;
 using System.Collections.Concurrent;
+using System.Net;
+using System.Text;
 using log4net;
 using Mono.Addins;
 using Nini.Config;
 using OpenMetaverse;
 using OpenSim.Framework;
+using Caps = OpenSim.Framework.Capabilities.Caps;
+using OpenSim.Framework.Servers.HttpServer;
 using OpenSim.Region.Framework.Interfaces;
 using OpenSim.Region.Framework.Scenes;
 
@@ -16,8 +20,9 @@ namespace OpenGenesisLINK.Addons.OGLWeather
 {
     /// <summary>
     /// One shared module instance serves EVERY region of this simulator.
-    /// Only broadcasts authenticated-by-origin region chat; an owner-installed
-    /// LSL emitter renders particles locally to viewers (no server rezzing).
+    /// Provides one shared forecast for every region in this simulator and a
+    /// read-only per-agent CAPS snapshot for future viewer-native precipitation.
+    /// Never creates, stores or rezzes a prim for weather visualization.
     /// </summary>
     [Extension(Path = "/OpenSim/RegionModules", NodeName = "RegionModule", Id = "OGLWeather")]
     public sealed class OglWeatherRegionModule : ISharedRegionModule
@@ -26,6 +31,7 @@ namespace OpenGenesisLINK.Addons.OGLWeather
         {
             public Scene Scene;
             public EventManager.OnFrameDelegate Handler;
+            public EventManager.RegisterCapsEvent CapsHandler;
             public long NextNow;
             public long NextDays;
         }
@@ -39,6 +45,7 @@ namespace OpenGenesisLINK.Addons.OGLWeather
         private int m_CurrentSeconds;
         private int m_DailySeconds;
         private TimeZoneInfo m_TimeZone;
+        private int m_CloudBaseMeters;
 
         public string Name => "OGLWeather";
         public Type ReplaceableInterface => null;
@@ -53,6 +60,7 @@ namespace OpenGenesisLINK.Addons.OGLWeather
             m_Channel = cfg.GetInt("LSLChannel", -835311);
             m_CurrentSeconds = Math.Clamp(cfg.GetInt("CurrentBroadcastSeconds", 60), 30, 300);
             m_DailySeconds = Math.Clamp(cfg.GetInt("ForecastBroadcastSeconds", 300), 60, 3600);
+            m_CloudBaseMeters = Math.Clamp(cfg.GetInt("CloudBaseMeters", 200), 64, 2048);
             if (m_Channel >= 0)
             {
                 Log.Error("[OGL-WEATHER]: LSLChannel muss negativ sein; Modul deaktiviert.");
@@ -84,7 +92,9 @@ namespace OpenGenesisLINK.Addons.OGLWeather
             if (!m_Enabled || m_Closing || scene == null) return;
             var region = new RegionRuntime { Scene = scene };
             region.Handler = () => OnFrame(region);
-            m_Regions.TryAdd(scene.RegionInfo.RegionID, region);
+            region.CapsHandler = (agentID, caps) => OnRegisterCaps(region, agentID, caps);
+            if (m_Regions.TryAdd(scene.RegionInfo.RegionID, region))
+                scene.EventManager.OnRegisterCaps += region.CapsHandler;
         }
 
         public void RegionLoaded(Scene scene)
@@ -95,6 +105,64 @@ namespace OpenGenesisLINK.Addons.OGLWeather
                 // Called exactly once for each loaded Scene.
                 scene.EventManager.OnFrame -= runtime.Handler;
                 scene.EventManager.OnFrame += runtime.Handler;
+            }
+        }
+
+        private void OnRegisterCaps(RegionRuntime runtime, UUID agentID, Caps caps)
+        {
+            if (!m_Enabled || m_Closing || caps == null)
+                return;
+
+            caps.RegisterSimpleHandler("OGLWeatherState",
+                new SimpleStreamHandler("/" + UUID.Random(),
+                    (request, response) => GetViewerWeather(
+                        runtime, agentID, request, response)));
+        }
+
+        private void GetViewerWeather(RegionRuntime runtime, UUID agentID,
+            IOSHttpRequest request, IOSHttpResponse response)
+        {
+            response.ContentType = "application/json; charset=utf-8";
+            response.AddHeader("Cache-Control", "no-store");
+
+            if (!string.Equals(request?.HttpMethod, "GET",
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                response.StatusCode = (int)HttpStatusCode.MethodNotAllowed;
+                return;
+            }
+
+            if (m_Closing || !m_Enabled ||
+                !m_Regions.TryGetValue(runtime.Scene.RegionInfo.RegionID,
+                    out RegionRuntime current) ||
+                !object.ReferenceEquals(current, runtime))
+            {
+                response.StatusCode = (int)HttpStatusCode.ServiceUnavailable;
+                return;
+            }
+
+            // Capability URL is issued per simulator/agent session; revoke
+            // effective access on crossing and after the root agent leaves.
+            ScenePresence avatar = runtime.Scene.GetScenePresence(agentID);
+            if (avatar == null || avatar.IsChildAgent)
+            {
+                response.StatusCode = (int)HttpStatusCode.Forbidden;
+                return;
+            }
+
+            try
+            {
+                string payload = OglWeatherViewerState.Serialize(
+                    runtime.Scene.RegionInfo.RegionID.ToString(),
+                    DateTimeOffset.UtcNow, m_Seed, m_TimeZone,
+                    m_CloudBaseMeters);
+                response.RawBuffer = Encoding.UTF8.GetBytes(payload);
+                response.StatusCode = (int)HttpStatusCode.OK;
+            }
+            catch (Exception ex)
+            {
+                Log.Warn("[OGL-WEATHER]: Viewer Wetter-CAPS konnte nicht geliefert werden.", ex);
+                response.StatusCode = (int)HttpStatusCode.InternalServerError;
             }
         }
 
@@ -145,14 +213,20 @@ namespace OpenGenesisLINK.Addons.OGLWeather
         {
             if (scene == null) return;
             if (m_Regions.TryRemove(scene.RegionInfo.RegionID, out RegionRuntime state))
+            {
                 scene.EventManager.OnFrame -= state.Handler;
+                scene.EventManager.OnRegisterCaps -= state.CapsHandler;
+            }
         }
 
         public void Close()
         {
             m_Closing = true;
             foreach (RegionRuntime state in m_Regions.Values)
+            {
                 state.Scene.EventManager.OnFrame -= state.Handler;
+                state.Scene.EventManager.OnRegisterCaps -= state.CapsHandler;
+            }
             m_Regions.Clear();
             m_Enabled = false;
         }
