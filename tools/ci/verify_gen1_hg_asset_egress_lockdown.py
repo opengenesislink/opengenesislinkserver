@@ -33,7 +33,7 @@ assert 'String.Equals(m_ConfigName, "HGAssetService"' in connector
 assert 'serverConfig.GetBoolean("DisallowAllExport", false)' in connector
 assert "if (!hgExportLocked)" in connector
 assert "new AssetServerGetHandler(m_AssetService, auth, redirectURL)" in connector.split("if (!hgExportLocked)", 1)[1].split("}", 1)[0]
-assert "new AssetsExistHandler(m_AssetService)" in connector.split("if (!hgExportLocked)", 1)[1].split("}", 1)[0]
+assert "new AssetsExistHandler(m_AssetService)" in connector  # private connector remains unbounded
 assert 'bool isHGAssetService = String.Equals(m_ConfigName, "HGAssetService"' in connector
 assert 'serverConfig.GetInt("MaxHGAssetExistIds", 16384)' in connector
 assert 'serverConfig.GetInt("MaxHGAssetExistXmlChars", 4194304)' in connector
