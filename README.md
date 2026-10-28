@@ -25,7 +25,7 @@ Wichtigster offener P0-Punkt: **Ein sicherer Simulator-Eventadapter für Bugmeld
 
 ## Entwicklungsstand
 
-Der **main-Quellcode steht auf OpenGenesisLINK 0.9.3.14 Dev** (nächste Entwicklungslinie). Die letzte offiziell veröffentlichte Stable-Version ist **[0.9.3.13](https://github.com/opengenesislink/opengenesislinkserver/releases/tag/v0.9.3.13)**. Ein main-Quellcode-Stand ist kein Stable-Release; dafür sind die unveränderlichen GitHub-Release-Tags maßgeblich.
+**Aktuelle Produktgeneration: OpenGenesisLINK Generation 1 (in Entwicklung).** Die bisherigen Pläne `0.9.3.14` und `0.9.4.0` wurden zu **einer** flexiblen Entwicklungslinie zusammengeführt. `0.9.4.0` ist ausschließlich die interne technische Build-/Assembly-Kennung; öffentliche Produktbezeichnung ist **Generation 1**. Die letzte offiziell veröffentlichte Stable-Version bleibt **[0.9.3.13](https://github.com/opengenesislink/opengenesislinkserver/releases/tag/v0.9.3.13)**. Das Versionslabel bedeutet noch keine Gen-1-Stable-Freigabe.
 
 Die Plattform wird weiterhin aktiv entwickelt. Insbesondere der **OGL AssetService** mit Cache-, Migrations- und Verwaltungsfunktionen befindet sich in gesonderter Integrations- und Abnahmeprüfung. Ein exklusiver Produktivwechsel von FSAssets auf OGL AssetService darf nicht aus einem erfolgreichen Build abgeleitet werden.
 
@@ -82,7 +82,7 @@ Availability depends on the deployed version, configuration and enabled modules.
 
 ### Current status
 
-The **main source branch is OpenGenesisLINK 0.9.3.14 Dev** (next development cycle). The latest officially published stable release is **[0.9.3.13](https://github.com/opengenesislink/opengenesislinkserver/releases/tag/v0.9.3.13)**. The main branch is not a Stable artifact; use immutable GitHub release tags for production builds.
+**Current public product generation: OpenGenesisLINK Generation 1 (in development).** The former `0.9.3.14` and `0.9.4.0` milestones are consolidated into one flexible development line. `0.9.4.0` remains an **internal assembly/build identifier**, not the public version name. The latest officially released Stable remains **[0.9.3.13](https://github.com/opengenesislink/opengenesislinkserver/releases/tag/v0.9.3.13)**. This source-branch designation does not imply Generation 1 is Stable.
 
 The **OGL AssetService** is undergoing separate integration and acceptance work; successful compilation alone does not authorize a production cutover from FSAssets. OGLVoice, the future OGL viewer and advanced rendering, pathfinding and experience features follow separate development and validation tracks.
 
