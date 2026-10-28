@@ -23,6 +23,13 @@ string label(string code)
 draw()
 {
     if (gCurrent == "") return;
+    // All five forecast records must arrive before the first draw.
+    // Avoid five consecutive new texture UUIDs during initial hydration.
+    integer loaded;
+    for (loaded = 0; loaded < 5; loaded++)
+    {
+        if (llList2String(gDays, loaded) == "") return;
+    }
     string signature = gCurrent + llDumpList2String(gDays, ";");
     if (signature == gRendered) return;
 
@@ -132,6 +139,17 @@ default
         {
             integer index = llList2Integer(p, 3);
             if (index < 0 || index > 4) return;
+            // At midnight clear stale five-day records as a batch.
+            if (index == 0)
+            {
+                string previous = llList2String(gDays, 0);
+                if (previous != "")
+                {
+                    list old = llParseStringKeepNulls(previous, ["|"], []);
+                    if (llList2String(old, 4) != llList2String(p, 4))
+                        gDays = ["", "", "", "", ""];
+                }
+            }
             gDays = llListReplaceList(gDays, [message], index, index);
         }
         else return;
