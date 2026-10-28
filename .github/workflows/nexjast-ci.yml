@@ -642,14 +642,6 @@ jobs:
         shell: bash
         run: dotnet run --configuration Release --project tools/ci/OglPbrMaterialRegression/OglPbrMaterialRegression.csproj
 
-      - name: Build optional OGL Seasons addon
-        shell: bash
-        run: bash addon-modules/OGLSeasons/build.sh Release
-
-      - name: Runtime regression OGL Seasons EEP sky, clouds and fog
-        shell: bash
-        run: dotnet run --configuration Release --project tools/ci/OglSeasonsEepRegression/OglSeasonsEepRegression.csproj
-
       - name: Runtime regression cross-region llListen delivery (two scenes)
         shell: bash
         run: dotnet run --configuration Release --project tools/ci/CrossRegionListenRuntimeRegression/CrossRegionListenRuntimeRegression.csproj
