@@ -36,7 +36,8 @@ namespace NexVerse.RegionModules.NodeAgent
         ISharedRegionModule,
         INexVerseEventBusModule,
         ICrossRegionObjectMessageRouter,
-        IEstateScriptMessageRouter
+        IEstateScriptMessageRouter,
+        IGridScriptMessageRouter
     {
         private const int DebugChannel = 0x7fffffff;
         private const int ObjectMessageRateEntryLimit = 8192;
@@ -57,6 +58,8 @@ namespace NexVerse.RegionModules.NodeAgent
         private int m_HeartbeatSeconds = 30;
         private bool m_ObjectMessagingEnabled;
         private bool m_EstateScriptMessagingEnabled = true;
+        // An opt-in, manager/owner-only cross-estate channel; never public by default.
+        private bool m_GridScriptMessagingEnabled;
         private bool m_CrossRegionChatMessaging;
         private int m_ChatWhisperDistance = 10;
         private int m_ChatSayDistance = 20;
@@ -94,6 +97,7 @@ namespace NexVerse.RegionModules.NodeAgent
         private IDisposable m_IarControlSubscription;
         private IDisposable m_ObjectMessageSubscription;
         private IDisposable m_EstateScriptMessageSubscription;
+        private IDisposable m_GridScriptMessageSubscription;
         private IDisposable m_CrossRegionChatSubscription;
         private IDisposable m_FeaturePolicySubscription;
         // A malformed own-node policy must remain visible without flooding the log.
@@ -163,6 +167,8 @@ namespace NexVerse.RegionModules.NodeAgent
                 config.GetBoolean(
                     "EstateScriptMessaging",
                     true);
+            m_GridScriptMessagingEnabled =
+                config.GetBoolean("GridScriptMessaging", false);
             m_CrossRegionChatMessaging = config.GetBoolean(
                 "CrossRegionChatMessaging", false);
             IConfig chatConfig = source.Configs["Chat"];
@@ -222,6 +228,7 @@ namespace NexVerse.RegionModules.NodeAgent
             scene.RegisterModuleInterface<INexVerseEventBusModule>(this);
             scene.RegisterModuleInterface<ICrossRegionObjectMessageRouter>(this);
             scene.RegisterModuleInterface<IEstateScriptMessageRouter>(this);
+            scene.RegisterModuleInterface<IGridScriptMessageRouter>(this);
             if (m_CrossRegionChatMessaging)
                 scene.EventManager.OnChatFromClient += PublishNeighbourAvatarChat;
         }
@@ -242,6 +249,7 @@ namespace NexVerse.RegionModules.NodeAgent
             PublishRegionEvent("region.offline", scene);
             if (m_CrossRegionChatMessaging)
                 scene.EventManager.OnChatFromClient -= PublishNeighbourAvatarChat;
+            scene.UnregisterModuleInterface<IGridScriptMessageRouter>(this);
             scene.UnregisterModuleInterface<IEstateScriptMessageRouter>(this);
             scene.UnregisterModuleInterface<ICrossRegionObjectMessageRouter>(this);
             scene.UnregisterModuleInterface<INexVerseEventBusModule>(this);
@@ -308,6 +316,13 @@ namespace NexVerse.RegionModules.NodeAgent
                         "estate.script.message.requested",
                         HandleEstateScriptMessage);
             }
+            if (m_GridScriptMessagingEnabled)
+            {
+                m_GridScriptMessageSubscription =
+                    m_Bus.Subscribe(
+                        "grid.script.message.requested",
+                        HandleGridScriptMessage);
+            }
 
             m_HeartbeatTimer = new Timer(
                 _ => PublishHeartbeatSafe(),
@@ -364,6 +379,8 @@ namespace NexVerse.RegionModules.NodeAgent
             m_ObjectMessageSubscription = null;
             m_EstateScriptMessageSubscription?.Dispose();
             m_EstateScriptMessageSubscription = null;
+            m_GridScriptMessageSubscription?.Dispose();
+            m_GridScriptMessageSubscription = null;
             m_CrossRegionChatSubscription?.Dispose();
             m_CrossRegionChatSubscription = null;
             m_FeaturePolicySubscription?.Dispose();
@@ -708,6 +725,120 @@ namespace NexVerse.RegionModules.NodeAgent
                 }));
 
             return true;
+        }
+
+        // Grid-wide script messages are opt-in and limited to source objects
+        // owned by an Estate Manager/Owner. They are not emitted to viewer chat.
+        // The trusted NexBus layer authenticates remote simulator messages.
+        public bool TryBroadcastGridMessage(
+            UUID sourceRegionId,
+            UUID sourceObjectId,
+            UUID sourceOwnerId,
+            string sourceName,
+            int channel,
+            string message)
+        {
+            if (!m_Enabled || !m_GridScriptMessagingEnabled || m_Bus == null ||
+                sourceRegionId.IsZero() || sourceObjectId.IsZero() ||
+                sourceOwnerId.IsZero() || channel == 0 || channel == DebugChannel ||
+                !m_Scenes.TryGetValue(sourceRegionId, out Scene sourceScene))
+                return false;
+
+            SceneObjectPart sourcePart = sourceScene.GetSceneObjectPart(sourceObjectId);
+            EstateSettings sourceEstate = sourceScene.RegionInfo.EstateSettings;
+            if (sourcePart == null || sourcePart.IsDeleted ||
+                sourcePart.OwnerID != sourceOwnerId || sourceEstate == null ||
+                !sourceEstate.IsEstateManagerOrOwner(sourceOwnerId))
+            {
+                m_Log.WarnFormat("[NEX-GRID-SAY]: Unauthorisierter Sender {0}, Besitzer {1}.",
+                    sourceObjectId, sourceOwnerId);
+                return false;
+            }
+
+            if (!TryTakeObjectMessageRateSlot(m_ObjectMessageOutboundRates, sourceObjectId))
+                return false;
+
+            string payload = message ?? string.Empty;
+            if (payload.Length > 1023)
+                payload = payload[..1023];
+
+            string name = string.IsNullOrWhiteSpace(sourceName)
+                ? sourcePart.Name ?? string.Empty
+                : sourceName.Trim();
+
+            // All locally loaded scenes, regardless of EstateID. This happens
+            // exactly once on the source node; the bus receiver skips this node.
+            foreach (Scene scene in m_Scenes.Values)
+            {
+                IWorldComm comm = scene.RequestModuleInterface<IWorldComm>();
+                comm?.DeliverMessage(ChatTypeEnum.Region, channel, name,
+                    sourceObjectId, payload);
+            }
+
+            Publish(new NexEvent(
+                "grid.script.message.requested",
+                "nexverse.simulator",
+                new Dictionary<string, string>
+                {
+                    ["source_node_id"] = m_NodeId,
+                    ["source_region_id"] = sourceRegionId.ToString(),
+                    ["source_object_id"] = sourceObjectId.ToString(),
+                    ["source_owner_id"] = sourceOwnerId.ToString(),
+                    ["source_name"] = name,
+                    ["channel"] = channel.ToString(
+                        System.Globalization.CultureInfo.InvariantCulture),
+                    ["message"] = payload
+                }));
+            return true;
+        }
+
+        private void HandleGridScriptMessage(NexEvent nexEvent)
+        {
+            if (!m_Enabled || !m_GridScriptMessagingEnabled ||
+                nexEvent == null || nexEvent.Data == null ||
+                !string.Equals(nexEvent.Source, "nexverse.simulator",
+                    StringComparison.Ordinal))
+                return;
+
+            TimeSpan age = DateTimeOffset.UtcNow - nexEvent.Timestamp;
+            if (age > TimeSpan.FromSeconds(m_ObjectMessageMaxAgeSeconds) ||
+                age < TimeSpan.FromSeconds(-5))
+                return;
+
+            if (!TryCommandData(nexEvent, "source_node_id", out string sourceNodeId) ||
+                string.Equals(sourceNodeId, m_NodeId, StringComparison.Ordinal) ||
+                !TryCommandData(nexEvent, "source_region_id", out string rawSourceRegion) ||
+                !UUID.TryParse(rawSourceRegion, out UUID sourceRegionId) ||
+                sourceRegionId.IsZero() ||
+                !TryCommandData(nexEvent, "source_object_id", out string rawSourceObject) ||
+                !UUID.TryParse(rawSourceObject, out UUID sourceObjectId) ||
+                sourceObjectId.IsZero() ||
+                !TryCommandData(nexEvent, "source_owner_id", out string rawSourceOwner) ||
+                !UUID.TryParse(rawSourceOwner, out UUID sourceOwnerId) ||
+                sourceOwnerId.IsZero() ||
+                !TryCommandInt(nexEvent, "channel", out int channel) ||
+                channel == 0 || channel == DebugChannel)
+                return;
+
+            // The originating authenticated simulator validated object ownership
+            // and Estate Manager/Owner rights; never rely on viewer-reported data.
+            if (!TryTakeObjectMessageRateSlot(m_ObjectMessageInboundRates,
+                    sourceObjectId))
+                return;
+
+            string sourceName = nexEvent.Data.TryGetValue("source_name", out string name)
+                ? name ?? string.Empty : string.Empty;
+            string payload = nexEvent.Data.TryGetValue("message", out string message)
+                ? message ?? string.Empty : string.Empty;
+            if (payload.Length > 1023)
+                payload = payload[..1023];
+
+            foreach (Scene scene in m_Scenes.Values)
+            {
+                IWorldComm comm = scene.RequestModuleInterface<IWorldComm>();
+                comm?.DeliverMessage(ChatTypeEnum.Region, channel, sourceName,
+                    sourceObjectId, payload);
+            }
         }
 
         private void HandleEstateScriptMessage(
