@@ -7,6 +7,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="../../../NexVerse/Core/Weather/OglWeatherModel.cs" Link="OglWeatherModel.cs" />
+    <Compile Include="../../../NexVerse/Core/Weather/OglWeatherPortalProjection.cs" Link="OglWeatherPortalProjection.cs" />
     <Compile Include="../../../addons/OGLWeather/OglWeatherViewerState.cs" Link="OglWeatherViewerState.cs" />
     <Compile Include="../../../addons/OGLWeather/OglWeatherEmitterPlan.cs" Link="OglWeatherEmitterPlan.cs" />
   </ItemGroup>
