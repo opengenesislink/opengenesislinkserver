@@ -59,6 +59,14 @@ assert 'OglWeatherEmitterPlan.Positions(' in legacy
 assert 'Math.Clamp(maximum, 1, 64)' in plan
 assert 'while (columns * (long)rows > maximum)' in plan
 assert 'legacy_prim_emitters_active = legacyParticleEmitters' in viewer
+assert 'LegacyEmittersActive(bool enabled, int liveEmitterCount)' in viewer
+assert 'enabled && liveEmitterCount > 0' in viewer
+assert 'lock (runtime.WeatherLock)' in module, "CAPS must snapshot under emitter lifecycle lock"
+assert 'emitter != null && !emitter.IsDeleted' in module
+assert 'OglWeatherViewerState.LegacyEmittersActive(' in module
+assert 'm_CloudBaseMeters, legacyActive' in module
+assert 'm_CloudBaseMeters, m_LegacyParticleEmitters' not in module, "Do not report config as actual emitters"
+
 assert 'LegacyParticleEmitters = true' in config
 assert 'EmitterHeightMeters = 65' in config
 assert 'MaxEmittersPerRegion = 16' in config
