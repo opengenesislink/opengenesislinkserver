@@ -86,13 +86,31 @@ jobs:
                 core.warning(`Skipped ${item.name}: ${err.message}`);
               }
             }
+            // The maintenance PR is merged before this push-triggered job starts.
+            // Its branch is no longer needed and is removed only if PR #327 is
+            // merged and still points to the exact original PR HEAD commit.
+            let maintenanceRemoved=0;
+            try {
+              const pr=await github.rest.pulls.get({owner,repo,pull_number:327});
+              const name='maintenance/once-prune-ancestor-branches-20261028';
+              const b=await github.rest.repos.getBranch({owner,repo,branch:name});
+              if (pr.data.merged && pr.data.head?.ref===name &&
+                  pr.data.head?.sha===b.data.commit.sha && !b.data.protected) {
+                await github.rest.git.deleteRef({owner,repo,ref:'heads/'+name});
+                maintenanceRemoved=1;
+                core.info('Removed merged maintenance PR #327 branch.');
+              }
+            } catch(err) {
+              core.warning('Maintenance branch not removed: '+err.message);
+            }
             await core.summary
               .addHeading('Additional ancestor cleanup')
               .addTable([
                 [{data:'Result',header:true},{data:'Count',header:true}],
                 ['Audited targets','5'],
                 ['Deleted',String(removed)],
-                ['Skipped',String(skipped)]
+                ['Skipped',String(skipped)],
+                ['Merged maintenance branch removed',String(maintenanceRemoved)]
               ])
               .write();
             if(errors.length)core.setFailed(errors.join('; '));
