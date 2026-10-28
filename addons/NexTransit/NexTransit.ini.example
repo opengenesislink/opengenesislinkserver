@@ -1,0 +1,10 @@
+; Deterministic timetable announcement; not live bus positioning.
+[NexTransit]
+Enabled = false
+LSLChannel = -835422
+RefreshSeconds = 30
+TimeZone = Europe/Berlin
+MaxDepartures = 5
+; line,destination,headwayMinutes,firstMinuteAfterMidnight,stopRegion
+; stopRegion "*" = every region, otherwise exact region name.
+Routes = 101,Magdeburg,10,0,*;120,Hamburg,20,5,*;130,Freiburg Sued,15,10,*;140,Gummybear Island,30,12,*;150,Jenseits,20,15,*
