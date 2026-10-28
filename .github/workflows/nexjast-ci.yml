@@ -436,6 +436,21 @@ jobs:
           dotnet run --configuration Release --project tools/ci/OglWeatherRegression/OglWeatherRegression.csproj
           bash addon-modules/OGLWeather/build.sh Release
 
+      - name: Regression-test Nex city modules and build independent addons
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/ci/verify_gen1_nex_city_addons.py
+          bash -n addon-modules/build-nex-city-addon.sh
+          bash -n addon-modules/NexTraffic/build.sh
+          bash -n addon-modules/NexTransit/build.sh
+          bash -n addon-modules/NexSmartLight/build.sh
+          dotnet run --configuration Release --project tools/ci/NexCityAddonsRegression/NexCityAddonsRegression.csproj
+          bash addon-modules/NexTraffic/build.sh Release
+          bash addon-modules/NexTransit/build.sh Release
+          bash addon-modules/NexSmartLight/build.sh Release
+
+
       - name: Verify citizen social and profile integration
         shell: bash
         run: python3 tools/ci/verify_citizen_social_profile.py
