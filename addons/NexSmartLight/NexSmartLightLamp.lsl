@@ -14,11 +14,13 @@ updateLight(integer enable)
 {
     if (ACTIVE == enable) return;
     ACTIVE = enable;
+    float glow = 0.0;
+    if (enable) glow = 0.07;
     llSetLinkPrimitiveParamsFast(LINK_THIS, [
         PRIM_POINT_LIGHT, enable, LIGHT_COLOR, LIGHT_INTENSITY,
             LIGHT_RADIUS, LIGHT_FALLOFF,
         PRIM_FULLBRIGHT, ALL_SIDES, enable,
-        PRIM_GLOW, ALL_SIDES, enable ? 0.07 : 0.0
+        PRIM_GLOW, ALL_SIDES, glow
     ]);
 }
 
