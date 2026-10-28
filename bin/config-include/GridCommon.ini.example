@@ -185,7 +185,7 @@
     ;; If you want to protect your assets from being copied by foreign visitors
     ;; set this to false. You may want to do this on sims that have licensed content.
     ;; Default is true.
-    ; OutboundPermission = True
+    OutboundPermission = false
 
     ;; Send visual reminder to local users that their inventories are unavailable while they are traveling
     ;; and available when they return. True by default.
@@ -200,6 +200,9 @@
 
 
 [HGAssetService]
+    ; Generation 1: deny all public Hypergrid asset reads/metadata.
+    ; HG asset POST/import stays available (only import licensed content).
+    DisallowAllExport = true
     ;
     ; === HG ONLY ===
     ;; The asset types that this grid can export to / import from other grids.
