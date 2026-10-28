@@ -245,22 +245,24 @@ namespace NexVerse.Server.Api
             bool confirmed = f.MyFlags >= 0 && f.TheirFlags >= 0;
             // TheirFlags describe what THIS friend permits the owner to see.
             bool canSeeOnline = confirmed && (f.TheirFlags & 1) != 0;
-            bool online = canSeeOnline && IsOnline(id);
+            bool online = false;
+            bool presenceKnown = canSeeOnline &&
+                TryGetOnline(id, out online);
 
-            // A local LastLogout is the only authoritative offline time we
-            // possess. We do not contact arbitrary HG endpoints on HTTP GET,
-            // guess remote last-seen dates or trust stale presence flags.
-            // For remote UUI friends this value is always unknown even if
-            // they have visited our grid in the past.
+            // Local GridUser.Logout is authoritative only for activity on
+            // THIS grid. With a HG user the key must remain the full UUI,
+            // never the bare UUID (which could name a local avatar).
+            // No request to the foreign home grid is performed.
             NexRelationshipPresenceModel.Activity activity =
                 new NexRelationshipPresenceModel.Activity();
-            if (canSeeOnline && !online && !identity.IsHypergrid &&
+            if (canSeeOnline && presenceKnown && !online &&
                 m_GridUsers != null)
             {
                 try
                 {
                     GridUserInfo gridUser =
-                        m_GridUsers.GetGridUserInfo(id.ToString());
+                        m_GridUsers.GetGridUserInfo(
+                            identity.IsHypergrid ? f.Friend : id.ToString());
                     if (gridUser != null)
                         activity = NexRelationshipPresenceModel.LastLogout(
                             gridUser.Logout, DateTimeOffset.UtcNow, true, false);
@@ -291,7 +293,7 @@ namespace NexVerse.Server.Api
                 // Backward compatible bool: presence on THIS grid only.
                 // For a foreign HG friend false does NOT mean globally offline.
                 online,
-                online_status = !canSeeOnline || m_Presence == null
+                online_status = !presenceKnown
                     ? "unknown"
                     : online ? "online" :
                         identity.IsHypergrid ? "unknown" : "offline",
@@ -307,20 +309,24 @@ namespace NexVerse.Server.Api
             };
         }
 
-        private bool IsOnline(UUID id)
+        private bool TryGetOnline(UUID id, out bool online)
         {
-            if (m_Presence == null || id.IsZero()) return false;
+            online = false;
+            if (m_Presence == null || id.IsZero())
+                return false;
             try
             {
                 PresenceInfo[] presences =
                     m_Presence.GetAgents(new[] { id.ToString() });
-                return presences != null && presences.Any(
+                if (presences == null)
+                    return false;
+                online = presences.Any(
                     x => x != null && !x.RegionID.IsZero());
+                return true;
             }
             catch
             {
-                // Fail private: no presence should appear as false and no
-                // "last seen" should ever be inferred from an exception.
+                // Unavailable presence must report UNKNOWN, not "offline".
                 return false;
             }
         }
