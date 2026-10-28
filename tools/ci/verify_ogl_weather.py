@@ -31,9 +31,31 @@ assert "INonSharedRegionModule" not in module
 assert "OGLSeasons" not in module and "OGLSeasons" not in model
 assert "Enabled = false" in config and 'TimeZone = "Europe/Berlin"' in config
 assert "WeatherSeed = 20261028" in config
-assert "llParticleSystem(" in emitter and "llListen(CHANNEL, SOURCE, NULL_KEY" in emitter
-assert "llGetUnixTime() - gLastUpdate > 240" in emitter
-assert 'id != NULL_KEY' in emitter
+assert not (root / "addons/OGLWeather/WeatherEmitter.lsl").exists(), "No weather emitter prims"
+assert "llParticleSystem(" not in module and "AddNewPrim" not in module
+assert 'caps.RegisterSimpleHandler("OGLWeatherState"' in module
+assert "scene.EventManager.OnRegisterCaps += region.CapsHandler" in module
+assert "state.Scene.EventManager.OnRegisterCaps -= state.CapsHandler" in module
+for marker in (
+    'm_CloudBaseMeters = Math.Clamp(cfg.GetInt("CloudBaseMeters", 200), 64, 2048)',
+    'HttpStatusCode.MethodNotAllowed',
+    'HttpStatusCode.ServiceUnavailable',
+    'HttpStatusCode.Forbidden',
+    'runtime.Scene.GetScenePresence(agentID)',
+    'avatar.IsChildAgent',
+    'response.AddHeader("Cache-Control", "no-store")',
+    'OglWeatherViewerState.Serialize(',
+):
+    assert marker in module, marker
+for marker in (
+    'protocol = "ogl.weather"', 'version = 1',
+    'origin = "clouds"', 'rendering = "viewer_native"',
+    'requires_viewer_support = true', 'cloud_base_m = cloudBaseMeters',
+    'OglWeatherModel.At(utc, seed, timeZone)',
+    'OglWeatherModel.ForecastDay(',
+):
+    assert marker in viewer, marker
+assert "CloudBaseMeters = 200" in config
 assert "osSetDynamicTextureDataFace(" in board
 assert "gRendered = signature" in board
 assert "llSetTexture(" not in board
@@ -52,4 +74,4 @@ for path in (
 assert "OGLSeasons" not in workflow, "obsolete CI weather gate still active"
 assert "OGLSeasons" not in read("runprebuild.sh"), "obsolete compile step still active"
 assert "OGLWeather" in read("runprebuild.sh"), "new addon missing from compile script"
-print("OGLWeather static contracts: simulator-wide, deterministic, opt-in, LSL and isolation PASS")
+print("OGLWeather static contracts: simulator-wide, deterministic, opt-in, native weather CAPS and no prims PASS")
