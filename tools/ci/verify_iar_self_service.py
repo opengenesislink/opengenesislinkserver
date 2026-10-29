@@ -73,4 +73,33 @@ assert "/api/v1/iar/me/operations/{id}" in text("doc/NexVerse/OGL_IAR_SELF_SERVI
 assert "mountOglIarSelfService" in text("doc/NexVerse/examples/ogl-iar-self-service-widget.js")
 assert "setInterval(" in text("doc/NexVerse/examples/ogl-iar-self-service-widget.js")
 assert "showSaveFilePicker" in text("doc/NexVerse/examples/ogl-iar-self-service-widget.js")
+nas = text("NexVerse/Core/Archives/OglIarNasStorage.cs")
+for marker in (
+    "MaximumRetentionDays = 30", "IsExpectedNfsMount(", "RequireMounted(",
+    '"/proc/self/mountinfo"', '"nfs4"', '"nfs"',
+    "IsExpired(", "IsManagedIar(", "Path.GetFullPath(",
+):
+    assert marker in nas, marker
+for marker in (
+    'GetString("NasHost", "")', 'GetInt("RetentionDays", 30)',
+    'string.Equals(m_NasHost, "10.78.0.4"',
+    "m_CleanupTimer = new Timer(", "TimeSpan.FromHours(1)",
+    "OglIarNasStorage.RequireMounted(m_SharedRoot, m_NasHost)",
+    "CleanupExpiredArchives()", "File.Delete(file)",
+    "!IsExpired(job)", "OglIarNasStorage.IsManagedIar(",
+    "FileAttributes.ReparsePoint", "job.State is OglJobState.Running or OglJobState.Queued",
+    '["nas_host"] = m_NasHost',
+):
+    assert marker in api, marker
+for cfg in cfgs:
+    block = cfg.split("[OglIarSelfService]")[-1]
+    assert 'NasHost = "10.78.0.4"' in block
+    assert "RetentionDays = 30" in block
+assert "OglIarNasStorage.RequireMounted(operations.StorageRoot, nasHost)" in node
+assert '"10.78.0.4"' in node
+assert "string StorageRoot { get; }" in text(
+    "NexVerse/RegionModules/Archives/OglIarOperationManager.cs")
+assert "OglIarNasStorage.cs" in text(
+    "tools/ci/OglIarSelfServiceRegression/OglIarSelfServiceRegression.csproj")
+assert "10.78.0.4" in text("doc/NexVerse/OGL_IAR_SELF_SERVICE.md")
 print("OGL IAR resident self-service static contracts PASS")
