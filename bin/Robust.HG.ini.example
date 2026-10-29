@@ -1125,3 +1125,15 @@
     WeatherSeed = 20261028
     TimeZone = "Europe/Berlin"
     DisplayName = "Stadt-NexVerse"
+
+
+; ============================================================================
+; Resident IAR self-service (World API / ROBUST only).
+; Keep disabled until an identical shared storage mount is configured on ROBUST
+; and every target simulator's [OpenGenesisLINKIAR].StorageRoot.
+; Binary upload/download is chunked (4 MiB), not sent through NexBus.
+; ============================================================================
+[OglIarSelfService]
+    Enabled = false
+    SharedStorageRoot = ""
+    MaximumArchiveMiB = 2048
