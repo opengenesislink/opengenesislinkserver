@@ -1971,7 +1971,8 @@ namespace NexVerse.RegionModules.NodeAgent
                     if (!nexEvent.Data.TryGetValue("nas_host", out string nasHost) ||
                         !string.Equals(nasHost, "10.78.0.4", StringComparison.Ordinal))
                         throw new IOException("Unapproved IAR NAS host.");
-                    OglIarNasStorage.RequireMounted(operations.StorageRoot, nasHost);
+                    OglIarNasStorage.RequireMounted(
+                        Path.GetDirectoryName(operations.StorageRoot), nasHost);
                 }
                 catch (Exception ex) when (ex is IOException or ArgumentException)
                 {
