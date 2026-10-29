@@ -1079,6 +1079,19 @@ namespace NexVerse.Server.Api
                         "OpenGenesisLINK OAR API"),
                     true);
 
+                // Resident self-service is a distinct owner-bound API.
+                // Register it on the longer /me prefix so it cannot fall
+                // through to the administrator's RegionsManage route.
+                OglIarSelfServiceApi iarSelfService = new OglIarSelfServiceApi(
+                    config, authenticator, nodeRegistry, jobBridge,
+                    jobStore, eventBus, featureControl);
+                server.AddSimpleStreamHandler(
+                    new SimpleStreamHandler(
+                        "/api/v1/iar/me",
+                        apiGate.Wrap(iarSelfService.Handle),
+                        "OpenGenesisLINK resident IAR self-service"),
+                    true);
+
                 OglIarApi iarApi = new OglIarApi(authenticator, nodeRegistry, userAccounts, eventBus, jobBridge, featureControl);
                 server.AddSimpleStreamHandler(
                     new SimpleStreamHandler(
