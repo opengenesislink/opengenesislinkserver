@@ -175,6 +175,39 @@ Der `md5`-Endpunkt liefert ein kleines Textmanifest mit
 Integritätsprüfungen bevorzugen. Auf Serverseite werden beide
 Prüfsummen aus der fertigen Archivdatei in einem Stream ermittelt.
 
+## Interaktives Stadtportal-Widget
+
+Mitgeliefert: [Beispiel-Widget](examples/ogl-iar-self-service-widget.js).
+Das Modul zeigt Import/Export-Aktionen, den aktuellen Jobstatus, einen
+Fortschrittsbalken und die geschätzte Restzeit. Es pollt alle
+**2 Sekunden** den eigenen geschützten Job-Endpunkt.
+
+Das Stadtportal liefert den gültigen OAuth-Token über eine eigene
+Callbackfunktion; **keine Zugangsdaten im Widget fest einkodieren**:
+
+```javascript
+import { mountOglIarSelfService } from "./ogl-iar-self-service-widget.js";
+
+const widget = mountOglIarSelfService(
+  document.getElementById("iar-dashboard"),
+  {
+    baseUrl: "", // gleicher Origin oder geschützter Backend-Proxy
+    regionId: "REGION-UUID-HIER",
+    getAccessToken: async () => portalOAuth.getAccessToken()
+  }
+);
+```
+
+Das Beispiel importiert IARs in 4-MiB-Blöcken und bietet nach
+erfolgreichem Export einen Dateidownload sowie ein eigenes
+MD5/SHA-256-Manifest. Für große Dateien benötigt der Browser eine
+File-System-Access-API (`showSaveFilePicker`); bei fehlender Unterstützung
+verweigert das Widget einen RAM-intensiven Komplettdownload. Der
+Benutzer muss bei Uploads vorerst den zuvor lokal berechneten
+SHA-256-Hash angeben. Ein fertiger eigenständiger
+Portal-Login ist **nicht** enthalten: Das Widget benutzt die
+authentifizierte OAuth-Sitzung des einbettenden Stadtportals.
+
 ## Web-Integration und Einschränkungen
 
 Ein interaktives 2-Sekunden-Statuspolling kann die eigenen Jobdaten
