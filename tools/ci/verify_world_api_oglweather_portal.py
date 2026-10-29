@@ -45,7 +45,7 @@ for marker in (
 ):
     assert marker in xml_projection, marker
 assert "HttpClient" not in xml_projection
-assert "ElevenLabs" not in xml_projection, "No provider coupling in pure XML renderer"
+assert "HttpWebRequest" not in xml_projection, "No outbound provider calls in pure XML renderer"
 assert "OglWeatherXmlProjection.cs" in regression
 
 for value in (
