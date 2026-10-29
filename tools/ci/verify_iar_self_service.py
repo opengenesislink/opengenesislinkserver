@@ -88,6 +88,8 @@ for marker in (
     "CleanupExpiredArchives()", "File.Delete(file)",
     "!IsExpired(job)", "OglIarNasStorage.IsManagedIar(",
     "FileAttributes.ReparsePoint", "job.State is OglJobState.Running or OglJobState.Queued",
+    "ogl-retention", "retention_marker_failed", "DeleteMarker(file)",
+    'retention_days = m_RetentionDays', 'expires_at_utc',
     '["nas_host"] = m_NasHost',
 ):
     assert marker in api, marker
