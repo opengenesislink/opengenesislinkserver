@@ -107,6 +107,8 @@ namespace NexVerse.Server.Api
                 { Error(response, HttpStatusCode.NotFound, "operation_not_found"); return; }
                 if (parts.Length == 1 && read)
                 { Status(response, job); return; }
+                if (parts.Length == 1 && method == "DELETE")
+                { DeleteArchive(response, job); return; }
                 if (parts.Length == 2 && parts[1] == "chunks" && method == "PUT")
                 { UploadChunk(request, response, job); return; }
                 if (parts.Length == 2 && parts[1] == "start" && method == "POST")
@@ -168,6 +170,7 @@ namespace NexVerse.Server.Api
                 ? OglArchiveFeatureGate.IarImport : OglArchiveFeatureGate.IarExport;
             if (m_Features != null && !m_Features.Permitted(node.NodeId, feature))
             { Error(response, HttpStatusCode.Forbidden, "iar_feature_not_licensed"); return; }
+            ExpireStaleUploads(user);
             // One live IAR job per resident; prevent unbounded disk reservation.
             if (m_Jobs.List(1000).Any(j => j.Actor == Actor(user) &&
                 (j.State == OglJobState.Queued || j.State == OglJobState.Running)))
@@ -320,7 +323,14 @@ namespace NexVerse.Server.Api
                 { Error(response, HttpStatusCode.Conflict, "upload_incomplete"); return; }
                 string actual = Digest(path, SHA256.Create);
                 if (!string.Equals(actual, job.Metadata["sha256"], StringComparison.Ordinal))
-                { Error(response, HttpStatusCode.Conflict, "sha256_mismatch"); return; }
+                {
+                    // Never leave a full corrupted archive consuming the
+                    // resident's active-job quota or shared storage.
+                    m_Jobs.Fail(job.JobId, "sha256_mismatch");
+                    File.Delete(path);
+                    Error(response, HttpStatusCode.Conflict, "sha256_mismatch");
+                    return;
+                }
 
                 // Uploaded file already lives where the simulator's IAR
                 // inspector reads it. Never transfer binary bytes via NexBus.
@@ -426,6 +436,61 @@ namespace NexVerse.Server.Api
                 "attachment; filename=\"" + job.JobId + ".iar.md5\"");
             res.RawBuffer = Encoding.UTF8.GetBytes(md5 + "  " +
                 job.JobId + ".iar\nSHA256 " + sha + "\n");
+        }
+
+        private void DeleteArchive(IOSHttpResponse response, OglJobSnapshot job)
+        {
+            lock (m_Locks.GetOrAdd(job.JobId, _ => new object()))
+            {
+                // A running importer/exporter may still have the file open.
+                // Only staged uploads and terminal jobs can be cleaned up.
+                bool staged = job.Metadata["action"] == "import" &&
+                    (job.State == OglJobState.Queued ||
+                     (job.State == OglJobState.Running &&
+                      job.ProgressPhase == "uploading"));
+                bool terminal = job.State is OglJobState.Completed or
+                    OglJobState.Failed or OglJobState.Cancelled;
+                if (!staged && !terminal)
+                {
+                    Error(response, HttpStatusCode.Conflict,
+                        "active_archive_cannot_be_deleted");
+                    return;
+                }
+                if (staged) m_Jobs.Cancel(job.JobId, "Resident cancelled upload.");
+                string path = FileFor(job);
+                if (File.Exists(path)) File.Delete(path);
+                Json(response, HttpStatusCode.OK,
+                    new { operation_id = job.JobId, archive_deleted = true });
+            }
+        }
+
+        private void ExpireStaleUploads(UserAccount user)
+        {
+            DateTimeOffset now = DateTimeOffset.UtcNow;
+            foreach (OglJobSnapshot j in m_Jobs.List(1000))
+            {
+                if (j.Actor != Actor(user) ||
+                    j.Metadata == null ||
+                    !j.Metadata.TryGetValue("action", out string action) ||
+                    action != "import" ||
+                    !(j.State == OglJobState.Queued ||
+                      (j.State == OglJobState.Running &&
+                       j.ProgressPhase == "uploading")) ||
+                    now - j.UpdatedAt <= TimeSpan.FromHours(24))
+                    continue;
+                lock (m_Locks.GetOrAdd(j.JobId, _ => new object()))
+                {
+                    OglJobSnapshot current = m_Jobs.Get(j.JobId);
+                    if (current == null || !(current.State == OglJobState.Queued ||
+                        (current.State == OglJobState.Running &&
+                         current.ProgressPhase == "uploading")) ||
+                        now - current.UpdatedAt <= TimeSpan.FromHours(24))
+                        continue;
+                    m_Jobs.Fail(j.JobId, "Expired incomplete IAR upload.");
+                    string path = FileFor(j);
+                    if (File.Exists(path)) File.Delete(path);
+                }
+            }
         }
 
         private bool TryReadyExport(OglJobSnapshot job, out string path)
