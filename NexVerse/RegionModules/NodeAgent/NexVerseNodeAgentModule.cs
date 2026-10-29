@@ -1975,7 +1975,11 @@ namespace NexVerse.RegionModules.NodeAgent
                 bool dryRun = nexEvent.Data.TryGetValue("dry_run", out string dryRaw) && bool.TryParse(dryRaw, out bool dry) && dry;
                 bool merge = nexEvent.Data.TryGetValue("merge", out string mergeRaw) && bool.TryParse(mergeRaw, out bool mergeParsed) && mergeParsed;
                 OglIarOperation operation = string.Equals(action, "export", StringComparison.OrdinalIgnoreCase)
-                    ? operations.StartExport(operationId, user, inventoryPath, fileName)
+                    ? operations.StartExport(operationId, user, inventoryPath, fileName,
+                        nexEvent.Data.TryGetValue("self_service", out string selfService) &&
+                        string.Equals(selfService, "true", StringComparison.OrdinalIgnoreCase)
+                            ? new Dictionary<string, object> { ["checkPermissions"] = "CT" }
+                            : null)
                     : string.Equals(action, "import", StringComparison.OrdinalIgnoreCase)
                         ? operations.StartImport(operationId, user, inventoryPath, fileName, merge, dryRun)
                         : throw new InvalidOperationException("unsupported_iar_action");
