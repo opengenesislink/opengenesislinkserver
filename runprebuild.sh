@@ -28,11 +28,12 @@ case "$1" in
         addons/NexTraffic/OpenGenesisLINK.Addons.NexTraffic.csproj \
         addons/NexTransit/OpenGenesisLINK.Addons.NexTransit.csproj \
         addons/NexSmartLight/OpenGenesisLINK.Addons.NexSmartLight.csproj \
-        addons/OGLWeather/OpenGenesisLINK.Addons.OGLWeather.csproj
+        addons/OGLWeather/OpenGenesisLINK.Addons.OGLWeather.csproj \
+        addons/OGLEnergy/OpenGenesisLINK.Addons.OGLEnergy.csproj
     printf '%s\n' \
         '#!/bin/sh' 'set -eu' \
         'dotnet build -c Release OpenSim.sln' \
-        'for addon in NexTraffic NexTransit NexSmartLight OGLWeather; do' \
+        'for addon in NexTraffic NexTransit NexSmartLight OGLWeather OGLEnergy; do' \
         '    test -s "bin/OpenGenesisLINK.Addons.${addon}.dll" || { echo "Missing city addon DLL: ${addon}" >&2; exit 1; }' \
         'done' \
         'bash addon-modules/OGLAssetService/build.sh Release' > compile.sh
