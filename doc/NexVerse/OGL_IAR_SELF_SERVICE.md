@@ -91,7 +91,7 @@ auch dort ausschließlich NAS-Pfade konfiguriert werden.
 Werte über 30 deaktivieren den Self-Service statt die Grenze
 stillschweigend zu verlängern.
 
-- Der World-API-Prozess kontrolliert den Speicher **beim Start**
+- Der World-API-Prozess kontrolliert den Speicher **kurz nach dem Start**
   und danach **stündlich** und löscht abgeschlossene, abgelaufene
   `<region-uuid>/<operation-uuid>.iar`-Archive.
 - Der Ablauf beginnt mit Abschluss des Import-/Exportjobs;
@@ -108,9 +108,15 @@ stillschweigend zu verlängern.
   werden soll, muss zusätzlich eine eigenständige Aufbewahrungsregel
   auf dem NAS eingerichtet werden. Diese wird hier bewusst
   **nicht automatisch auf dem DXP2800 konfiguriert**.
+- Für neue Self-Service-Archive wird eine kleine
+  `.iar.ogl-retention`-Markierungsdatei auf dem NAS angelegt.
+  Damit bleibt die Aufbewahrungsregel auch bei einem
+  aus der Job-Datenbank entfernten Eintrag nachvollziehbar.
 - Gelöscht werden nur vom Self-Service generierte IAR-Dateinamen
   in UUID-Regionverzeichnissen, keine unbekannten Dateien,
-  Unterordner oder NAS-Systemdateien.
+  Unterordner oder NAS-Systemdateien. Ein Datei-Job ohne 
+  gültige zugehörige Job-/Markierungsinformation wird niemals 
+  eigenmächtig gelöscht.
 - RAID oder NAS-Snapshots ersetzen keine weitere unabhängige
   Sicherung. Kopien außerhalb des IAR-Ordners unterliegen
   nicht automatisch dieser Regel.
