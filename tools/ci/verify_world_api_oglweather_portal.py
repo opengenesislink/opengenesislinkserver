@@ -8,6 +8,7 @@ def read(path):
 
 core = read("NexVerse/Core/Weather/OglWeatherModel.cs")
 projection = read("NexVerse/Core/Weather/OglWeatherPortalProjection.cs")
+xml_projection = read("NexVerse/Core/Weather/OglWeatherXmlProjection.cs")
 api = read("NexVerse/Server/Api/NexWorldWeatherApi.cs")
 connector = read("NexVerse/Server/Api/NexVerseWorldApiConnector.cs")
 prebuild = read("prebuild.xml")
@@ -30,6 +31,23 @@ assert "NexVerse.Core" in prebuild.split('<Project name="OGL.API"', 1)[1].split(
 assert "OglWeatherModel.At(instant, seed, zone)" in projection
 assert "OglWeatherModel.ForecastDay(" in projection
 assert "public static string Serialize(" in projection
+for marker in (
+    "public static string Serialize(", "XmlWriter.Create(", "new UTF8Encoding(false)",
+    'xml.WriteStartElement("oglweather")',
+    'xml.WriteStartElement("current")',
+    'xml.WriteStartElement("forecast")',
+    'xml.WriteStartElement("narration")',
+    'xml.WriteAttributeString("language", "de-DE")',
+    'xml.WriteAttributeString("format", "plain-text")',
+    "OglWeatherModel.At(", "OglWeatherModel.ForecastDay(",
+    "OglWeatherPortalProjection.ConditionLabelDe(",
+    "private static string Narration(",
+):
+    assert marker in xml_projection, marker
+assert "HttpClient" not in xml_projection
+assert "HttpWebRequest" not in xml_projection, "No outbound provider calls in pure XML renderer"
+assert "OglWeatherXmlProjection.cs" in regression
+
 for value in (
     'protocol = "ogl.weather.portal"', "version = 1",
     'source = "simulated_oglweather"', "simulation = true",
@@ -53,6 +71,20 @@ for value in (
 ):
     assert value in api, value
 assert '"/api/v1/weather"' in connector
+assert '"/weather/xml"' in connector
+assert '"/api/v1/weather/xml"' in connector
+assert connector.count("apiGate.Wrap(portalWeather.HandleXml)") == 2
+assert 'OglWeatherXmlProjection.Serialize(' in api
+assert 'public void HandleXml(' in api
+assert 'response.ContentType = "application/xml; charset=utf-8"' in api
+assert 'XmlError(response, HttpStatusCode.MethodNotAllowed,' in api
+assert 'XmlError(response, HttpStatusCode.ServiceUnavailable,' in api
+assert 'response.AddHeader("X-Content-Type-Options", "nosniff")' in api
+assert connector.index('"/weather/xml"') < connector.index(
+    "FriendsService friendsService = new FriendsService(config);")
+assert connector.index('"/api/v1/weather/xml"') < connector.index(
+    "FriendsService friendsService = new FriendsService(config);")
+
 assert "apiGate.Wrap(portalWeather.Handle)" in connector
 assert connector.index('"/api/v1/weather"') < connector.index(
     "FriendsService friendsService = new FriendsService(config);"), (
@@ -77,4 +109,7 @@ assert "GET /api/v1/weather" in docs
 assert "WeatherSeed" in docs and "TimeZone" in docs
 assert "OpenGenesisLINK.Addons.OGLWeather" in docs
 assert "Verify World API OGLWeather portal contracts" in workflow
+assert "GET /weather/xml" in docs
+assert "/api/v1/weather/xml" in docs
+assert "ElevenLabs" in docs
 print("World API OGLWeather public widget contracts PASS")

@@ -1,5 +1,6 @@
 using System;
 using System.Text.Json;
+using System.Xml;
 using OpenGenesisLINK.Addons.OGLWeather;
 
 internal static class Program
@@ -331,6 +332,90 @@ internal static class Program
                 .GetProperty("condition").GetString() == baseline.Condition,
                 "the public portal remains based on deterministic climate");
         }
+
+        // XML feed shares the deterministic model with the JSON API, and
+        // emits an UTF-8, properly escaped, useful TTS narration.
+        foreach (DateTimeOffset instant in new[]
+        {
+            now,
+            new DateTimeOffset(2027, 3, 28, 0, 30, 0, TimeSpan.Zero),
+            new DateTimeOffset(2027, 3, 28, 1, 30, 0, TimeSpan.Zero),
+            new DateTimeOffset(2027, 10, 31, 0, 30, 0, TimeSpan.Zero),
+            new DateTimeOffset(2027, 10, 31, 1, 30, 0, TimeSpan.Zero)
+        })
+        {
+            const string title = "Stadt & NexVerse <Wetter>";
+            string xmlBody = OglWeatherXmlProjection.Serialize(
+                instant, seed, berlin, title);
+            Require(xmlBody.StartsWith("<?xml ", StringComparison.Ordinal) &&
+                    xmlBody.Contains("encoding=") &&
+                    xmlBody.IndexOf("utf-8", StringComparison.OrdinalIgnoreCase) < 100,
+                "XML declaration matches UTF-8 response");
+            var xmlDocument = new XmlDocument { XmlResolver = null };
+            xmlDocument.LoadXml(xmlBody);
+            XmlElement root = xmlDocument.DocumentElement;
+            Require(root.Name == "oglweather" &&
+                root.GetAttribute("version") == "1" &&
+                root.GetAttribute("simulation") == "true",
+                "XML version and simulated source");
+            Require(xmlDocument.SelectSingleNode("/oglweather/meta/display_name")
+                .InnerText == title, "XML escapes special characters");
+            Require(xmlBody.Contains("&amp;") && xmlBody.Contains("&lt;"),
+                "XML attribute/text escape is encoded correctly");
+            XmlNode currentNode = xmlDocument.SelectSingleNode("/oglweather/current");
+            WeatherReading expected = OglWeatherModel.At(instant, seed, berlin);
+            Require(currentNode.Attributes["condition"].Value == expected.Condition,
+                "XML current condition equals weather simulator");
+            Require(int.Parse(currentNode.Attributes["temperature_c"].Value) ==
+                expected.TemperatureC, "XML temperature matches weather simulator");
+            Require(int.Parse(currentNode.Attributes["wind_kmh"].Value) ==
+                expected.WindKmh, "XML wind matches weather simulator");
+            Require(int.Parse(currentNode.Attributes["precipitation_intensity_percent"].Value) ==
+                expected.Intensity, "XML intensity matches simulator");
+
+            XmlNodeList daysXml = xmlDocument.SelectNodes("/oglweather/forecast/day");
+            Require(daysXml.Count == 5, "XML has five future days");
+            for (int d = 0; d < daysXml.Count; ++d)
+            {
+                DateTime localDay = TimeZoneInfo.ConvertTime(instant, berlin)
+                    .Date.AddDays(d + 1);
+                WeatherDay expectedDay = OglWeatherModel.ForecastDay(
+                    localDay, seed, berlin);
+                XmlNode dayXml = daysXml[d];
+                Require(dayXml.Attributes["date"].Value ==
+                    expectedDay.Date.ToString("yyyy-MM-dd"),
+                    "XML forecast date matches tomorrow-first JSON format");
+                Require(dayXml.Attributes["condition"].Value == expectedDay.Condition,
+                    "XML forecast condition matches deterministic model");
+                Require(int.Parse(dayXml.Attributes["temperature_min_c"].Value) ==
+                    expectedDay.MinC &&
+                    int.Parse(dayXml.Attributes["temperature_max_c"].Value) ==
+                    expectedDay.MaxC &&
+                    int.Parse(dayXml.Attributes["precipitation_hours"].Value) ==
+                    expectedDay.PrecipitationHours,
+                    "XML forecast daily limits match JSON and simulator");
+            }
+
+            XmlNode narration = xmlDocument.SelectSingleNode("/oglweather/narration");
+            Require(narration.Attributes["language"].Value == "de-DE" &&
+                narration.Attributes["format"].Value == "plain-text" &&
+                narration.InnerText.Contains(title) &&
+                narration.InnerText.Contains("fünf Tage") &&
+                narration.InnerText.Contains("Stadt-NexVerse"),
+                "XML includes ready-to-speak German narration");
+            using JsonDocument portalJson = JsonDocument.Parse(
+                OglWeatherPortalProjection.Serialize(
+                    instant, seed, berlin, title));
+            Require(portalJson.RootElement.GetProperty("current")
+                .GetProperty("condition").GetString() ==
+                currentNode.Attributes["condition"].Value,
+                "XML and existing JSON API report same current weather");
+        }
+        Require(OglWeatherXmlProjection.Serialize(now, seed, berlin,
+                "Stadt-NexVerse") ==
+            OglWeatherXmlProjection.Serialize(now, seed, berlin,
+                "Stadt-NexVerse"),
+            "XML output is repeatable for a given instant");
 
         Console.WriteLine("OGLWeather: " + checks + " checks PASS, " +
             wetDays + " wet days, " + dryDays + " dry days, " + snowDays + " snowy days");

@@ -8,6 +8,7 @@
   <ItemGroup>
     <Compile Include="../../../NexVerse/Core/Weather/OglWeatherModel.cs" Link="OglWeatherModel.cs" />
     <Compile Include="../../../NexVerse/Core/Weather/OglWeatherPortalProjection.cs" Link="OglWeatherPortalProjection.cs" />
+    <Compile Include="../../../NexVerse/Core/Weather/OglWeatherXmlProjection.cs" Link="OglWeatherXmlProjection.cs" />
     <Compile Include="../../../addons/OGLWeather/OglWeatherViewerState.cs" Link="OglWeatherViewerState.cs" />
     <Compile Include="../../../addons/OGLWeather/OglWeatherTestOverride.cs" Link="OglWeatherTestOverride.cs" />
     <Compile Include="../../../addons/OGLWeather/OglWeatherEmitterPlan.cs" Link="OglWeatherEmitterPlan.cs" />
