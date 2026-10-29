@@ -84,7 +84,7 @@ namespace NexVerse.Server.Api
             // A service/API-key principal is not an authenticated avatar.
             // NEVER accept a user_id/owner_id from request data.
             if (user == null || user.PrincipalID == UUID.Zero ||
-                !string.Equals(principal.Id, user.PrincipalID.ToString(),
+                !string.Equals(principal.Subject, user.PrincipalID.ToString(),
                     StringComparison.OrdinalIgnoreCase))
             {
                 Error(response, HttpStatusCode.Forbidden, "resident_token_required");
