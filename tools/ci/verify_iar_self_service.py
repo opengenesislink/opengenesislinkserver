@@ -66,5 +66,8 @@ assert "OglIarTransferPolicy.cs" in text(
 workflow = text(".github/workflows/nexjast-ci.yml")
 assert "Verify IAR self-service bounded transfer, ownership and ETA" in workflow
 assert "dotnet run --configuration Release --project tools/ci/OglIarSelfServiceRegression/OglIarSelfServiceRegression.csproj" in workflow
-assert "GET /api/v1/iar/me/operations/" in text("doc/NexVerse/OGL_IAR_SELF_SERVICE.md")
+assert "/api/v1/iar/me/operations/{id}" in text("doc/NexVerse/OGL_IAR_SELF_SERVICE.md")
+assert "mountOglIarSelfService" in text("doc/NexVerse/examples/ogl-iar-self-service-widget.js")
+assert "setInterval(" in text("doc/NexVerse/examples/ogl-iar-self-service-widget.js")
+assert "showSaveFilePicker" in text("doc/NexVerse/examples/ogl-iar-self-service-widget.js")
 print("OGL IAR resident self-service static contracts PASS")
