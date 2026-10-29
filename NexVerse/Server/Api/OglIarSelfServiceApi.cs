@@ -229,7 +229,8 @@ namespace NexVerse.Server.Api
                 ["file_name"] = job.Metadata["file_name"],
                 ["inventory_path"] = job.Metadata["inventory_path"],
                 ["merge"] = job.Metadata["merge"],
-                ["dry_run"] = job.Metadata["dry_run"]
+                ["dry_run"] = job.Metadata["dry_run"],
+                ["self_service"] = "true"
             };
             m_Bus.Publish(new NexEvent("archive.iar.requested",
                 "opengenesislink.world-api", payload, job.JobId));
