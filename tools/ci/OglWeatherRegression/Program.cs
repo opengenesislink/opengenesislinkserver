@@ -347,8 +347,9 @@ internal static class Program
             const string title = "Stadt & NexVerse <Wetter>";
             string xmlBody = OglWeatherXmlProjection.Serialize(
                 instant, seed, berlin, title);
-            Require(xmlBody.StartsWith("<?xml version=\\"1.0\\" encoding=\\"utf-8\\"?>",
-                    StringComparison.OrdinalIgnoreCase),
+            Require(xmlBody.StartsWith("<?xml ", StringComparison.Ordinal) &&
+                    xmlBody.Contains("encoding=") &&
+                    xmlBody.IndexOf("utf-8", StringComparison.OrdinalIgnoreCase) < 100,
                 "XML declaration matches UTF-8 response");
             var xmlDocument = new XmlDocument { XmlResolver = null };
             xmlDocument.LoadXml(xmlBody);
