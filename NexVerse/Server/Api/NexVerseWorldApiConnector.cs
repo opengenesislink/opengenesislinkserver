@@ -330,6 +330,20 @@ namespace NexVerse.Server.Api
                     "OpenGenesisLINK World Weather Portal"),
                 true);
 
+            // Two exact routes for integrations: /weather/xml as requested,
+            // and /api/v1/weather/xml for clients using the versioned API.
+            // Both are public read-only and subject to the existing rate gate.
+            server.AddSimpleStreamHandler(
+                new SimpleStreamHandler(
+                    "/weather/xml",
+                    apiGate.Wrap(portalWeather.HandleXml),
+                    "OpenGenesisLINK German Weather XML TTS Feed"));
+            server.AddSimpleStreamHandler(
+                new SimpleStreamHandler(
+                    "/api/v1/weather/xml",
+                    apiGate.Wrap(portalWeather.HandleXml),
+                    "OpenGenesisLINK World Weather XML TTS Feed"));
+
             // Register statistics before the much larger privileged service graph.
             // A failure later in connector startup must never silently remove
             // this public endpoint or fall through to OpenSim's default 404.
