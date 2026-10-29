@@ -227,6 +227,21 @@ namespace NexVerse.Server.Api
                 if (action == "import") File.Delete(file);
                 throw;
             }
+            // Retention marker survives job-store rotation. It is created
+            // only for this resident-owned job, never for operator archives.
+            try
+            {
+                string marker = FileFor(job) + ".ogl-retention";
+                Directory.CreateDirectory(Path.GetDirectoryName(marker));
+                using (new FileStream(marker, FileMode.CreateNew,
+                    FileAccess.Write, FileShare.None)) { }
+            }
+            catch
+            {
+                m_Jobs.Fail(job.JobId, "retention_marker_failed");
+                if (action == "import") File.Delete(file);
+                throw;
+            }
             if (action == "export")
                 Publish(job);
             Json(response, HttpStatusCode.Accepted,
@@ -344,6 +359,7 @@ namespace NexVerse.Server.Api
                     // resident's active-job quota or shared storage.
                     m_Jobs.Fail(job.JobId, "sha256_mismatch");
                     File.Delete(path);
+                    DeleteMarker(path);
                     Error(response, HttpStatusCode.Conflict, "sha256_mismatch");
                     return;
                 }
@@ -476,6 +492,7 @@ namespace NexVerse.Server.Api
                 if (staged) m_Jobs.Cancel(job.JobId, "Resident cancelled upload.");
                 string path = FileFor(job);
                 if (File.Exists(path)) File.Delete(path);
+                DeleteMarker(path);
                 Json(response, HttpStatusCode.OK,
                     new { operation_id = job.JobId, archive_deleted = true });
             }
@@ -506,6 +523,7 @@ namespace NexVerse.Server.Api
                     m_Jobs.Fail(j.JobId, "Expired incomplete IAR upload.");
                     string path = FileFor(j);
                     if (File.Exists(path)) File.Delete(path);
+                    DeleteMarker(path);
                 }
             }
         }
@@ -515,6 +533,12 @@ namespace NexVerse.Server.Api
             DateTimeOffset age = job.FinishedAt ?? job.CreatedAt;
             return OglIarNasStorage.IsExpired(age,
                 DateTimeOffset.UtcNow, m_RetentionDays);
+        }
+
+        private static void DeleteMarker(string path)
+        {
+            string marker = path + ".ogl-retention";
+            if (File.Exists(marker)) File.Delete(marker);
         }
 
         private void CleanupExpiredArchives()
@@ -546,14 +570,25 @@ namespace NexVerse.Server.Api
                             if (job != null &&
                                 job.State is OglJobState.Running or OglJobState.Queued)
                                 continue;
+                            if (job != null &&
+                                (!job.Metadata.TryGetValue("self_service", out string owner) ||
+                                 owner != "true"))
+                                continue;
+                            string marker = file + ".ogl-retention";
+                            // Without a matching self-service job or retention
+                            // marker we must not purge unknown operator files.
+                            if (job == null && (!File.Exists(marker) ||
+                                (File.GetAttributes(marker) & FileAttributes.ReparsePoint) != 0))
+                                continue;
                             DateTimeOffset created = job?.FinishedAt ??
                                 job?.CreatedAt ??
-                                new DateTimeOffset(File.GetLastWriteTimeUtc(file));
+                                new DateTimeOffset(File.GetLastWriteTimeUtc(marker));
                             if (!OglIarNasStorage.IsExpired(created,
                                 now, m_RetentionDays))
                                 continue;
                             OglIarNasStorage.RequireMounted(m_SharedRoot, m_NasHost);
                             File.Delete(file);
+                            DeleteMarker(file);
                         }
                     }
                 }
