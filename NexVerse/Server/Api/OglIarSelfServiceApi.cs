@@ -117,6 +117,8 @@ namespace NexVerse.Server.Api
                 { Md5Manifest(response, job); return; }
                 Error(response, HttpStatusCode.MethodNotAllowed, "unsupported_operation");
             }
+            catch (JsonException)
+            { Error(response, HttpStatusCode.BadRequest, "invalid_json"); }
             catch (IOException)
             { Error(response, HttpStatusCode.ServiceUnavailable, "archive_io_unavailable"); }
             catch (UnauthorizedAccessException)
