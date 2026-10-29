@@ -228,6 +228,13 @@ jobs:
         shell: bash
         run: python3 tools/ci/verify_job_engine.py
 
+      - name: Verify IAR self-service bounded transfer, ownership and ETA
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/ci/verify_iar_self_service.py
+          dotnet run --configuration Release --project tools/ci/OglIarSelfServiceRegression/OglIarSelfServiceRegression.csproj
+
       - name: Verify OAR/IAR Job Engine integration
         shell: bash
         run: python3 tools/ci/verify_job_api_integration.py
