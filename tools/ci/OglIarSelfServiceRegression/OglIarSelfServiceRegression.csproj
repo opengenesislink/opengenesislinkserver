@@ -7,5 +7,6 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="../../../NexVerse/Core/Archives/OglIarTransferPolicy.cs" Link="OglIarTransferPolicy.cs" />
+    <Compile Include="../../../NexVerse/Core/Archives/OglIarNasStorage.cs" Link="OglIarNasStorage.cs" />
   </ItemGroup>
 </Project>

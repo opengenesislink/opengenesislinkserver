@@ -36,6 +36,7 @@ namespace NexVerse.RegionModules.Archives
 
     public interface IOglIarOperations
     {
+        string StorageRoot { get; }
         OglIarOperation StartExport(UUID requestId, UserAccount user, string inventoryPath, string archiveFileName, Dictionary<string, object> options = null);
         OglIarOperation StartImport(UUID requestId, UserAccount user, string inventoryPath, string archiveFileName, bool merge, bool dryRun);
         bool TryGet(UUID requestId, out OglIarOperation operation);
@@ -63,6 +64,8 @@ namespace NexVerse.RegionModules.Archives
             if (m_ProgressSource != null)
                 m_ProgressSource.OnInventoryArchiveProgress += HandleProgress;
         }
+
+        public string StorageRoot => m_Storage.RootDirectory;
 
         public event Action<OglIarOperation> OperationChanged;
 

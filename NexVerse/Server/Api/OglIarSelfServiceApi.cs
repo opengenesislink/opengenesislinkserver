@@ -13,6 +13,8 @@ using System.Net;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using System.Threading;
+using System.Diagnostics;
 using NexVerse.Core.Archives;
 using NexVerse.Core.ControlPlane;
 using NexVerse.Core.Jobs;
@@ -37,6 +39,9 @@ namespace NexVerse.Server.Api
         private readonly bool m_Enabled;
         private readonly string m_SharedRoot;
         private readonly long m_MaxBytes;
+        private readonly string m_NasHost;
+        private readonly int m_RetentionDays;
+        private readonly Timer m_CleanupTimer;
         private readonly ConcurrentDictionary<string, object> m_Locks = new();
 
         public OglIarSelfServiceApi(IConfigSource config,
@@ -49,13 +54,20 @@ namespace NexVerse.Server.Api
             IConfig section = config?.Configs["OglIarSelfService"];
             string root = section?.GetString("SharedStorageRoot", "")?.Trim() ?? "";
             long maxMib = section?.GetLong("MaximumArchiveMiB", 2048) ?? 2048;
-            // Fail-closed: must explicitly enable with nonempty shared storage.
+            m_NasHost = section?.GetString("NasHost", "")?.Trim() ?? "";
+            int days = section?.GetInt("RetentionDays", 30) ?? 30;
+            m_RetentionDays = Math.Clamp(days, 1, OglIarNasStorage.MaximumRetentionDays);
             m_Enabled = section?.GetBoolean("Enabled", false) == true &&
-                root.Length > 0 && maxMib >= 101 && maxMib <= 10240;
+                root.Length > 0 && maxMib >= 101 && maxMib <= 10240 &&
+                string.Equals(m_NasHost, "10.78.0.4", StringComparison.Ordinal) &&
+                days >= 1 && days <= OglIarNasStorage.MaximumRetentionDays;
             m_SharedRoot = m_Enabled ? Path.GetFullPath(root) : string.Empty;
             m_MaxBytes = checked(Math.Clamp(maxMib, 101, 10240) * 1024L * 1024);
             if (m_Enabled && m_SharedRoot == Path.GetPathRoot(m_SharedRoot))
                 m_Enabled = false;
+            if (m_Enabled)
+                m_CleanupTimer = new Timer(_ => CleanupExpiredArchives(),
+                    null, TimeSpan.FromMinutes(1), TimeSpan.FromHours(1));
         }
 
         public void Handle(IOSHttpRequest request, IOSHttpResponse response)
@@ -92,6 +104,8 @@ namespace NexVerse.Server.Api
             }
             try
             {
+                // Never create local backup files if NFS is not mounted.
+                OglIarNasStorage.RequireMounted(m_SharedRoot, m_NasHost);
                 if (path == "/api/v1/iar/me/export" && method == "POST")
                 { Start(request, response, user, "export"); return; }
                 if (path == "/api/v1/iar/me/import" && method == "POST")
@@ -198,7 +212,8 @@ namespace NexVerse.Server.Api
                 ["sha256"] = sha,
                 ["merge"] = merge.ToString(),
                 ["dry_run"] = dry.ToString(),
-                ["self_service"] = "true"
+                ["self_service"] = "true",
+                ["retention_days"] = m_RetentionDays.ToString(CultureInfo.InvariantCulture)
             };
             OglJobSnapshot job;
             try
@@ -209,6 +224,21 @@ namespace NexVerse.Server.Api
             }
             catch
             {
+                if (action == "import") File.Delete(file);
+                throw;
+            }
+            // Retention marker survives job-store rotation. It is created
+            // only for this resident-owned job, never for operator archives.
+            try
+            {
+                string marker = FileFor(job) + ".ogl-retention";
+                Directory.CreateDirectory(Path.GetDirectoryName(marker));
+                using (new FileStream(marker, FileMode.CreateNew,
+                    FileAccess.Write, FileShare.None)) { }
+            }
+            catch
+            {
+                m_Jobs.Fail(job.JobId, "retention_marker_failed");
                 if (action == "import") File.Delete(file);
                 throw;
             }
@@ -233,7 +263,8 @@ namespace NexVerse.Server.Api
                 ["inventory_path"] = job.Metadata["inventory_path"],
                 ["merge"] = job.Metadata["merge"],
                 ["dry_run"] = job.Metadata["dry_run"],
-                ["self_service"] = "true"
+                ["self_service"] = "true",
+                ["nas_host"] = m_NasHost
             };
             m_Bus.Publish(new NexEvent("archive.iar.requested",
                 "opengenesislink.world-api", payload, job.JobId));
@@ -328,6 +359,7 @@ namespace NexVerse.Server.Api
                     // resident's active-job quota or shared storage.
                     m_Jobs.Fail(job.JobId, "sha256_mismatch");
                     File.Delete(path);
+                    DeleteMarker(path);
                     Error(response, HttpStatusCode.Conflict, "sha256_mismatch");
                     return;
                 }
@@ -366,7 +398,8 @@ namespace NexVerse.Server.Api
             bool completeExport = job.Metadata["action"] == "export" &&
                 job.State == OglJobState.Completed;
             string file = completeExport ? FileFor(job) : null;
-            bool ready = completeExport && File.Exists(file) &&
+            bool ready = completeExport && !IsExpired(job) &&
+                File.Exists(file) &&
                 new FileInfo(file).Length > 0 &&
                 new FileInfo(file).Length <= m_MaxBytes;
             Json(response, HttpStatusCode.OK, new
@@ -383,6 +416,10 @@ namespace NexVerse.Server.Api
                 updated_at_utc = job.UpdatedAt,
                 message = job.Message,
                 download_ready = ready,
+                retention_days = m_RetentionDays,
+                expires_at_utc = job.State == OglJobState.Completed
+                    ? (job.FinishedAt ?? job.CreatedAt).AddDays(m_RetentionDays)
+                    : (DateTimeOffset?)null,
                 file_size_bytes = ready ? new FileInfo(file).Length : (long?)null,
                 download_url = ready ?
                     "/api/v1/iar/me/operations/" + job.JobId + "/file" : null,
@@ -459,6 +496,7 @@ namespace NexVerse.Server.Api
                 if (staged) m_Jobs.Cancel(job.JobId, "Resident cancelled upload.");
                 string path = FileFor(job);
                 if (File.Exists(path)) File.Delete(path);
+                DeleteMarker(path);
                 Json(response, HttpStatusCode.OK,
                     new { operation_id = job.JobId, archive_deleted = true });
             }
@@ -489,7 +527,80 @@ namespace NexVerse.Server.Api
                     m_Jobs.Fail(j.JobId, "Expired incomplete IAR upload.");
                     string path = FileFor(j);
                     if (File.Exists(path)) File.Delete(path);
+                    DeleteMarker(path);
                 }
+            }
+        }
+
+        private bool IsExpired(OglJobSnapshot job)
+        {
+            DateTimeOffset age = job.FinishedAt ?? job.CreatedAt;
+            return OglIarNasStorage.IsExpired(age,
+                DateTimeOffset.UtcNow, m_RetentionDays);
+        }
+
+        private static void DeleteMarker(string path)
+        {
+            string marker = path + ".ogl-retention";
+            if (File.Exists(marker)) File.Delete(marker);
+        }
+
+        private void CleanupExpiredArchives()
+        {
+            if (!m_Enabled) return;
+            try
+            {
+                OglIarNasStorage.RequireMounted(m_SharedRoot, m_NasHost);
+                if (!Directory.Exists(m_SharedRoot)) return;
+                DateTimeOffset now = DateTimeOffset.UtcNow;
+                foreach (string regionDir in Directory.EnumerateDirectories(m_SharedRoot))
+                {
+                    if ((File.GetAttributes(regionDir) & FileAttributes.ReparsePoint) != 0)
+                        continue;
+                    if (!Guid.TryParseExact(Path.GetFileName(regionDir), "D",
+                        out Guid region) || region == Guid.Empty)
+                        continue;
+                    foreach (string file in Directory.EnumerateFiles(regionDir, "*.iar",
+                        SearchOption.TopDirectoryOnly))
+                    {
+                        if ((File.GetAttributes(file) & FileAttributes.ReparsePoint) != 0 ||
+                            !OglIarNasStorage.IsManagedIar(m_SharedRoot, file,
+                                out Guid id))
+                            continue;
+
+                        lock (m_Locks.GetOrAdd(id.ToString("D"), _ => new object()))
+                        {
+                            OglJobSnapshot job = m_Jobs.Get(id.ToString("D"));
+                            if (job != null &&
+                                job.State is OglJobState.Running or OglJobState.Queued)
+                                continue;
+                            if (job != null &&
+                                (!job.Metadata.TryGetValue("self_service", out string owner) ||
+                                 owner != "true"))
+                                continue;
+                            string marker = file + ".ogl-retention";
+                            // Without a matching self-service job or retention
+                            // marker we must not purge unknown operator files.
+                            if (job == null && (!File.Exists(marker) ||
+                                (File.GetAttributes(marker) & FileAttributes.ReparsePoint) != 0))
+                                continue;
+                            DateTimeOffset created = job?.FinishedAt ??
+                                job?.CreatedAt ??
+                                new DateTimeOffset(File.GetLastWriteTimeUtc(marker));
+                            if (!OglIarNasStorage.IsExpired(created,
+                                now, m_RetentionDays))
+                                continue;
+                            OglIarNasStorage.RequireMounted(m_SharedRoot, m_NasHost);
+                            File.Delete(file);
+                            DeleteMarker(file);
+                        }
+                    }
+                }
+            }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException
+                or ArgumentException)
+            {
+                Trace.TraceWarning("OGL-IAR NAS retention skipped: " + e.GetType().Name);
             }
         }
 
@@ -497,7 +608,8 @@ namespace NexVerse.Server.Api
         {
             path = null;
             if (job.Metadata["action"] != "export" ||
-                job.State != OglJobState.Completed) return false;
+                job.State != OglJobState.Completed || IsExpired(job))
+                return false;
             path = FileFor(job);
             return File.Exists(path) && new FileInfo(path).Length > 0 &&
                 new FileInfo(path).Length <= m_MaxBytes;

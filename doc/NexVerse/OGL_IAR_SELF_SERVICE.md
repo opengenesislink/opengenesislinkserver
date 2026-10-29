@@ -12,6 +12,120 @@ und auf jedem teilnehmenden Regionssimulator gemountet sein.
 Es wird **kein** netzwerkübergreifender IAR-Byte-Transport über NexBus
 implementiert. Unterschiedliche lokale Verzeichnisse sind nicht ausreichend.
 
+## Zentrales IAR-Backup auf UGREEN NASync DXP2800 (10.78.0.4)
+
+Das Netzlaufwerk ist unter `10.78.0.4` im WireGuard-Netz
+`10.78.0.0/24` erreichbar. UGOS Pro unterstützt NFS. Bei diesem
+Storage-Modus werden Import- und Export-IARs **direkt auf dem NAS**
+angelegt: kein dauerhafter IAR-Export auf der Systemplatte des
+Regionssimulators und keine lokale Ausweichablage bei NAS-Ausfall.
+
+### NAS einrichten (UGOS Pro)
+
+1. Auf dem DXP2800 eine eigene Freigabe für OGL-IAR erstellen.
+2. **Systemsteuerung > Dateidienste > NFS** aktivieren.
+3. Die Freigabe in **Dateien > Freigegebener Ordner > Eigenschaften >
+   NFS-Berechtigungen** ausschließlich für die tatsächlichen
+   VPN-Client-IP-Adressen von ROBUST und der Regionsserver öffnen,
+   Lese-/Schreibrecht setzen. Zugriffsrechte/UID-GID-Mapping abstimmen.
+4. TCP-Port **2049** auf dem WireGuard-Pfad erlauben und aus dem
+   öffentlichen Internet **nicht** freigeben.
+5. In UGOS den **genauen Exportpfad** der Freigabe nachschlagen.
+   Der Pfad hängt vom NAS-Speicherpool ab; hier wird **kein**
+   unbekannter NAS-Exportpfad erfunden.
+
+### Linux-Hosts mounten
+
+Auf **jedem** beteiligten Server, also ROBUST und Regionssimulator:
+
+```bash
+sudo apt install nfs-common
+sudo mkdir -p /mnt/ogl-iar
+# EXPORTPFAD durch den exakten NFS-Pfad aus der UGREEN-Oberflaeche ersetzen!
+sudo mount -t nfs4 -o vers=4.1,hard,nosuid,nodev,noexec \
+  10.78.0.4:/EXPORTPFAD /mnt/ogl-iar
+findmnt -T /mnt/ogl-iar -o TARGET,SOURCE,FSTYPE
+```
+
+Die `findmnt`-Ausgabe muss den **exakten Mountpunkt**
+`/mnt/ogl-iar`, den NFS-Typ und die Quelle
+`10.78.0.4:/...` zeigen. Ein leeres lokales Verzeichnis genügt
+**nicht**. In der Systemd-Service-Unit für ROBUST bzw. OpenSim
+`RequiresMountsFor=/mnt/ogl-iar` ergänzen und einen persistenten
+NFS-Mount (fstab/mount-Unit) konfigurieren. Unter dem Mountpunkt
+auf dem Host **keine** ungeschützten lokalen Backup-Dateien anlegen.
+Für starke Fail-Closed-Semantik sollte der lokale Mountpoint ohne
+NFS für den Dienstbenutzer nicht beschreibbar sein.
+
+Simulator-Konfiguration in der jeweils tatsächlich geladenen INI:
+
+```ini
+[OpenGenesisLINKIAR]
+Enabled = true
+StorageRoot = "/mnt/ogl-iar"
+MaximumArchiveMiB = 2048
+```
+
+World-API-/ROBUST-Konfiguration:
+
+```ini
+[OglIarSelfService]
+Enabled = true
+SharedStorageRoot = "/mnt/ogl-iar"
+NasHost = "10.78.0.4"
+RetentionDays = 30
+MaximumArchiveMiB = 2048
+```
+
+Der aktualisierte Self-Service akzeptiert ausschließlich NFS/NFSv4
+mit dem **exakten Mountpoint** und dieser NAS-Quelladresse.
+Fehlt die Freigabe, liefert die API HTTP 503; der Simulator verweigert
+den Bürger-Export/-Import ebenfalls. Es wird kein lokaler
+Fallback erzeugt. Die administrative IAR-Verwaltung ist davon
+unabhängig; für das beabsichtigte NAS-only-Betriebsmodell dürfen
+auch dort ausschließlich NAS-Pfade konfiguriert werden.
+
+### Maximale Aufbewahrung: 30 Tage
+
+`RetentionDays` kann zwischen **1 und 30** konfiguriert werden.
+Werte über 30 deaktivieren den Self-Service statt die Grenze
+stillschweigend zu verlängern.
+
+- Der World-API-Prozess kontrolliert den Speicher **kurz nach dem Start**
+  und danach **stündlich** und löscht abgeschlossene, abgelaufene
+  `<region-uuid>/<operation-uuid>.iar`-Archive.
+- Der Ablauf beginnt mit Abschluss des Import-/Exportjobs;
+  wenn kein Jobdatensatz mehr vorhanden ist, dient der
+  Datei-Änderungszeitpunkt als Fallback.
+- Ab dem Ablaufzeitpunkt wird der **Download sofort verweigert**,
+  auch wenn die nächste physische Bereinigung noch nicht lief.
+- Noch aktive IAR-Jobs werden aus Sicherheitsgründen nicht
+  mitten im Schreibvorgang gelöscht. Die vorher vorhandene
+  24-Stunden-Bereinigung abgebrochener Uploads bleibt bestehen.
+- Die automatische Bereinigung läuft **nur während ROBUST/World API
+  aktiv und das NAS verbunden ist**. Wenn die 30-Tage-Grenze
+  auch bei komplett abgeschaltetem ROBUST physisch garantiert
+  werden soll, muss zusätzlich eine eigenständige Aufbewahrungsregel
+  auf dem NAS eingerichtet werden. Diese wird hier bewusst
+  **nicht automatisch auf dem DXP2800 konfiguriert**.
+- Für neue Self-Service-Archive wird eine kleine
+  `.iar.ogl-retention`-Markierungsdatei auf dem NAS angelegt.
+  Damit bleibt die Aufbewahrungsregel auch bei einem
+  aus der Job-Datenbank entfernten Eintrag nachvollziehbar.
+- Gelöscht werden nur vom Self-Service generierte IAR-Dateinamen
+  in UUID-Regionverzeichnissen, keine unbekannten Dateien,
+  Unterordner oder NAS-Systemdateien. Ein Datei-Job ohne 
+  gültige zugehörige Job-/Markierungsinformation wird niemals 
+  eigenmächtig gelöscht.
+- RAID oder NAS-Snapshots ersetzen keine weitere unabhängige
+  Sicherung. Kopien außerhalb des IAR-Ordners unterliegen
+  nicht automatisch dieser Regel.
+
+**Vor Aktivierung:** Bereits vorhandene `.iar`-Dateien im alten
+lokalen Speicher werden nicht automatisch migriert oder gelöscht.
+Den Altbestand separat prüfen und sicher umziehen. Die NAS-Regionordner
+müssen zu den vorhandenen IAR-Jobpfaden passen.
+
 ## Berechtigungen / Voraussetzungen
 
 - Aufrufe nur mit OAuth-/Bearer-Token eines **angemeldeten lokalen
@@ -42,7 +156,7 @@ implementiert. Unterschiedliche lokale Verzeichnisse sind nicht ausreichend.
    ```ini
    [OpenGenesisLINKIAR]
        Enabled = true
-       StorageRoot = "/srv/ogl-iar"
+       StorageRoot = "/mnt/ogl-iar"
        MaximumArchiveMiB = 2048
    ```
 
@@ -52,7 +166,9 @@ implementiert. Unterschiedliche lokale Verzeichnisse sind nicht ausreichend.
    ```ini
    [OglIarSelfService]
        Enabled = true
-       SharedStorageRoot = "/srv/ogl-iar"
+       SharedStorageRoot = "/mnt/ogl-iar"
+       NasHost = "10.78.0.4"
+       RetentionDays = 30
        MaximumArchiveMiB = 2048
    ```
 
