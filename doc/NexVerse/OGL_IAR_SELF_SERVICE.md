@@ -89,6 +89,7 @@ Alle folgenden Endpunkte sind beim aktivierten Modul unter
 | GET | `/api/v1/iar/me/operations/{id}` | Eigener Live-Fortschritt, ETA, Status |
 | GET | `/api/v1/iar/me/operations/{id}/file?offset=N&length=M` | Export in Blöcken herunterladen (HTTP 206) |
 | GET | `/api/v1/iar/me/operations/{id}/md5` | MD5 + SHA-256 Prüfsummenmanifest |
+| DELETE | `/api/v1/iar/me/operations/{id}` | Eigenes Archiv löschen oder laufenden Upload abbrechen |
 
 ### Export
 
@@ -133,6 +134,8 @@ Dann PUT mit `Content-Type: application/octet-stream`, **maximal
 zurückgelieferte `next_offset` für jeden folgenden Block übernehmen.
 Ein fehlgeschlagener Block darf nicht blind erneut bei Offset 0
 geschrieben werden: zuerst den aktuellen Offset abfragen.
+Eine vollständige Datei mit falscher SHA-256-Prüfsumme wird abgelehnt und vom Shared Storage entfernt. Fehlgeschlagene Uploads lassen sich durch den Besitzer mit DELETE entfernen. Abgebrochene Uploads mit mehr als 24 Stunden Inaktivität werden beim nächsten eigenen Jobstart bereinigt.
+
 Das Archiv wird beim Empfang nicht in den RAM geladen. Beim
 Aufruf von `/start` prüft der Server die vollständige Größe und
 SHA-256, erst danach startet der Original-IAR-Archiver mit
@@ -234,7 +237,8 @@ unautorisierten Downloadlink.
   Cache.
 - Die im Archiv vorhandenen Rechte bleiben Gegenstand des
   ursprünglichen OpenSim-/Asset-/Inventory-Importpfades.
-- Dateiretention, ein generischer Browser-Download ohne
+- Vollständige automatische Dateiretention für erfolgreiche Archive,
+  ein generischer Browser-Download ohne
   Clientcode und vollständig gridgebundene Quotenverwaltung sind
   Folgeschritte. Ein Export wird in dieser Version nur blockweise
   heruntergeladen, um den Arbeitsspeicher des Webservers zu schützen.
