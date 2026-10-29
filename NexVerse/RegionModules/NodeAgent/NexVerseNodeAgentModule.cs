@@ -15,6 +15,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using log4net;
 using Mono.Addins;
+using NexVerse.Core.Archives;
 using NexVerse.Core.Messaging;
 using NexVerse.RegionModules.Archives;
 using Nini.Config;
@@ -1958,6 +1959,26 @@ namespace NexVerse.RegionModules.NodeAgent
                 PublishIarState(nexEvent, operationId, regionId, action, "failed",
                     operations == null ? "iar_management_unavailable" : "user_not_found", 0, 0);
                 return;
+            }
+
+            // A resident IAR must be on the verified NAS, never in local
+            // fallback storage after the WireGuard/NFS mount disappears.
+            if (nexEvent.Data.TryGetValue("self_service", out string self) &&
+                string.Equals(self, "true", StringComparison.OrdinalIgnoreCase))
+            {
+                try
+                {
+                    if (!nexEvent.Data.TryGetValue("nas_host", out string nasHost) ||
+                        !string.Equals(nasHost, "10.78.0.4", StringComparison.Ordinal))
+                        throw new IOException("Unapproved IAR NAS host.");
+                    OglIarNasStorage.RequireMounted(operations.StorageRoot, nasHost);
+                }
+                catch (Exception ex) when (ex is IOException or ArgumentException)
+                {
+                    PublishIarState(nexEvent, operationId, regionId, action,
+                        "failed", "iar_nas_mount_unavailable", 0, 0);
+                    return;
+                }
             }
 
             void Changed(OglIarOperation operation)
