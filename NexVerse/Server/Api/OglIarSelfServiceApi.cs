@@ -416,6 +416,10 @@ namespace NexVerse.Server.Api
                 updated_at_utc = job.UpdatedAt,
                 message = job.Message,
                 download_ready = ready,
+                retention_days = m_RetentionDays,
+                expires_at_utc = job.State == OglJobState.Completed
+                    ? (job.FinishedAt ?? job.CreatedAt).AddDays(m_RetentionDays)
+                    : (DateTimeOffset?)null,
                 file_size_bytes = ready ? new FileInfo(file).Length : (long?)null,
                 download_url = ready ?
                     "/api/v1/iar/me/operations/" + job.JobId + "/file" : null,
