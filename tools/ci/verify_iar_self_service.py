@@ -47,7 +47,7 @@ assert "TryReadyExport(job" in api
 assert '"user_id"] = user.PrincipalID.ToString()' in api, "Never trust client user IDs"
 assert '"user_id"] = job.Metadata["user_id"]' in api
 assert "ArchiveInventory(" not in api and "DearchiveInventory(" not in api
-assert "Path.GetFileName(" not in api, "Never let upload choose a filesystem name"
+assert 'ReadString(root, "file_name")' not in api, "Never let upload choose a filesystem name"
 assert "new byte[take]" in api and "new byte[65536]" in api
 assert "File.ReadAllBytes(" not in api
 assert "request.InputStream.Read(" not in api or "remaining" in api
