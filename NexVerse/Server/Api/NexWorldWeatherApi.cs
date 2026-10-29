@@ -80,6 +80,56 @@ namespace NexVerse.Server.Api
             }
         }
 
+        // XML feed consumed by optional OpenAI -> ElevenLabs integrations.
+        // Both aliases use the same World API rate limiter and opt-in gate.
+        public void HandleXml(IOSHttpRequest request, IOSHttpResponse response)
+        {
+            response.ContentType = "application/xml; charset=utf-8";
+            response.AddHeader("X-Content-Type-Options", "nosniff");
+            if (request == null ||
+                !string.Equals(request.HttpMethod, "GET",
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                response.AddHeader("Allow", "GET");
+                XmlError(response, HttpStatusCode.MethodNotAllowed,
+                    "method_not_allowed");
+                return;
+            }
+
+            if (!m_Enabled || !m_Valid)
+            {
+                XmlError(response, HttpStatusCode.ServiceUnavailable,
+                    !m_Enabled ? "weather_portal_disabled" :
+                    "weather_portal_invalid_configuration");
+                return;
+            }
+
+            try
+            {
+                response.RawBuffer = Encoding.UTF8.GetBytes(
+                    OglWeatherXmlProjection.Serialize(
+                        DateTimeOffset.UtcNow, m_Seed, m_Zone, m_DisplayName));
+                response.AddHeader("Cache-Control", "public, max-age=30");
+                response.StatusCode = (int)HttpStatusCode.OK;
+            }
+            catch (Exception)
+            {
+                XmlError(response, HttpStatusCode.ServiceUnavailable,
+                    "weather_unavailable");
+            }
+        }
+
+        private static void XmlError(IOSHttpResponse response,
+            HttpStatusCode status, string error)
+        {
+            response.AddHeader("Cache-Control", "no-store");
+            response.StatusCode = (int)status;
+            // Only fixed internal identifiers, never user-provided content.
+            response.RawBuffer = Encoding.UTF8.GetBytes(
+                "<?xml version=\\"1.0\\" encoding=\\"UTF-8\\"?><error code=\\"" +
+                error + "\\"/>");
+        }
+
         private static void Error(IOSHttpResponse response,
             HttpStatusCode status, string error)
         {
