@@ -126,8 +126,8 @@ namespace NexVerse.Server.Api
             response.StatusCode = (int)status;
             // Only fixed internal identifiers, never user-provided content.
             response.RawBuffer = Encoding.UTF8.GetBytes(
-                "<?xml version=\\"1.0\\" encoding=\\"UTF-8\\"?><error code=\\"" +
-                error + "\\"/>");
+                "<?xml version='1.0' encoding='UTF-8'?><error code='" +
+                error + "'/>");
         }
 
         private static void Error(IOSHttpResponse response,
