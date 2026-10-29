@@ -138,6 +138,106 @@ und portalgeeigneten Icon-Namen `sun`, `cloud`, `cloud-rain`,
 inklusive Offset enthalten, damit mehrfach vorkommende Ortsstunden
 unterscheidbar bleiben.
 
+## 3. XML für OpenAI und ElevenLabs (Wetter-Audiobericht)
+
+Zusätzlich zum unveränderten JSON-Endpunkt liefert die World API
+denselben **simulierten** OGLWeather-Datenstand als XML mit einem
+vorformulierten deutschen Wetterbericht.
+
+```http
+GET /weather/xml
+Accept: application/xml
+```
+
+Alternativ (gleicher Inhalt und gleiches Zugriffsmodell):
+
+```http
+GET /api/v1/weather/xml
+Accept: application/xml
+```
+
+Beide Wege sind ausdrücklich **read-only und öffentlich**, nutzen den
+bereits vorhandenen World-API-Rate-Limiter und benötigen
+`[OGLWeatherPortal] Enabled = true`. Nur **GET** wird akzeptiert;
+andere Methoden liefern XML und HTTP 405, die nicht aktivierte
+Konfiguration HTTP 503. Content-Type:
+`application/xml; charset=utf-8`, Cache-Control:
+`public, max-age=30`, Header `X-Content-Type-Options: nosniff`.
+Fehlerantworten sind ebenfalls XML und setzen `Cache-Control: no-store`.
+
+Auszug (Beispielwerte, keine aktuellen Daten):
+
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+<oglweather version="1" source="simulated_oglweather" simulation="true">
+  <meta>
+    <display_name>Stadt-NexVerse</display_name>
+    <timezone>Europe/Berlin</timezone>
+    <language>de-DE</language>
+    <observed_at_utc>2026-10-29T12:00:00.0000000+00:00</observed_at_utc>
+    <local_time>2026-10-29T13:00:00.0000000+01:00</local_time>
+    <temperature_unit>C</temperature_unit>
+    <wind_unit>km/h</wind_unit>
+  </meta>
+  <current condition="cloud" condition_de="Bewölkt"
+           temperature_c="12" wind_kmh="15"
+           precipitation_intensity_percent="0" />
+  <today>
+    <day date="2026-10-29" weekday_de="Donnerstag"
+         condition="cloud" condition_de="Bewölkt"
+         temperature_min_c="7" temperature_max_c="14"
+         precipitation_hours="0" />
+  </today>
+  <forecast days="5">
+    <day date="2026-10-30" weekday_de="Freitag"
+         condition="rain" condition_de="Regen"
+         temperature_min_c="6" temperature_max_c="13"
+         precipitation_hours="6" />
+    <!-- weitere vier Tage -->
+  </forecast>
+  <narration language="de-DE" format="plain-text">Hier ist der Wetterbericht für Stadt-NexVerse. ...</narration>
+</oglweather>
+```
+
+Die echte Antwort enthält fünf vollständige `<day>`-Elemente
+**ab morgen**, die aktuelle Wetterlage und einen direkt für die
+Sprachausgabe verwendbaren `<narration>`-Text. Zeitstempel sind
+mit UTC und lokaler Zeitzone versehen. XmlWriter maskiert
+Sonderzeichen in Display-Namen und Texten korrekt.
+
+**Beispielworkflow (separater Dienst, nicht Bestandteil von OGLWeather):**
+
+1. XML von der öffentlich erreichbaren World-API abrufen.
+2. `/oglweather/narration` auslesen und bei Bedarf mit OpenAI
+   sprachlich redigieren, ohne Wetterwerte zu erfinden.
+3. Den Sprechertext über die autorisierte ElevenLabs Text-to-Speech API
+   mit dem eigenen API-Schlüssel in eine MP3 umwandeln.
+4. Die MP3 auf dem eigenen Webserver speichern und den Audio-Guide
+   in Stadt-NexVerse darauf verweisen lassen.
+
+```bash
+curl -fsS -H 'Accept: application/xml' \
+  https://DEINE-WORLD-API.DOMAIN/weather/xml -o wetter.xml
+python3 - <<'PY'
+from xml.etree import ElementTree as ET
+root = ET.parse("wetter.xml").getroot()
+print(root.findtext("narration"))
+PY
+```
+
+**Wichtig:** Der XML-Endpunkt erzeugt **keine MP3** und überträgt
+keine Daten an OpenAI oder ElevenLabs. API-Keys bleiben ausschließlich
+im späteren externen TTS-Dienst. Ein Proxy auf
+`world.stadt-nexverse.de` muss `/weather/xml` gegebenenfalls
+separat freigeben; `/api/v1/weather/xml` ist die Alternative für
+Proxys, die ausschließlich das API-Präfix weiterleiten.
+
+Das XML basiert genau wie JSON auf dem deterministischen Modell
+mit demselben `WeatherSeed` und `TimeZone`. Ein per Simulator
+erzwungener Regen-/Schneetest mit `ogl weather rain|snow` ist
+**nicht Teil der ROBUST-XML-Prognose**. Der Sprecher darf die Angaben
+nicht als reale Wetterdaten ausgeben.
+
 ## 3. Fertige Wetterkarte für das Stadtportal
 
 [Responsive HTML/CSS/JavaScript-Demo](examples/oglweather-stadtportal-widget.html)
