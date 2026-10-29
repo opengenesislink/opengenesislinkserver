@@ -95,7 +95,8 @@ for cfg in cfgs:
     block = cfg.split("[OglIarSelfService]")[-1]
     assert 'NasHost = "10.78.0.4"' in block
     assert "RetentionDays = 30" in block
-assert "OglIarNasStorage.RequireMounted(operations.StorageRoot, nasHost)" in node
+assert "OglIarNasStorage.RequireMounted(" in node
+assert "Path.GetDirectoryName(operations.StorageRoot), nasHost)" in node
 assert '"10.78.0.4"' in node
 assert "string StorageRoot { get; }" in text(
     "NexVerse/RegionModules/Archives/OglIarOperationManager.cs")
