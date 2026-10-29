@@ -442,6 +442,13 @@ jobs:
           dotnet run --configuration Release --project tools/ci/OglWeatherRegression/OglWeatherRegression.csproj
           bash addon-modules/OGLWeather/build.sh Release
 
+      - name: Verify OGLEnergy simulator addon contracts and deterministic grid regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/ci/verify_ogl_energy.py
+          dotnet run --configuration Release --project tools/ci/OglEnergyRegression/OglEnergyRegression.csproj
+
       - name: Verify Generation-1 Inworld LSL companion scripts
         shell: bash
         run: |
@@ -646,12 +653,12 @@ jobs:
         run: dotnet build --configuration Release OpenSim.sln
 
 
-      - name: Verify server build includes all four simulator addon DLLs
+      - name: Verify server build includes all five simulator addon DLLs
         shell: bash
         run: |
           set -euo pipefail
           python3 tools/ci/verify_gen1_nex_city_addons.py
-          for addon in OGLWeather NexTraffic NexTransit NexSmartLight; do
+          for addon in OGLWeather NexTraffic NexTransit NexSmartLight OGLEnergy; do
             test -s "bin/OpenGenesisLINK.Addons.${addon}.dll" || {
               echo "::error::Release build is missing ${addon} DLL in simulator bin"
               exit 1
@@ -664,10 +671,10 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
           solution = Path("OpenSim.sln").read_text().replace(chr(92), "/")
-          for addon in ("OGLWeather", "NexTraffic", "NexTransit", "NexSmartLight"):
+          for addon in ("OGLWeather", "NexTraffic", "NexTransit", "NexSmartLight", "OGLEnergy"):
               path = f"addons/{addon}/OpenGenesisLINK.Addons.{addon}.csproj"
               assert path in solution, f"Regenerated solution omitted {addon}"
-          print("Release build: four add-on projects and four simulator bin DLLs PASS")
+          print("Release build: five add-on projects and five simulator bin DLLs PASS")
           PY
 
       - name: Regression-test World API P0 password recovery against MariaDB

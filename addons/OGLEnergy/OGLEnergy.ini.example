@@ -1,0 +1,14 @@
+; OpenGenesisLINK Generation 1 - independent simulator-side energy addon.
+; Read-only simulation. Does not switch existing appliances or change economy.
+[OGLEnergy]
+Enabled = false
+LSLChannel = -835431
+RefreshSeconds = 60
+TimeZone = Europe/Berlin
+; Virtual installed generation capacity, all values simulated kW.
+SolarCapacityKw = 900
+WindCapacityKw = 1000
+HydroCapacityKw = 500
+BaseCapacityKw = 850
+; Reference demand for simulated day-night electricity consumption.
+BaseDemandKw = 2200
