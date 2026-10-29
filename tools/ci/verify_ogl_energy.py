@@ -78,7 +78,7 @@ assert 'DestinationFiles="$(MSBuildThisFileDirectory)../../bin/$(TargetFileName)
 assert "OglEnergyModel.cs" in read("tools/ci/OglEnergyRegression/OglEnergyRegression.csproj")
 assert "DST" in suite and "full-year" in suite
 assert "Verify OGLEnergy simulator addon contracts and deterministic grid regression" in workflow
-assert "bin/OpenGenesisLINK.Addons.OGLEnergy.dll" in workflow
+assert "for addon in OGLWeather NexTraffic NexTransit NexSmartLight OGLEnergy; do" in workflow
 
 solution = read("OpenSim.sln").replace(chr(92), "/")
 prebuild = read("runprebuild.sh")
