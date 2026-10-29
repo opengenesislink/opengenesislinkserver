@@ -37,7 +37,10 @@ for marker in (
     "res.RawBuffer = data;", '"Content-Range"', "HttpStatusCode.PartialContent",
     "OglIarTransferPolicy.MaximumChunkBytes",
     "MD5.Create", "SHA256.Create", "download_ready",
-    "archive_operation_conflict", "NexScopes.InventoryRead"
+    "archive_operation_conflict", "NexScopes.InventoryRead",
+    "ExpireStaleUploads(user)", "private void DeleteArchive(",
+    "m_Jobs.Fail(job.JobId, \"sha256_mismatch\")", "m_Jobs.Cancel(job.JobId",
+    "TimeSpan.FromHours(24)"
 ):
     assert marker in api or marker in core, marker
 assert "TryReadyExport(job" in api
