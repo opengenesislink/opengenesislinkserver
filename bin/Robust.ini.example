@@ -841,4 +841,6 @@
 [OglIarSelfService]
     Enabled = false
     SharedStorageRoot = ""
+    NasHost = "10.78.0.4"
+    RetentionDays = 30
     MaximumArchiveMiB = 2048
