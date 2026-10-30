@@ -73,6 +73,13 @@ namespace OpenSim.Framework
                 return true;
 
             string normalized = value.Trim();
+            // Official OGL viewer builds may report v0.4.0.0 instead of
+            // 0.4.0.0. Allow a single leading v/V only when followed by
+            // digits; all other prefixes and viewer families stay blocked.
+            if (normalized.Length > 1 &&
+                (normalized[0] == 'v' || normalized[0] == 'V') &&
+                char.IsDigit(normalized[1]))
+                normalized = normalized.Substring(1);
             if (!char.IsDigit(normalized[0]))
                 return false;
 

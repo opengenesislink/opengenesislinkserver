@@ -24,6 +24,21 @@ internal static class Program
         Check("Firestorm", "", true);
         Check("OpenGenesisLINK Viewer 1.0", "OpenGenesisLINK-Release", true);
         Check("1.0.0.1", "OpenGenesisLINK", true);
+        // Exact login wire values from the OpenGenesisLINK Viewer v0.4.0.0.
+        Check("v0.4.0.0", "OpenGenesisLINK Viewer", true);
+        Check("V0.4.0.0", "OpenGenesisLINK Viewer", true);
+        Check("v0.4.0.0", "OpenGenesisLINK-Release", true);
+        Check("v0.4.0.0", "OGL Viewer", true);
+        Check("v0.4.0.0", "Firestorm-Releasex64", true);
+        // A version prefix must NOT authorize an unknown/disallowed viewer.
+        Check("v0.4.0.0", "UnknownViewer", false);
+        Check("v0.4.0.0", "Darkstorm", false);
+        Check("v0.4.0.0", "Hydrastorm", false);
+        Check("v0.4.0.0-beta", "OpenGenesisLINK Viewer", false);
+        Check("vv0.4.0.0", "OpenGenesisLINK Viewer", false);
+        Check("v", "OpenGenesisLINK Viewer", false);
+        Check("v0.4.0.0-evil", "OpenGenesisLINK Viewer", false);
+
         Check("OGL Viewer 1.0", "OGL Viewer", true);
         Check("1.0.0", "OGL Viewer-Release", true);
         Check("OpenGenesisLINK-Release", null, true);
