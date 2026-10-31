@@ -205,7 +205,8 @@ namespace NexVerse.RegionModules.NodeAgent
             // or client authentication material through NexBus.
             if ((iarConfig?.GetString("StorageBackend", "WebDAV") ?? "WebDAV")
                 .Equals("WebDAV", StringComparison.OrdinalIgnoreCase) &&
-                iarConfig?.GetBoolean("Enabled", false) == true)
+                iarConfig?.GetBoolean("Enabled", false) == true &&
+                !string.IsNullOrWhiteSpace(iarConfig.GetString("WebDavBaseUrl", "")))
             {
                 try
                 {
