@@ -28,13 +28,18 @@ namespace NexVerse.Server.Api
             new Dictionary<Guid, Region>();
         private long m_Version;
         private readonly int m_RequiredRegions;
+        // Optional trusted NodeAgent inventory. Never infer expected regions
+        // from whichever NPC snapshots happen to have arrived.
+        private readonly Func<IReadOnlyCollection<Guid>> m_ExpectedRegionIds;
         private static readonly TimeSpan FreshFor = TimeSpan.FromSeconds(100);
 
-        internal NexNpcSnapshotIndex(int requiredRegions)
+        internal NexNpcSnapshotIndex(int requiredRegions,
+            Func<IReadOnlyCollection<Guid>> expectedRegionIds = null)
         {
             if (requiredRegions <= 0 || requiredRegions > 1024)
                 throw new ArgumentOutOfRangeException(nameof(requiredRegions));
             m_RequiredRegions = requiredRegions;
+            m_ExpectedRegionIds = expectedRegionIds;
         }
 
         // The presence of an expired snapshot never implies "zero NPCs".
@@ -43,13 +48,38 @@ namespace NexVerse.Server.Api
             out long revision)
         {
             owned = new List<NexNpcOwnerEntry>();
+            revision = 0;
+            // NodeRegistry is populated by authenticated simulator events, not
+            // by NPC snapshots. If it reports zero regions, fail closed.
+            IReadOnlyCollection<Guid> expected = m_ExpectedRegionIds?.Invoke();
+            if (m_ExpectedRegionIds != null && (expected == null ||
+                expected.Count < m_RequiredRegions || expected.Count > 1024 ||
+                expected.Contains(Guid.Empty)))
+                return false;
             lock (m_Guard)
             {
                 DateTimeOffset now = DateTimeOffset.UtcNow;
-                var fresh = m_Regions.Values.Where(x => now - x.LastSeen <= FreshFor).ToList();
+                List<Region> fresh;
+                if (m_ExpectedRegionIds != null)
+                {
+                    HashSet<Guid> unique = new HashSet<Guid>(expected);
+                    if (unique.Count != expected.Count) return false;
+                    fresh = new List<Region>(unique.Count);
+                    foreach (Guid regionId in unique)
+                    {
+                        if (!m_Regions.TryGetValue(regionId, out Region snapshot) ||
+                            now - snapshot.LastSeen > FreshFor)
+                            return false;
+                        fresh.Add(snapshot);
+                    }
+                }
+                else
+                {
+                    fresh = m_Regions.Values.Where(x => now - x.LastSeen <= FreshFor).ToList();
+                    if (fresh.Count < m_RequiredRegions || fresh.Count != m_Regions.Count)
+                        return false;
+                }
                 revision = m_Version;
-                if (fresh.Count < m_RequiredRegions || fresh.Count != m_Regions.Count)
-                    return false;
                 // A conflicting owner claim from different reporting regions
                 // invalidates the directory rather than exposing an NPC to
                 // both accounts.
