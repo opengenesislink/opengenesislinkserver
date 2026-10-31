@@ -2090,8 +2090,8 @@ namespace NexVerse.RegionModules.NodeAgent
                 bool merge = nexEvent.Data.TryGetValue("merge", out string mergeRaw) && bool.TryParse(mergeRaw, out bool mergeParsed) && mergeParsed;
                 OglIarOperation operation = string.Equals(action, "export", StringComparison.OrdinalIgnoreCase)
                     ? operations.StartExport(operationId, user, inventoryPath, fileName,
-                        nexEvent.Data.TryGetValue("self_service", out string selfService) &&
-                        string.Equals(selfService, "true", StringComparison.OrdinalIgnoreCase)
+                        nexEvent.Data.TryGetValue("self_service", out string selfServiceValue) &&
+                        string.Equals(selfServiceValue, "true", StringComparison.OrdinalIgnoreCase)
                             ? new Dictionary<string, object> { ["checkPermissions"] = "CT" }
                             : null)
                     : string.Equals(action, "import", StringComparison.OrdinalIgnoreCase)
