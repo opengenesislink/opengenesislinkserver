@@ -58,9 +58,10 @@ namespace NexVerse.Server.Api
         {
             cmd.Parameters.AddWithValue(key, value);
         }
-        private void Purge(SqliteConnection db)
+        private void Purge(SqliteConnection db, SqliteTransaction tx = null)
         {
             using var cmd = db.CreateCommand();
+            cmd.Transaction = tx;
             cmd.CommandText = "DELETE FROM npc_chat_messages WHERE accepted_at < @cutoff";
             Param(cmd, "@cutoff", DateTimeOffset.UtcNow.AddDays(-m_RetentionDays).ToUnixTimeSeconds());
             cmd.ExecuteNonQuery();
@@ -134,7 +135,7 @@ namespace NexVerse.Server.Api
             {
                 using var db = Open();
                 using var tx = db.BeginTransaction();
-                Purge(db);
+                Purge(db,tx);
                 if (!Enabled(db, owner)) return false;
                 using (var cmd = db.CreateCommand())
                 {
@@ -185,9 +186,10 @@ namespace NexVerse.Server.Api
                 Param(cmd,"@after",after);
                 Param(cmd,"@limit",limit+1);
                 using var reader = cmd.ExecuteReader();
+                bool more = false;
                 while (reader.Read())
                 {
-                    if (items.Count == limit) break;
+                    if (items.Count == limit) { more = true; break; }
                     long seq=reader.GetInt64(0);
                     ids.Add(seq);
                     items.Add(new
@@ -200,18 +202,8 @@ namespace NexVerse.Server.Api
                             .UtcDateTime.ToString("O")
                     });
                 }
-                bool more = reader.Read() || items.Count == limit && HasMore(db,owner,npc,ids[ids.Count-1]);
                 return (items, more && ids.Count>0 ? ids[ids.Count-1].ToString() : "");
             }
-        }
-        private static bool HasMore(SqliteConnection db, Guid owner, Guid npc, long seq)
-        {
-            using var cmd=db.CreateCommand();
-            cmd.CommandText="SELECT EXISTS(SELECT 1 FROM npc_chat_messages WHERE owner=@owner AND npc_id=@npc AND seq>@seq)";
-            Param(cmd,"@owner",owner.ToString("D"));
-            Param(cmd,"@npc",npc.ToString("D"));
-            Param(cmd,"@seq",seq);
-            return Convert.ToInt32(cmd.ExecuteScalar())==1;
         }
         internal int RetentionDays => m_RetentionDays;
     }
