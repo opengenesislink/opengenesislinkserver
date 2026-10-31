@@ -29,9 +29,26 @@ namespace OpenGenesisLINK.Addons.OGLWeather
                 return;
             }
 
-            List<(float X, float Y)> points = OglWeatherEmitterPlan.Positions(
-                (int)scene.RegionInfo.RegionSizeX, (int)scene.RegionInfo.RegionSizeY,
-                spacingMeters, maxEmitters);
+            // Static grid emitters can be tens of metres from every viewer.
+            // Collect real root avatars only; NPCs have no rendering viewer.
+            var rootAvatars = new List<Vector3>();
+            foreach (ScenePresence sp in scene.GetScenePresences())
+            {
+                if (sp != null && !sp.IsChildAgent && !sp.IsNPC &&
+                    !sp.IsDeleted && !sp.IsInTransit)
+                    rootAvatars.Add(sp.AbsolutePosition);
+            }
+            var focus = new List<(float X, float Y)>();
+            foreach (Vector3 pos in rootAvatars)
+                focus.Add((pos.X, pos.Y));
+            List<(float X, float Y)> points = OglWeatherEmitterPlan.NearAvatars(
+                (int)scene.RegionInfo.RegionSizeX,
+                (int)scene.RegionInfo.RegionSizeY, focus, maxEmitters);
+            if (points.Count == 0)
+            {
+                Clear(scene, owned);
+                return;
+            }
 
             // Reuse the same non-persistent objects throughout the weather
             // event. If someone returned one, only recreate our tracked ones.
@@ -49,12 +66,25 @@ namespace OpenGenesisLINK.Addons.OGLWeather
 
             for (int index = 0; index < points.Count; index++)
             {
-                if (index == owned.Count)
                 {
                     (float x, float y) = points[index];
-                    float z = Math.Max(22f,
-                        scene.GetGroundHeight(x, y) + heightMeters);
+                    // Keep rainfall around the camera even while flying.
+                    // Emitters remain invisible/phantom and nonpersistent.
+                    float viewerZ = scene.GetGroundHeight(x, y);
+                    foreach (Vector3 avatar in rootAvatars)
+                    {
+                        if (Math.Abs(avatar.X - x) < 0.01f &&
+                            Math.Abs(avatar.Y - y) < 0.01f)
+                        {
+                            viewerZ = Math.Max(viewerZ, avatar.Z);
+                            break;
+                        }
+                    }
+                    float z = Math.Max(scene.GetGroundHeight(x, y) + 12f,
+                        viewerZ + heightMeters);
                     var position = new Vector3(x, y, z);
+                if (index == owned.Count)
+                {
 
                     // A nonphysical, phantom, transparent box that is never
                     // backed up to the region database. No LSL task inventory.
@@ -85,6 +115,8 @@ namespace OpenGenesisLINK.Addons.OGLWeather
                 SceneObjectGroup emitter = owned[index];
                 if (emitter != null && !emitter.IsDeleted)
                 {
+                    // Sources follow moving avatars on each visual refresh.
+                    emitter.AbsolutePosition = position;
                     emitter.RootPart.AddNewParticleSystem(
                         CreateParticles(weather, spacingMeters), false);
                     emitter.RootPart.ScheduleFullUpdate();
@@ -138,15 +170,15 @@ namespace OpenGenesisLINK.Addons.OGLWeather
                 PartStartScaleY = snow ? 0.17f : 0.38f,
                 PartEndScaleX = snow ? 0.12f : 0.02f,
                 PartEndScaleY = snow ? 0.12f : 0.25f,
-                PartMaxAge = snow ? 17f : 8f,
-                BurstRate = snow ? 0.42f : 0.32f,
+                PartMaxAge = snow ? 16f : 6f,
+                BurstRate = snow ? 0.26f : 0.18f,
                 BurstPartCount = (byte)count,
-                BurstRadius = Math.Min(28f, spacingMeters * 0.4f),
-                BurstSpeedMin = snow ? 0.1f : 0.7f,
-                BurstSpeedMax = snow ? 0.8f : 1.3f,
+                BurstRadius = Math.Min(18f, spacingMeters * 0.25f),
+                BurstSpeedMin = snow ? 0.1f : 0.3f,
+                BurstSpeedMax = snow ? 0.8f : 0.7f,
                 PartAcceleration = snow
                     ? new Vector3(0.2f, 0.1f, -0.55f)
-                    : new Vector3(0.3f, 0f, -3.0f),
+                    : new Vector3(0.3f, 0f, -2.0f),
                 MaxAge = 0f
             };
         }
