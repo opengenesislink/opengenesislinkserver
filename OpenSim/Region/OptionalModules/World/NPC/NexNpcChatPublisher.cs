@@ -26,7 +26,6 @@ namespace OpenSim.Region.OptionalModules.World.NPC
         private readonly byte[] m_Key;
         private readonly HttpClient m_Http;
         private readonly ConcurrentQueue<Entry> m_Queue = new();
-        private readonly SemaphoreSlim m_Gate = new(1,1);
         private int m_Queued;
         private int m_Running;
         private volatile bool m_Disposed;
