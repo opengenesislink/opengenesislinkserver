@@ -751,7 +751,9 @@
 ; Uses the authoritative [DatabaseService] MariaDB connection, no SQLite.
 [NexNPCPortal]
     Enabled = false
-    ; Number of expected reporting regions. Require complete signed snapshots.
+    ; 0 = discover active regions from trusted signed NexBus/NodeAgent inventory;
+    ; 1..1024 = explicit minimum for deployments without dynamic inventory.
+    ; Missing region snapshots fail closed and cannot expose partial owner lists.
     ExpectedRegionCount = 0
 
 [NexNPCChat]

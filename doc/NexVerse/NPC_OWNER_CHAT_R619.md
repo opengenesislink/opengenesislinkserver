@@ -1,6 +1,6 @@
 # R620 – NPC-Chatarchivierung in der bestehenden MariaDB
 
-Status: Source/CI-Integration. Produktiv **standardmäßig deaktiviert**. Die R617-Liste aktiver NPCs wird vorausgesetzt.
+Status: Im Stadt-NexVerse Generation-1-Repository sind die NPC-Konfigurationsschalter in `bin/Robust.HG.ini` und `bin/OpenSim.ini` eingeschaltet. Die tatsächliche Kommunikation erfordert weiterhin private HMAC-Schlüssel und HTTPS-Endpunkte auf ROBUST und Simulatoren. Ohne Signaturschlüssel bleibt die API gesperrt.
 
 ## Abgrenzung und Datenschutz
 
@@ -18,7 +18,7 @@ Nur direkte private Instant Messages (IM) zwischen einem aktiv bestätigten NPC 
 ```ini
 [NexNPCPortal]
 Enabled = true
-ExpectedRegionCount = 1
+ExpectedRegionCount = 0
 
 [NexNPCChat]
 Enabled = true
@@ -27,7 +27,7 @@ RetentionDays = 30
 
 `NexNpcChatStore` erbt ausschließlich `StorageProvider` und `ConnectionString` aus der bereits konfigurierten ROBUST-Sektion `[DatabaseService]`. Es werden die separaten Tabellen `npc_chat_consent` und `npc_chat_messages` in dieser MariaDB automatisch angelegt. Falls `[DatabaseService]` nicht auf MariaDB/MySQL zeigt oder die Verbindung nicht funktioniert, bleibt das NPC-Chatarchiv deaktiviert; kein SQLite-Fallback. DB-Zugangsdaten bleiben in der bestehenden gesicherten Konfiguration.
 
-`ExpectedRegionCount` muss zur Zahl aller für das Grid erwarteten aktiven Simulator-Regionen passen; fehlende/stale Snapshots führen absichtlich zu 503. Die Freigabe darf erst nach Abgleich der tatsächlich eingesetzten Regionszahl erfolgen. Die R617-Quellverifizierung bleibt Pflicht.
+`ExpectedRegionCount = 0` ermittelt die aktiven Regionen automatisch aus der durch signierte NexBus-/NodeAgent-Ereignisse aufgebauten Node-Registry. Für jede dort aktive Region wird ein frischer, signierter NPC-Snapshot verlangt. Das Hinzufügen oder Entfernen einer aktiven Region erfordert somit keine INI-Änderung. Ohne aktuelle NodeAgent-Regionen oder bei fehlenden Snapshots antwortet die API mit 503 statt einer Teilmenge. Ein fester Wert zwischen 1 und 1024 bleibt für Installationen ohne dynamische NodeAgent-Ermittlung möglich, ist für Stadt NexVerse aber nicht voreingestellt.
 
 World-Prozessumgebung (Secret selbst niemals in Git, INI oder Logs):
 
@@ -86,4 +86,4 @@ Das Lesen eigener NPC-IMs setzt weiterhin `GET /api/v1/npcs/mine` mit bestätigt
 
 Diese Version umfasst **keine** vollständige persistente Zustellgarantie und keinen Zugriff auf Gespräche Dritter. Das Portal muss Nutzer ausdrücklich auf den Best-Effort-Status und die begrenzte 30-Tage-Aufbewahrung hinweisen. Für garantiert vollständige Archive wäre künftig ein zustellbestätigter persistenter Outbox-Mechanismus **nach einer vorab synchronisierten Consent-Prüfung** erforderlich.
 
-Vor Aktivierung: NPC-Rechte-/Regionsschnappschuss und JSON-API-Tests, R620-Live-MariaDB-Regressionslauf, vollständiger .NET-Release-Build und abgesicherte Internal-API-Firewall. Ohne diese Nachweise **nicht** von produktiver Freigabe sprechen.
+Vor produktivem Betrieb: `NEX_NPC_INGEST_SECRET` und `NEX_NPC_CHAT_SECRET` als **zwei unabhängige** 32+-Byte-Schlüssel in der Prozessumgebung von ROBUST und den Simulatoren bereitstellen. Auf den Simulatoren zusätzlich die beiden `NEX_NPC_*_INGEST_URL` als vertrauenswürdige interne HTTPS-Ziele setzen. Diese Secrets und Ziele dürfen nicht als geheime Werte im öffentlichen GitHub abgelegt werden. Nach einem Code-Update ROBUST und die Simulatoren kontrolliert neu starten. Zusätzlich vollständigen Release-Build, R620-MariaDB-Test, gültige NodeAgent-/NPC-Snapshots und die Internal-API-Firewall prüfen. Ohne diese Nachweise **nicht** von produktiver Freigabe sprechen.
