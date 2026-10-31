@@ -24,7 +24,7 @@ for cfg in cfgs:
     assert 'SharedStorageRoot = ""' in cfg.split("[OglIarSelfService]")[-1]
 
 for marker in (
-    '"Enabled", false', '"SharedStorageRoot",
+    '"Enabled", false', '"SharedStorageRoot",',
     "m_SharedRoot = m_Enabled ?", "maximumTotal",
     "NexScopes.InventoryRead", "NexScopes.InventoryWrite",
     "resident_token_required", "principal.Subject",
