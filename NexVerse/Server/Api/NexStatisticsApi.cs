@@ -8,6 +8,7 @@ using System.Text;
 using System.Text.Json;
 using log4net;
 using NexVerse.Core;
+using NexVerse.Core.ControlPlane;
 using NexVerse.Core.Security;
 using OpenMetaverse;
 using OpenSim.Data;
@@ -28,6 +29,7 @@ namespace NexVerse.Server.Api
         private readonly IGridService m_Grid;
         private readonly IRegionData m_RegionData;
         private readonly IAssetService m_Assets;
+        private readonly NexNodeRegistry m_Nodes;
         private readonly NexApiAuthenticator m_Authenticator;
         private readonly bool m_AllowPublicAggregates;
 
@@ -39,7 +41,8 @@ namespace NexVerse.Server.Api
             NexApiAuthenticator authenticator,
             bool allowPublicAggregates,
             IRegionData regionData = null,
-            IAssetService assets = null)
+            IAssetService assets = null,
+            NexNodeRegistry nodes = null)
         {
             m_UserAccounts = userAccounts;
             m_GridUsers = gridUsers;
@@ -47,6 +50,7 @@ namespace NexVerse.Server.Api
             m_Grid = grid;
             m_RegionData = regionData;
             m_Assets = assets;
+            m_Nodes = nodes;
             m_Authenticator = authenticator;
             m_AllowPublicAggregates = allowPublicAggregates;
         }
@@ -318,6 +322,13 @@ namespace NexVerse.Server.Api
             bool residentOnlineKnown = gridUserAvailable || presenceAvailable;
 
             RegionSnapshot regions = ReadRegions();
+            // In-world presences include NPCs. This is deliberately separate
+            // from authenticated resident/HG sessions (online.total).
+            int? avatarsPresent = m_Nodes == null
+                ? null
+                : m_Nodes.List()
+                    .Where(node => node.State == "online")
+                    .Sum(node => Math.Max(0, node.AgentCount));
             string assetStatus = ReadAssetServiceStatus();
 
             string correlationId = Correlation(response);
@@ -377,6 +388,7 @@ namespace NexVerse.Server.Api
                 online = new
                 {
                     total = gridUserAvailable ? allOnline.Count : (int?)null,
+                    avatars_present_inworld = avatarsPresent,
                     users = includeProtectedDetails
                         ? allOnline.Select(OnlinePayload).ToArray()
                         : Array.Empty<object>()
