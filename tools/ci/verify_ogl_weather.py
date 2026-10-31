@@ -57,7 +57,7 @@ for marker in (
     assert marker in legacy, marker
 assert 'OglWeatherEmitterPlan.NearAvatars(' in legacy
 assert 'emitter.AbsolutePosition = position;' in legacy
-assert 'OglWeatherEmitterPlan.Positions(' in plan
+assert 'public static List<(float X, float Y)> Positions(' in plan
 assert 'Math.Clamp(maximum, 1, 64)' in plan
 assert 'while (columns * (long)rows > maximum)' in plan
 assert 'legacy_prim_emitters_active = legacyParticleEmitters' in viewer
