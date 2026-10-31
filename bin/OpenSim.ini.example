@@ -317,7 +317,9 @@
 ; ============================================================================
 [OpenGenesisLINKIAR]
     Enabled = true
-    StorageRoot = "/var/lib/opengenesislink/iar-work"
+    ; Keep original managed archive storage path for admin compatibility.
+    ; Set this to an absolute temporary work directory only after review.
+    StorageRoot = "OGLInventoryArchives"
     MaximumArchiveMiB = 2048
     StorageBackend = "WebDAV"
     NasHost = "10.78.0.4"
