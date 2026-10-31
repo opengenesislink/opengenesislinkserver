@@ -66,9 +66,10 @@ namespace NexVerse.Server.Api
             Param(cmd, "@cutoff", DateTimeOffset.UtcNow.AddDays(-m_RetentionDays).ToUnixTimeSeconds());
             cmd.ExecuteNonQuery();
         }
-        private static bool Enabled(SqliteConnection db, Guid owner)
+        private static bool Enabled(SqliteConnection db, Guid owner, SqliteTransaction tx = null)
         {
             using var cmd = db.CreateCommand();
+            cmd.Transaction = tx;
             cmd.CommandText = "SELECT enabled FROM npc_chat_consent WHERE owner=@owner";
             Param(cmd, "@owner", owner.ToString("D"));
             return Convert.ToInt32(cmd.ExecuteScalar() ?? 0) == 1;
@@ -136,7 +137,7 @@ namespace NexVerse.Server.Api
                 using var db = Open();
                 using var tx = db.BeginTransaction();
                 Purge(db,tx);
-                if (!Enabled(db, owner)) return false;
+                if (!Enabled(db, owner, tx)) return false;
                 using (var cmd = db.CreateCommand())
                 {
                     cmd.Transaction = tx;
