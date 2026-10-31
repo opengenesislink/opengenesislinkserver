@@ -18,7 +18,7 @@ for marker in (
     '"Both GridUser history and complete UserAccount enumeration are unavailable."',
     'active_last_7_days = gridUserAvailable',
     'online_now = gridUserAvailable ? hypergridOnline.Count : (int?)null',
-    'total = gridUserAvailable && npcOnline.HasValue',
+    'total = gridUserAvailable',
     'authenticated_users = gridUserAvailable ? allOnline.Count : (int?)null',
     'npcs = npcOnline',
     'avatars_present_inworld = avatarsPresent',
@@ -32,7 +32,7 @@ for marker in (
     assert marker in stats, "Statistics fallback contract missing: " + marker
 
 # Never fabricate sessions or treat NPCs as authenticated users.
-assert 'allOnline.Count + npcOnline.Value' in stats
+assert 'allOnline.Count + (npcOnline ?? 0)' in stats
 assert 'allOnline.Select(OnlinePayload)' in stats
 assert 'NexNodeRegistry nodes = null' in stats
 assert 'nodeRegistry);' in routes
