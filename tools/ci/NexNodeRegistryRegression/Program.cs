@@ -43,6 +43,7 @@ internal static class Program
                 ["cpu_seconds"] = "3.500",
                 ["region_count"] = "2",
                 ["agent_count"] = "7",
+                ["npc_count"] = "2",
                 ["managed_region_commands"] = "true",
                 ["cross_region_object_messaging"] = "true",
                 ["cross_owner_object_messaging"] = "false",
@@ -66,6 +67,7 @@ internal static class Program
         Require(first.Hostname == "sim-a.internal", "hostname mismatch");
         Require(first.RegionCount == 2, "heartbeat region count mismatch");
         Require(first.AgentCount == 7, "heartbeat agent count mismatch");
+        Require(first.NpcCount == 2, "NPCs must be included in root avatar count");
         Require(first.ManagedRegionCommands,
             "managed-region capability mismatch");
         Require(first.CrossRegionObjectMessaging,
@@ -99,7 +101,8 @@ internal static class Program
                 ["server_uri"] = "http://sim-a.internal:9000/",
                 ["size_x"] = "512",
                 ["size_y"] = "256",
-                ["agent_count"] = "4"
+                ["agent_count"] = "4",
+                ["npc_count"] = "1"
             }));
 
         NexNodeSnapshot owner =
@@ -118,6 +121,20 @@ internal static class Program
             "region.online size metadata mismatch");
         Require(alpha.AgentCount == 4,
             "region.online agent metadata mismatch");
+        Require(alpha.NpcCount == 1,
+            "region.online NPC metadata mismatch");
+
+        bus.Publish(Event("region.presence", new Dictionary<string, string>
+        {
+            ["node_id"] = "sim-a",
+            ["region_id"] = "11111111-1111-1111-1111-111111111111",
+            ["agent_count"] = "5",
+            ["npc_count"] = "3"
+        }));
+        NexNodeRegionSnapshot live = registry.Get("sim-a").Regions.First(
+            x => x.RegionId == "11111111-1111-1111-1111-111111111111");
+        Require(live.AgentCount == 5 && live.NpcCount == 3,
+            "periodic region.presence must include and refresh NPCs");
 
         bus.Publish(Event(
             "node.heartbeat",
@@ -126,6 +143,7 @@ internal static class Program
                 ["node_id"] = "sim-a",
                 ["region_count"] = "1",
                 ["agent_count"] = "4",
+                ["npc_count"] = "1",
                 ["luna_texture_diagnostic_count"] = "0",
                 ["luna_texture_occurrence_count"] = "0",
                 ["luna_texture_regions_affected"] = "0",
@@ -140,6 +158,8 @@ internal static class Program
 
         Require(pruned.Regions.Count == 1,
             "heartbeat must prune regions no longer reported");
+        Require(pruned.NpcCount == 1,
+            "heartbeat must refresh NPC count without counting twice");
         Require(pruned.LunaTextureDiagnosticCount == 0 &&
                 pruned.LunaTextureOccurrenceCount == 0 &&
                 pruned.LunaTextureRegionsAffected == 0 &&
