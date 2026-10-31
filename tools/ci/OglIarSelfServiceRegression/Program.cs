@@ -14,6 +14,36 @@ internal static class Program
         Guid region = Guid.Parse("11111111-1111-1111-1111-111111111111");
         Guid job = Guid.Parse("22222222-2222-2222-2222-222222222222");
         string path = OglIarTransferPolicy.Resolve("/srv/ogl-iar", region, job);
+        // WebDAV path policy: only server-issued region/job IDs may be keys.
+        Check(OglIarWebDavStorage.BackendName == "WebDAV",
+            "WebDAV is a named backend");
+        Check(OglIarWebDavStorage.ArchiveKey(region, job) ==
+            "11111111-1111-1111-1111-111111111111/22222222-2222-2222-2222-222222222222.iar",
+            "WebDAV object names are UUID-generated");
+        Check(OglIarWebDavStorage.MarkerKey(region, job) ==
+            OglIarWebDavStorage.ArchiveKey(region, job) + ".ogl-retention",
+            "WebDAV retention marker belongs to the same job");
+        try
+        {
+            OglIarWebDavStorage.ArchiveKey(Guid.Empty, job);
+            throw new Exception("empty region accepted");
+        }
+        catch (ArgumentException) { count++; }
+        try
+        {
+            new OglIarWebDavStorage("http://10.78.0.4:5005/IAR/",
+                "10.78.0.4", "ogl-iar", "/tmp/unused");
+            throw new Exception("insecure WebDAV URL accepted");
+        }
+        catch (ArgumentException) { count++; }
+        try
+        {
+            new OglIarWebDavStorage("https://10.78.0.4:5006/IAR/",
+                "10.78.0.5", "ogl-iar", "/tmp/unused");
+            throw new Exception("wrong NAS accepted");
+        }
+        catch (ArgumentException) { count++; }
+
         Check(path.EndsWith("11111111-1111-1111-1111-111111111111/22222222-2222-2222-2222-222222222222.iar"),
             "server-chosen opaque storage path");
         try { OglIarTransferPolicy.Resolve("/", region, job);

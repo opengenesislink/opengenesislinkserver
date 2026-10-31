@@ -308,3 +308,16 @@
 ; Anzeigeoptionen unter [Startup]:
 ; OGLConsoleGermanHelp = true
 ; OGLConsoleExpertHelp = false
+
+; ============================================================================
+; Resident IAR: WebDAV NAS is the default transport. Native archive working
+; files are temporary and MUST fit the configured size. The operator IAR
+; storage location is not changed automatically.
+; Configure the same WebDAV URL and credentials as on ROBUST.
+[OpenGenesisLINKIAR]
+    Enabled = true
+    StorageBackend = "WebDAV"
+    NasHost = "10.78.0.4"
+    WebDavBaseUrl = ""
+    WebDavUsername = ""
+    WebDavPasswordFile = ""

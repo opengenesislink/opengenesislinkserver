@@ -99,6 +99,8 @@ namespace NexVerse.RegionModules.NodeAgent
         private readonly ConcurrentDictionary<string, long> m_NodeUpdateReplay = new();
         private IDisposable m_OarControlSubscription;
         private IDisposable m_IarControlSubscription;
+        private OglIarWebDavStorage m_IarWebDav;
+        private long m_IarWebDavMaximumBytes = 2048L * 1024 * 1024;
         private IDisposable m_ObjectMessageSubscription;
         private IDisposable m_EstateScriptMessageSubscription;
         private IDisposable m_GridScriptMessageSubscription;
@@ -198,6 +200,34 @@ namespace NexVerse.RegionModules.NodeAgent
                     5,
                     300);
 
+            IConfig iarConfig = source.Configs["OpenGenesisLINKIAR"];
+            // Separate per-node NAS credentials. Never distribute passwords
+            // or client authentication material through NexBus.
+            if ((iarConfig?.GetString("StorageBackend", "WebDAV") ?? "WebDAV")
+                .Equals("WebDAV", StringComparison.OrdinalIgnoreCase) &&
+                iarConfig?.GetBoolean("Enabled", false) == true &&
+                !string.IsNullOrWhiteSpace(iarConfig.GetString("WebDavBaseUrl", "")))
+            {
+                try
+                {
+                    m_IarWebDav = new OglIarWebDavStorage(
+                        iarConfig.GetString("WebDavBaseUrl", ""),
+                        iarConfig.GetString("NasHost", "10.78.0.4"),
+                        iarConfig.GetString("WebDavUsername", ""),
+                        iarConfig.GetString("WebDavPasswordFile", ""));
+                    long mib = iarConfig.GetLong("MaximumArchiveMiB", 2048);
+                    if (mib < 101 || mib > 10240)
+                        throw new ArgumentException("Invalid WebDAV IAR archive size cap.");
+                    m_IarWebDavMaximumBytes = mib * 1024L * 1024;
+                }
+                catch (Exception e) when (e is IOException or ArgumentException or
+                    UnauthorizedAccessException or System.Security.SecurityException)
+                {
+                    m_IarWebDav?.Dispose();
+                    m_IarWebDav = null;
+                    m_Log.Error("[OGL-IAR]: WebDAV archive transport disabled.", e);
+                }
+            }
             IConfig oarConfig = source.Configs["OpenGenesisLINKOAR"];
             m_MigrationStorageId =
                 (oarConfig?.GetString("MigrationStorageId", string.Empty) ?? string.Empty)
@@ -399,6 +429,8 @@ namespace NexVerse.RegionModules.NodeAgent
             m_HeartbeatTimer?.Dispose();
             m_LogForwardTimer?.Dispose();
             m_LogForwardClient?.Dispose();
+            m_IarWebDav?.Dispose();
+            m_IarWebDav = null;
             m_Bus?.Dispose();
             m_Transport = null;
             m_Bus = null;
@@ -1961,23 +1993,52 @@ namespace NexVerse.RegionModules.NodeAgent
                 return;
             }
 
-            // A resident IAR must be on the verified NAS, never in local
-            // fallback storage after the WireGuard/NFS mount disappears.
-            if (nexEvent.Data.TryGetValue("self_service", out string self) &&
-                string.Equals(self, "true", StringComparison.OrdinalIgnoreCase))
+            bool selfService = nexEvent.Data.TryGetValue("self_service", out string self) &&
+                string.Equals(self, "true", StringComparison.OrdinalIgnoreCase);
+            bool webdav = selfService &&
+                nexEvent.Data.TryGetValue("storage_backend", out string storageBackend) &&
+                string.Equals(storageBackend, "WebDAV", StringComparison.OrdinalIgnoreCase);
+            string stage = string.Empty;
+            if (selfService)
             {
                 try
                 {
                     if (!nexEvent.Data.TryGetValue("nas_host", out string nasHost) ||
-                        !string.Equals(nasHost, "10.78.0.4", StringComparison.Ordinal))
-                        throw new IOException("Unapproved IAR NAS host.");
-                    OglIarNasStorage.RequireMounted(
-                        Path.GetDirectoryName(operations.StorageRoot), nasHost);
+                        !string.Equals(nasHost, "10.78.0.4", StringComparison.Ordinal) ||
+                        !string.Equals(fileName, operationId.ToString() + ".iar",
+                            StringComparison.OrdinalIgnoreCase))
+                        throw new IOException("Unapproved IAR NAS command.");
+                    if (webdav)
+                    {
+                        if (m_IarWebDav == null)
+                            throw new IOException("IAR WebDAV transport not configured.");
+                        Guid reg = Guid.Parse(regionId.ToString());
+                        Guid id = Guid.Parse(operationId.ToString());
+                        stage = OglIarTransferPolicy.Resolve(
+                            Path.GetDirectoryName(operations.StorageRoot), reg, id);
+                        if (!string.Equals(stage, Path.Combine(operations.StorageRoot, fileName),
+                            StringComparison.OrdinalIgnoreCase))
+                            throw new IOException("IAR WebDAV stage mismatch.");
+                        Directory.CreateDirectory(operations.StorageRoot);
+                        if (string.Equals(action, "import", StringComparison.OrdinalIgnoreCase))
+                        {
+                            if (File.Exists(stage)) throw new IOException("IAR work file already exists.");
+                            m_IarWebDav.Download(reg, id, stage, m_IarWebDavMaximumBytes);
+                        }
+                    }
+                    else if (!nexEvent.Data.TryGetValue("storage_backend", out string backend) ||
+                        string.Equals(backend, "NFS", StringComparison.OrdinalIgnoreCase))
+                    {
+                        OglIarNasStorage.RequireMounted(
+                            Path.GetDirectoryName(operations.StorageRoot), nasHost);
+                    }
+                    else throw new IOException("Unknown IAR backend.");
                 }
-                catch (Exception ex) when (ex is IOException or ArgumentException)
+                catch (Exception ex) when (ex is IOException or ArgumentException or
+                    UnauthorizedAccessException)
                 {
                     PublishIarState(nexEvent, operationId, regionId, action,
-                        "failed", "iar_nas_mount_unavailable", 0, 0);
+                        "failed", "iar_nas_storage_unavailable", 0, 0);
                     return;
                 }
             }
@@ -1986,8 +2047,39 @@ namespace NexVerse.RegionModules.NodeAgent
             {
                 if (operation.RequestId != operationId) return;
                 string state = operation.State.ToString().ToLowerInvariant();
-                PublishIarState(nexEvent, operationId, regionId, action, state, operation.Error, operation.ItemCount, operation.FilteredCount, operation.ProgressPercent, operation.ProgressPhase);
-                if (operation.State == OglIarOperationState.Completed || operation.State == OglIarOperationState.Failed)
+                if (webdav && operation.State is OglIarOperationState.Completed or
+                    OglIarOperationState.Failed)
+                {
+                    // The simulator's native archiver works on a temporary
+                    // file. Report export success only after PUT to WebDAV.
+                    try
+                    {
+                        if (operation.State == OglIarOperationState.Completed &&
+                            string.Equals(action, "export", StringComparison.OrdinalIgnoreCase))
+                            m_IarWebDav.Upload(Guid.Parse(regionId.ToString()),
+                                Guid.Parse(operationId.ToString()), stage, m_IarWebDavMaximumBytes);
+                    }
+                    catch (Exception e)
+                    {
+                        state = "failed";
+                        m_Log.Error("[OGL-IAR]: WebDAV export failed.", e);
+                    }
+                    finally
+                    {
+                        try { if (File.Exists(stage)) File.Delete(stage); }
+                        catch (IOException e) { m_Log.Warn("[OGL-IAR]: Could not delete temporary IAR.", e); }
+                    }
+                    PublishIarState(nexEvent, operationId, regionId, action, state,
+                        state == "failed" ? "iar_webdav_transfer_failed" : operation.Error,
+                        operation.ItemCount, operation.FilteredCount, operation.ProgressPercent, operation.ProgressPhase);
+                    operations.OperationChanged -= Changed;
+                    return;
+                }
+                PublishIarState(nexEvent, operationId, regionId, action,
+                    state, operation.Error, operation.ItemCount, operation.FilteredCount,
+                    operation.ProgressPercent, operation.ProgressPhase);
+                if (operation.State == OglIarOperationState.Completed ||
+                    operation.State == OglIarOperationState.Failed)
                     operations.OperationChanged -= Changed;
             }
 
@@ -1998,21 +2090,34 @@ namespace NexVerse.RegionModules.NodeAgent
                 bool merge = nexEvent.Data.TryGetValue("merge", out string mergeRaw) && bool.TryParse(mergeRaw, out bool mergeParsed) && mergeParsed;
                 OglIarOperation operation = string.Equals(action, "export", StringComparison.OrdinalIgnoreCase)
                     ? operations.StartExport(operationId, user, inventoryPath, fileName,
-                        nexEvent.Data.TryGetValue("self_service", out string selfService) &&
-                        string.Equals(selfService, "true", StringComparison.OrdinalIgnoreCase)
+                        nexEvent.Data.TryGetValue("self_service", out string selfServiceValue) &&
+                        string.Equals(selfServiceValue, "true", StringComparison.OrdinalIgnoreCase)
                             ? new Dictionary<string, object> { ["checkPermissions"] = "CT" }
                             : null)
                     : string.Equals(action, "import", StringComparison.OrdinalIgnoreCase)
                         ? operations.StartImport(operationId, user, inventoryPath, fileName, merge, dryRun)
                         : throw new InvalidOperationException("unsupported_iar_action");
 
-                PublishIarState(nexEvent, operationId, regionId, action, operation.State.ToString().ToLowerInvariant(), operation.Error, operation.ItemCount, operation.FilteredCount, operation.ProgressPercent, operation.ProgressPhase);
-                if (operation.State == OglIarOperationState.Completed || operation.State == OglIarOperationState.Failed)
+                // WebDAV completion is published by Changed only AFTER
+                // the remote upload or local temporary-file cleanup.
+                if (!webdav || operation.State is not
+                    (OglIarOperationState.Completed or OglIarOperationState.Failed))
+                    PublishIarState(nexEvent, operationId, regionId, action,
+                        operation.State.ToString().ToLowerInvariant(), operation.Error,
+                        operation.ItemCount, operation.FilteredCount,
+                        operation.ProgressPercent, operation.ProgressPhase);
+                if (operation.State == OglIarOperationState.Completed ||
+                    operation.State == OglIarOperationState.Failed)
                     operations.OperationChanged -= Changed;
             }
             catch (Exception e)
             {
                 operations.OperationChanged -= Changed;
+                if (webdav && File.Exists(stage))
+                {
+                    try { File.Delete(stage); }
+                    catch (IOException error) { m_Log.Warn("[OGL-IAR]: Could not delete temporary IAR.", error); }
+                }
                 PublishIarState(nexEvent, operationId, regionId, action, "failed", e.Message, 0, 0);
             }
         }
