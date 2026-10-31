@@ -691,9 +691,10 @@ namespace NexVerse.Server.Api
                     }
                 }
             }
-            catch (Exception e) when (e is IOException or UnauthorizedAccessException
-                or ArgumentException)
+            catch (Exception e)
             {
+                // Timers execute on the process ThreadPool. No unexpected
+                // WebDAV/XML/HTTP exception may terminate the ROBUST process.
                 Trace.TraceWarning("OGL-IAR NAS retention skipped: " + e.GetType().Name);
             }
         }
@@ -715,6 +716,7 @@ namespace NexVerse.Server.Api
                         if (job != null)
                         {
                             if (job.State is OglJobState.Running or OglJobState.Queued ||
+                                job.Metadata == null ||
                                 !job.Metadata.TryGetValue("self_service", out string owner) ||
                                 owner != "true" ||
                                 !job.Metadata.TryGetValue("storage_backend", out string backend) ||
