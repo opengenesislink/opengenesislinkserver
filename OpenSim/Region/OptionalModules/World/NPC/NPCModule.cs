@@ -51,6 +51,7 @@ namespace OpenSim.Region.OptionalModules.World.NPC
         private readonly Dictionary<UUID, NPCAvatar> m_avatars = new Dictionary<UUID, NPCAvatar>();
         // Optional signed NPC directory bridge; never captures conversations.
         private NexNpcSnapshotPublisher m_SnapshotPublisher;
+        private NexNpcChatPublisher m_ChatPublisher;
         private NPCOptionsFlags m_NPCOptionFlags;
 
         private int m_MaxNumberNPCperScene = 40;
@@ -95,6 +96,19 @@ namespace OpenSim.Region.OptionalModules.World.NPC
                             "Check HTTPS ingest URL and private 32+ byte secret.");
                     }
                 }
+                if(config.GetBoolean("NexNPCChatEnabled", false))
+                {
+                    try
+                    {
+                        m_ChatPublisher = new NexNpcChatPublisher(
+                            new Uri(Environment.GetEnvironmentVariable("NEX_NPC_CHAT_INGEST_URL") ?? "", UriKind.Absolute),
+                            Environment.GetEnvironmentVariable("NEX_NPC_CHAT_SECRET"));
+                    }
+                    catch(Exception)
+                    {
+                        m_log.Warn("[NPC]: Optional consent-based NPC IM archive disabled. Check HTTPS URL and private 32+ byte secret.");
+                    }
+                }
             }
         }
 
@@ -125,6 +139,7 @@ namespace OpenSim.Region.OptionalModules.World.NPC
         public void Close()
         {
             m_SnapshotPublisher?.Dispose();
+            m_ChatPublisher?.Dispose();
         }
 
         private List<NexNpcPublishEntry> SnapshotForScene(Scene scene)
@@ -237,6 +252,8 @@ namespace OpenSim.Region.OptionalModules.World.NPC
             agentID = npcAvatar.AgentId;
             uint circuit = (uint)Random.Shared.Next(0, int.MaxValue);
             npcAvatar.CircuitCode = circuit;
+            if (m_ChatPublisher != null && !owner.IsZero())
+                npcAvatar.OnOwnerDirectMessage += m_ChatPublisher.Send;
 
             //m_log.DebugFormat(
             //    "[NPC MODULE]: Creating NPC {0} {1} {2}, owner={3}, senseAsAgent={4} at {5} in {6}",

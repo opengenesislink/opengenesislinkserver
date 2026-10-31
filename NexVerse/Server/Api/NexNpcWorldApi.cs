@@ -4,6 +4,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Net;
 using System.Text.Json;
@@ -18,12 +19,14 @@ namespace NexVerse.Server.Api
     {
         private readonly NexApiAuthenticator m_Authentication;
         private readonly NexNpcSnapshotIndex m_Index;
+        private readonly NexNpcChatStore m_Chat;
 
         internal NexNpcWorldApi(NexApiAuthenticator authentication,
-            NexNpcSnapshotIndex index)
+            NexNpcSnapshotIndex index, NexNpcChatStore chat = null)
         {
             m_Authentication = authentication ?? throw new ArgumentNullException(nameof(authentication));
             m_Index = index; // null means no verified simulator feed configured
+            m_Chat = chat;
         }
 
         internal void Handle(IOSHttpRequest request, IOSHttpResponse response)
@@ -32,22 +35,29 @@ namespace NexVerse.Server.Api
             response.AddHeader("X-Content-Type-Options", "nosniff");
             string path = (request.UriPath ?? "").TrimEnd('/');
             bool mine = path == "/api/v1/npcs/mine";
+            bool chatSettings = path == "/api/v1/npcs/chat/settings";
+            bool chatDelete = path == "/api/v1/npcs/chat/history";
             string prefix = "/api/v1/npcs/";
             bool history = path.StartsWith(prefix, StringComparison.Ordinal) &&
                 path.EndsWith("/messages", StringComparison.Ordinal);
-            if (!mine && !history)
+            if (!mine && !history && !chatSettings && !chatDelete)
             {
                 Reply(response,HttpStatusCode.NotFound,new { error="not_found" });
                 return;
             }
-            if (!string.Equals(request.HttpMethod,"GET",StringComparison.OrdinalIgnoreCase))
+            string method = request.HttpMethod?.ToUpperInvariant() ?? "";
+            bool validMethod = (method=="GET" && (mine || history || chatSettings)) ||
+                (method=="PUT" && chatSettings) ||
+                (method=="DELETE" && chatDelete);
+            if (!validMethod)
             {
-                response.AddHeader("Allow", "GET");
+                response.AddHeader("Allow", chatSettings ? "GET, PUT" : chatDelete ? "DELETE" : "GET");
                 Reply(response,HttpStatusCode.MethodNotAllowed,new { error="method_not_allowed" });
                 return;
             }
             if (!m_Authentication.TryAuthenticate(request,
-                NexScopes.RelationshipsRead, out NexPrincipal principal,
+                method=="GET" ? NexScopes.RelationshipsRead : NexScopes.RelationshipsWrite,
+                out NexPrincipal principal,
                 out UserAccount account, out int status, out string reason))
             {
                 response.AddHeader("WWW-Authenticate","Bearer");
@@ -59,6 +69,13 @@ namespace NexVerse.Server.Api
                 owner == Guid.Empty || owner != account.PrincipalID.Guid)
             {
                 Reply(response,HttpStatusCode.Forbidden,new { error="resident_required" });
+                return;
+            }
+            // Consent and deletion are owner-scoped operations; they must
+            // remain available even if simulator snapshots are offline.
+            if (chatSettings || chatDelete)
+            {
+                HandleChatSettings(request,response,owner,method,chatDelete);
                 return;
             }
             if (m_Index == null || !m_Index.TryOwned(owner,
@@ -117,13 +134,112 @@ namespace NexVerse.Server.Api
                 Reply(response,HttpStatusCode.NotFound,new { error="npc_not_found" });
                 return;
             }
-            // An NPC is not the same as a resident peer. Never convert a
-            // resident opt-in IM archive into a guessed NPC conversation.
-            Reply(response,HttpStatusCode.ServiceUnavailable,new
+            if (m_Chat == null)
             {
-                error="npc_chat_archive_unavailable",
-                message="NPC conversations require an explicitly authorized source and retention policy."
-            });
+                Reply(response,HttpStatusCode.ServiceUnavailable,new { error="npc_chat_archive_unavailable" });
+                return;
+            }
+            try
+            {
+                if (!m_Chat.IsEnabled(owner))
+                {
+                    Reply(response,HttpStatusCode.Forbidden,new { error="npc_chat_opt_in_required" });
+                    return;
+                }
+                string rawCursor = request.QueryString?["cursor"] ?? "";
+                if (rawCursor.Length>0 && (!long.TryParse(rawCursor,NumberStyles.None,
+                    CultureInfo.InvariantCulture,out _) || rawCursor.Length>20))
+                {
+                    Reply(response,HttpStatusCode.BadRequest,new { error="invalid_cursor" });
+                    return;
+                }
+                long cursor=rawCursor.Length==0 ? 0 : long.Parse(rawCursor,CultureInfo.InvariantCulture);
+                var page=m_Chat.Read(owner,npcID,cursor,200);
+                Reply(response,HttpStatusCode.OK,new
+                {
+                    npc_id=npcID,
+                    owner_principal_id=owner,
+                    messages=page.Messages,
+                    next_cursor=page.NextCursor,
+                    // The simulator -> World archive is best-effort; no fake
+                    // assertion of a guaranteed lossless historical record.
+                    capture_mode="best_effort_owner_npc_direct_im",
+                    complete=false,
+                    retention_days=m_Chat.RetentionDays
+                });
+            }
+            catch(Exception)
+            { Reply(response,HttpStatusCode.ServiceUnavailable,new { error="npc_chat_archive_unavailable" }); }
+        }
+
+        private void HandleChatSettings(IOSHttpRequest request,IOSHttpResponse response,
+            Guid owner,string method,bool deleting)
+        {
+            if(m_Chat==null)
+            {
+                if(method=="GET")
+                    Reply(response,HttpStatusCode.OK,new { enabled=false,available=false,retention_days=(int?)null });
+                else
+                    Reply(response,HttpStatusCode.ServiceUnavailable,new { error="npc_chat_archive_unavailable" });
+                return;
+            }
+            try
+            {
+                if(deleting)
+                {
+                    m_Chat.DeleteHistory(owner);
+                    Reply(response,HttpStatusCode.OK,new { deleted=true });
+                    return;
+                }
+                if(method=="GET")
+                {
+                    Reply(response,HttpStatusCode.OK,new
+                    {
+                        enabled=m_Chat.IsEnabled(owner), available=true,
+                        retention_days=m_Chat.RetentionDays,
+                        capture_mode="best_effort_owner_npc_direct_im",
+                        complete=false
+                    });
+                    return;
+                }
+                // Explicit owner permission: a mere true without a consent
+                // acknowledgement is never accepted. No third-party chat.
+                using var buffer=new MemoryStream();
+                byte[] bytes=new byte[256];
+                int read;
+                while((read=request.InputStream.Read(bytes,0,bytes.Length))>0)
+                {
+                    if(buffer.Length+read>1024)
+                    { Reply(response,HttpStatusCode.RequestEntityTooLarge,new { error="body_too_large" });return; }
+                    buffer.Write(bytes,0,read);
+                }
+                using var doc=JsonDocument.Parse(buffer.ToArray());
+                var body=doc.RootElement;
+                if(body.ValueKind!=JsonValueKind.Object ||
+                    !body.TryGetProperty("enabled",out JsonElement enabled) ||
+                    (enabled.ValueKind!=JsonValueKind.True && enabled.ValueKind!=JsonValueKind.False))
+                {
+                    Reply(response,HttpStatusCode.BadRequest,new { error="invalid_consent" });
+                    return;
+                }
+                bool grant=enabled.GetBoolean();
+                if(grant && (!body.TryGetProperty("acknowledge_private_owner_npc_im",out JsonElement ack) ||
+                    ack.ValueKind!=JsonValueKind.True))
+                {
+                    Reply(response,HttpStatusCode.BadRequest,new { error="explicit_npc_chat_consent_required" });
+                    return;
+                }
+                m_Chat.SetEnabled(owner,grant);
+                Reply(response,HttpStatusCode.OK,new
+                {
+                    enabled=grant,history_deleted=!grant,
+                    retention_days=m_Chat.RetentionDays
+                });
+            }
+            catch(JsonException)
+            { Reply(response,HttpStatusCode.BadRequest,new { error="invalid_json" }); }
+            catch(Exception)
+            { Reply(response,HttpStatusCode.ServiceUnavailable,new { error="npc_chat_archive_unavailable" }); }
         }
 
         private static void Reply(IOSHttpResponse response,
