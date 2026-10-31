@@ -17,7 +17,9 @@ for rel, arch, enabled, http, xmlrpc in (
     # the reusable Standalone example and a bounded site-specific allowance
     # for the active simulator INI, without dropping the strict INI parser,
     # HTTP auto-port checks or disabled-Experiences contract.
-    max_lines = 380 if rel == "bin/OpenSim.ini" else 320
+    # The compact profiles now also declare the WebDAV IAR backend without
+    # changing existing startup/physics/auto-port semantics.
+    max_lines = 400 if rel == "bin/OpenSim.ini" else 340
     assert len(src.splitlines()) < max_lines, rel
     assert "[Startup] section below." not in src
     assert not any(k in cfg.sections() for k in ("OGLPathfinding", "OGLNpcNavigation"))
