@@ -250,6 +250,7 @@ namespace NexVerse.Server.Api
                 ["merge"] = merge.ToString(),
                 ["dry_run"] = dry.ToString(),
                 ["self_service"] = "true",
+                ["storage_backend"] = m_UseWebDav ? "WebDAV" : "NFS",
                 ["retention_days"] = m_RetentionDays.ToString(CultureInfo.InvariantCulture)
             };
             OglJobSnapshot job;
@@ -699,23 +700,39 @@ namespace NexVerse.Server.Api
 
         private void CleanupExpiredWebDav()
         {
-            // Only delete files belonging to authenticated self-service jobs.
-            // Unknown orphan archives require a separate NAS retention policy.
-            foreach (OglJobSnapshot job in m_Jobs.List(1000))
+            // Scan only the dedicated WebDAV share, managed region UUID
+            // directories and managed job UUID archive names. A missing
+            // job must have our retention marker, never delete unknown files.
+            DateTimeOffset now = DateTimeOffset.UtcNow;
+            foreach (Guid region in m_WebDav.ListRegions())
             {
-                if (job?.Metadata == null ||
-                    !job.Metadata.TryGetValue("self_service", out string self) ||
-                    self != "true" ||
-                    job.State is OglJobState.Queued or OglJobState.Running ||
-                    !IsExpired(job))
-                    continue;
-                if (!Guid.TryParseExact(job.JobId, "D", out Guid id) ||
-                    !Guid.TryParseExact(job.Metadata.GetValueOrDefault("region_id"), "D",
-                        out Guid region))
-                    continue;
-                lock (m_Locks.GetOrAdd(job.JobId, _ => new object()))
+                foreach (Guid id in m_WebDav.ListArchiveIds(region))
                 {
-                    m_WebDav.Delete(region, id);
+                    string jobKey = id.ToString("D");
+                    lock (m_Locks.GetOrAdd(jobKey, _ => new object()))
+                    {
+                        OglJobSnapshot job = m_Jobs.Get(jobKey);
+                        if (job != null)
+                        {
+                            if (job.State is OglJobState.Running or OglJobState.Queued ||
+                                !job.Metadata.TryGetValue("self_service", out string owner) ||
+                                owner != "true" ||
+                                !job.Metadata.TryGetValue("storage_backend", out string backend) ||
+                                backend != "WebDAV" ||
+                                !job.Metadata.TryGetValue("region_id", out string regionText) ||
+                                regionText != region.ToString("D") ||
+                                !IsExpired(job))
+                                continue;
+                        }
+                        else
+                        {
+                            DateTimeOffset? marked = m_WebDav.MarkerModified(region, id);
+                            if (!marked.HasValue ||
+                                !OglIarNasStorage.IsExpired(marked.Value, now, m_RetentionDays))
+                                continue;
+                        }
+                        m_WebDav.Delete(region, id);
+                    }
                 }
             }
         }
