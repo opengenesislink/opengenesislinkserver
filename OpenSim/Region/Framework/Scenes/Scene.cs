@@ -5279,7 +5279,7 @@ Label_GroupsDone:
 
         public int GetRootNPCCount()
         {
-            return m_sceneGraph.GetRootAgentCount();
+            return m_sceneGraph.GetRootNPCCount();
         }
 
         public int GetChildAgentCount()
@@ -6355,9 +6355,11 @@ Environment.Exit(1);
                     etcd.Store("HealthFlags", flags.ToString(), 300000);
                 }
 
+                // RootAgents tracks in-world avatar presence, including NPCs.
+                // Account/login statistics remain based on real user sessions.
                 int roots = 0;
                 foreach (ScenePresence sp in GetScenePresences())
-                    if (!sp.IsChildAgent && !sp.IsNPC)
+                    if (!sp.IsChildAgent && !sp.IsDeleted && !sp.IsInTransit)
                         roots++;
 
                 if (m_lastUsers != roots)
