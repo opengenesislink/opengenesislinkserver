@@ -653,11 +653,9 @@ jobs:
           dotnet run --configuration Release --project tools/ci/NexNpcDirectoryRegression/NexNpcDirectoryRegression.csproj
           python3 tools/ci/verify_npc_owner_bridge_r617.py
 
-      - name: Regression-test NPC direct IM archive opt-in, owner privacy and retention (R619)
+      - name: Verify NPC IM archive privacy and MariaDB-only wiring (R620)
         shell: bash
-        run: |
-          dotnet run --configuration Release --project tools/ci/NexNpcChatStoreRegression/NexNpcChatStoreRegression.csproj
-          python3 tools/ci/verify_npc_chat_r619.py
+        run: python3 tools/ci/verify_npc_chat_r619.py
 
       - name: Regression-test OGL FastMap deferred startup queue
         shell: bash
@@ -1562,6 +1560,12 @@ jobs:
         env:
           NEX_PORTAL_IM_MARIADB: "Data Source=127.0.0.1;Port=${{ job.services.mariadb.ports[3306] }};Database=ogl_ledger_ci;User ID=ledger;Password=ledgerpass;Old Guids=true;SslMode=None;"
         run: dotnet run --configuration Release --project tools/ci/NexPortalImMariaDbRegression/NexPortalImMariaDbRegression.csproj
+
+      - name: Run real MariaDB NPC owner direct-IM archive regression (R620)
+        shell: bash
+        env:
+          NEX_NPC_CHAT_MARIADB: "Data Source=127.0.0.1;Port=${{ job.services.mariadb.ports[3306] }};Database=ogl_ledger_ci;User ID=ledger;Password=ledgerpass;Old Guids=true;SslMode=None;"
+        run: dotnet run --configuration Release --project tools/ci/NexNpcChatStoreRegression/NexNpcChatStoreRegression.csproj
 
       - name: Run real MariaDB NexGroups authorization and invitation regression
         shell: bash
