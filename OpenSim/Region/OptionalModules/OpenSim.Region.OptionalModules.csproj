@@ -170,6 +170,9 @@
     <Compile Include="World\NPC\NPCModule.cs">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="World\NPC\NexNpcSnapshotPublisher.cs">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="World\MoneyModule\SampleMoneyModule.cs">
       <SubType>Code</SubType>
     </Compile>
