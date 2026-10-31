@@ -319,7 +319,12 @@ namespace NexVerse.Server.Api
                 ["/api/v1/npcs/mine"] = AuthenticatedOperations(
                     ("get", "Eigene, vom Simulator bestätigte aktive NPCs; bei fehlender Snapshot-Quelle nicht verfügbar", "relationships:read", "200")),
                 ["/api/v1/npcs/{npcId}/messages"] = AuthenticatedOperations(
-                    ("get", "Noch nicht verfügbar: NPC-Chat erfordert eine separat autorisierte Aufzeichnungsquelle", "relationships:read", "503")),
+                    ("get", "Nur eigene NPC-Direktnachrichten nach ausdruecklicher Aktivierung; ohne Archiv 503", "relationships:read", "200")),
+                ["/api/v1/npcs/chat/settings"] = AuthenticatedOperations(
+                    ("get", "Eigene NPC-IM-Einwilligung und Archiv-Verfuegbarkeit", "relationships:read", "200"),
+                    ("put", "NPC-Direkt-IM-Aufzeichnung ausdruecklich aktivieren oder deaktivieren", "relationships:write", "200")),
+                ["/api/v1/npcs/chat/history"] = AuthenticatedOperations(
+                    ("delete", "Alle eigenen archivierten NPC-Direktnachrichten loeschen", "relationships:write", "200")),
                 ["/api/v1/messages"] = AuthenticatedOperations(
                     ("get", "Eigene, opt-in gespeicherte IM-Konversationen lesen", "relationships:read", "200"),
                     ("post", "Inworld-Direktnachricht an einen bestätigten lokalen Freund zustellen", "relationships:write", "202")),
