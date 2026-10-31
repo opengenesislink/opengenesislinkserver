@@ -44,8 +44,9 @@ unberührt. Der 1blu-OpenVZ-Host benötigt für WebDAV kein NFS-Kernelmodul.
 
    ```bash
    sudo install -d -m 700 /etc/opengenesislink
-   sudo sh -c 'umask 077; cat > /etc/opengenesislink/iar-webdav.pass'
-   # Passwort eingeben, mit Ctrl+D beenden. Achtung: eigene Shell ohne Echo-Schutz.
+   read -rsp "NAS-WebDAV-Passwort: " OGL_IAR_PASS; echo
+   printf '%s' "$OGL_IAR_PASS" | sudo tee /etc/opengenesislink/iar-webdav.pass >/dev/null
+   unset OGL_IAR_PASS
    sudo chmod 600 /etc/opengenesislink/iar-webdav.pass
    ```
 
@@ -106,15 +107,18 @@ temporären Speicher für maximale Archive berücksichtigen.**
   `<region-uuid>/<operation-uuid>.iar`-Adresse und eine
   `.ogl-retention`-Markierung im NAS-Ordner.
 - Im aktiven ROBUST entfernt der stündliche Worker abgelaufene
-  Archive, soweit die dazugehörigen **terminalen Self-Service-Jobs**
-  noch im verfügbaren Jobstore stehen. Downloads werden nach
-  Ablauf auch vor der physischen Löschung gesperrt.
-- **Einschränkung:** Der aktuelle WebDAV-Worker bereinigt keine
-  verwaisten Archive nach Jobstore-Rotation und nicht während
-  ROBUST-Ausfällen. Für eine garantierte physische 30-Tage-Grenze
-  zusätzlich eine unabhängige Retention am NAS konfigurieren,
-  **nur auf dem dedizierten IAR-Archivordner**, nicht auf anderen
-  NAS-Freigaben. NAS-Snapshots/Recycle-Bin haben eigene Retention.
+  terminale Self-Service-Archive. Auch verwaiste, UUID-benannte
+  Archivdateien können nach Jobstore-Rotation entfernt werden, **nur
+  wenn eine passende WebDAV-Retention-Markierung mit ausreichend altem
+  Änderungsdatum existiert**. Andere NAS-Dateien werden nicht gelöscht.
+  Downloads werden nach Ablauf vor der physischen Löschung gesperrt.
+- **Einschränkung:** Bei WebDAV-Ausfall, nicht unterstützter
+  PROPFIND-/HEAD-Metadatenabfrage, fehlendem Marker oder
+  gestopptem ROBUST läuft die physische Löschung nicht garantiert
+  fristgerecht. Für eine garantierte 30-Tage-Grenze zusätzlich eine
+  unabhängige Retention auf dem NAS einrichten, **nur auf dem
+  dedizierten IAR-Archivordner**. NAS-Snapshots/Recycle-Bin haben
+  eigene Retention.
 - Staged Uploads nach über 24 Stunden Inaktivität werden beim
   nächsten Jobstart des Avatars verworfen. Crash-Restbestände
   auf dem Simulator erfordern derzeit operative Kontrolle.
