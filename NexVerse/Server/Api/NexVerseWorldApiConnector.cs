@@ -2,6 +2,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using log4net;
 using Nini.Config;
 using NexVerse.Core.Audit;
@@ -664,10 +665,22 @@ namespace NexVerse.Server.Api
                 {
                     string npcSecret = Environment.GetEnvironmentVariable("NEX_NPC_INGEST_SECRET");
                     int expectedRegions = npcConfig.GetInt("ExpectedRegionCount", 0);
+                    // ExpectedRegionCount = 0 uses the already authenticated
+                    // NexBus/NodeAgent registry. New/removed regions are
+                    // recognized without rewriting ROBUST.HG.ini.
+                    bool autoRegions = expectedRegions == 0;
                     if (System.Text.Encoding.UTF8.GetByteCount(npcSecret ?? "") >= 32 &&
-                        expectedRegions > 0 && expectedRegions <= 1024)
+                        (autoRegions || expectedRegions > 0 && expectedRegions <= 1024))
                     {
-                        npcIndex = new NexNpcSnapshotIndex(expectedRegions);
+                        npcIndex = autoRegions
+                            ? new NexNpcSnapshotIndex(1, () => nodeRegistry.List()
+                                .Where(node => node.State == "online")
+                                .SelectMany(node => node.Regions)
+                                .Select(region => Guid.TryParse(region.RegionId, out Guid id)
+                                    ? id : Guid.Empty)
+                                .Distinct()
+                                .ToArray())
+                            : new NexNpcSnapshotIndex(expectedRegions);
                         NexNpcSnapshotIngress npcIngress =
                             new NexNpcSnapshotIngress(npcSecret, npcIndex);
                         server.AddSimpleStreamHandler(new SimpleStreamHandler(
@@ -679,7 +692,7 @@ namespace NexVerse.Server.Api
                     {
                         m_Log.Warn("[NEX-NPC]: No valid NEX_NPC_INGEST_SECRET; " +
                             "NPC owner directory requires a valid private secret " +
-                            "and explicit ExpectedRegionCount (1-1024).");
+                            "and a valid region inventory (automatic or explicit ExpectedRegionCount).");
                     }
                 }
                 // R619: a distinct opt-in archive with its own signing key;
