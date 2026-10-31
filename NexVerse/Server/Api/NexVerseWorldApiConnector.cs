@@ -682,8 +682,38 @@ namespace NexVerse.Server.Api
                             "and explicit ExpectedRegionCount (1-1024).");
                     }
                 }
+                // R619: a distinct opt-in archive with its own signing key;
+                // disabled until the operator configures a durable store.
+                NexNpcChatStore npcChatStore = null;
+                IConfig npcChatConfig = config.Configs["NexNPCChat"];
+                if (npcIndex != null && npcChatConfig?.GetBoolean("Enabled", false) == true)
+                {
+                    string npcChatSecret = Environment.GetEnvironmentVariable("NEX_NPC_CHAT_SECRET");
+                    if (System.Text.Encoding.UTF8.GetByteCount(npcChatSecret ?? "") >= 32)
+                    {
+                        try
+                        {
+                            npcChatStore = new NexNpcChatStore(
+                                npcChatConfig.GetString("StoragePath", "data/nexverse-npc-chat.sqlite"),
+                                npcChatConfig.GetInt("RetentionDays", 30));
+                            NexNpcChatIngress npcChatIngress =
+                                new NexNpcChatIngress(npcChatSecret, npcIndex, npcChatStore);
+                            server.AddSimpleStreamHandler(new SimpleStreamHandler(
+                                "/internal/nexnpc/chat/v1",
+                                npcChatIngress.Handle,
+                                "Signed owner-consented NPC direct IM ingress"), true);
+                        }
+                        catch (Exception e)
+                        {
+                            npcChatStore = null;
+                            m_Log.Error("[NEX-NPC]: Consent-based NPC chat archive unavailable.", e);
+                        }
+                    }
+                    else
+                        m_Log.Warn("[NEX-NPC]: NEX_NPC_CHAT_SECRET is missing or too short; NPC chat remains disabled.");
+                }
                 NexNpcWorldApi npcWorldApi =
-                    new NexNpcWorldApi(authenticator, npcIndex);
+                    new NexNpcWorldApi(authenticator, npcIndex, npcChatStore);
                 server.AddSimpleStreamHandler(new SimpleStreamHandler(
                     "/api/v1/npcs", apiGate.Wrap(npcWorldApi.Handle),
                     "Owner-scoped NPC directory and private conversation availability"), true);
