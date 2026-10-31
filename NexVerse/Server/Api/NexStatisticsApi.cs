@@ -248,21 +248,60 @@ namespace NexVerse.Server.Api
                     .ThenBy(x => x.Name, StringComparer.OrdinalIgnoreCase)
                     .ToList();
 
+            // NPCs are real in-world avatar presences, but not authenticated
+            // GridUser sessions. Merge them into public online totals without
+            // inventing login sessions or duplicate UserAccount records.
+            NexNodeSnapshot[] onlineNodes = m_Nodes?.List()
+                .Where(node => node.State == "online").ToArray();
+            int? npcOnline = onlineNodes == null
+                ? null : onlineNodes.Sum(node => Math.Max(0, node.NpcCount));
+            int? avatarsPresent = onlineNodes == null
+                ? null : onlineNodes.Sum(node => Math.Max(0, node.AgentCount));
+
+            // Include NPC-only regions in authenticated per-region statistics.
+            // If a region is temporarily reported by two nodes, use the
+            // freshest authoritative presence update to avoid duplicate NPCs.
+            var npcRegions = onlineNodes == null
+                ? Enumerable.Empty<NexNodeRegionSnapshot>()
+                : onlineNodes.SelectMany(node => node.Regions)
+                    .Where(region => region.NpcCount > 0 &&
+                        Guid.TryParse(region.RegionId, out _))
+                    .GroupBy(region => region.RegionId, StringComparer.OrdinalIgnoreCase)
+                    .Select(group => group.OrderByDescending(region => region.LastSeen).First());
+
             object[] regionBreakdown =
-                allOnline.GroupBy(x => x.RegionId)
-                    .Select(group => new
-                    {
-                        region_id = group.Key.IsZero() ? string.Empty : group.Key.ToString(),
-                        region_name = group.Select(x => x.RegionName)
-                            .FirstOrDefault(x => !string.IsNullOrWhiteSpace(x)) ?? string.Empty,
-                        online_total = group.Count(),
-                        residents = group.Count(x => x.Type == "resident"),
-                        hypergrid = group.Count(x => x.Type == "hypergrid")
-                    })
-                    .OrderByDescending(x => x.online_total)
-                    .ThenBy(x => x.region_name, StringComparer.OrdinalIgnoreCase)
-                    .Cast<object>()
-                    .ToArray();
+                allOnline.Select(record => new
+                {
+                    RegionId = record.RegionId.ToString(),
+                    RegionName = record.RegionName,
+                    Residents = record.Type == "resident" ? 1 : 0,
+                    Hypergrid = record.Type == "hypergrid" ? 1 : 0,
+                    Npcs = 0
+                })
+                .Concat(npcRegions.Select(region => new
+                {
+                    RegionId = region.RegionId,
+                    RegionName = region.Name,
+                    Residents = 0,
+                    Hypergrid = 0,
+                    Npcs = region.NpcCount
+                }))
+                .GroupBy(item => item.RegionId, StringComparer.OrdinalIgnoreCase)
+                .Select(group => new
+                {
+                    region_id = Guid.TryParse(group.Key, out Guid regionGuid) &&
+                        regionGuid != Guid.Empty ? group.Key : string.Empty,
+                    region_name = group.Select(x => x.RegionName)
+                        .FirstOrDefault(x => !string.IsNullOrWhiteSpace(x)) ?? string.Empty,
+                    online_total = group.Sum(x => x.Residents + x.Hypergrid + x.Npcs),
+                    residents = group.Sum(x => x.Residents),
+                    hypergrid = group.Sum(x => x.Hypergrid),
+                    npcs = group.Sum(x => x.Npcs)
+                })
+                .OrderByDescending(group => group.online_total)
+                .ThenBy(group => group.region_name, StringComparer.OrdinalIgnoreCase)
+                .Cast<object>()
+                .ToArray();
 
             HashSet<string> onlineHypergridKeys =
                 new HashSet<string>(
@@ -322,13 +361,6 @@ namespace NexVerse.Server.Api
             bool residentOnlineKnown = gridUserAvailable || presenceAvailable;
 
             RegionSnapshot regions = ReadRegions();
-            // In-world presences include NPCs. This is deliberately separate
-            // from authenticated resident/HG sessions (online.total).
-            int? avatarsPresent = m_Nodes == null
-                ? null
-                : m_Nodes.List()
-                    .Where(node => node.State == "online")
-                    .Sum(node => Math.Max(0, node.AgentCount));
             string assetStatus = ReadAssetServiceStatus();
 
             string correlationId = Correlation(response);
@@ -387,7 +419,13 @@ namespace NexVerse.Server.Api
                 protected_details = includeProtectedDetails,
                 online = new
                 {
-                    total = gridUserAvailable ? allOnline.Count : (int?)null,
+                    // Both user sessions and NPCs are counted in the official
+                    // avatar total. The authenticated user list below contains
+                    // only real identities, never synthetic logins for NPCs.
+                    total = gridUserAvailable && npcOnline.HasValue
+                        ? allOnline.Count + npcOnline.Value : (int?)null,
+                    authenticated_users = gridUserAvailable ? allOnline.Count : (int?)null,
+                    npcs = npcOnline,
                     avatars_present_inworld = avatarsPresent,
                     users = includeProtectedDetails
                         ? allOnline.Select(OnlinePayload).ToArray()
