@@ -1,4 +1,4 @@
-# R619 – Private NPC-Chatarchivierung mit Eigentümer-Einwilligung
+# R620 – NPC-Chatarchivierung in der bestehenden MariaDB
 
 Status: Source/CI-Integration. Produktiv **standardmäßig deaktiviert**. Die R617-Liste aktiver NPCs wird vorausgesetzt.
 
@@ -9,7 +9,7 @@ Nur direkte private Instant Messages (IM) zwischen einem aktiv bestätigten NPC 
 - Default: keine Speicherung; ohne Einwilligung wird der signierte IM-Ingest mit 403 abgewiesen.
 - Abschalten löscht **sämtliche** bisher gespeicherten NPC-IMs dieses Eigentümers, während die Einwilligung deaktiviert wird.
 - Separater Lösch-Endpunkt entfernt alle archivierten NPC-IMs des Besitzers, ohne die Einwilligung zu ändern.
-- SQLite-Datenbank ist separat von OpenSim-IMs und erhält auf Unix-Modulen Rechte 0600.
+- Speicherung ausschließlich in der bereits verwendeten OpenGenesisLINK-MariaDB. Die neuen InnoDB-Tabellen `npc_chat_consent` und `npc_chat_messages` sind logisch von den OpenSim- und Bürger-IM-Tabellen getrennt. **Keine SQLite-Dateien, kein SQLite-Fallback und keine zweite Datenbank.**
 - Standard-Aufbewahrung 30 Tage, konfigurierbar 1–90 Tage; maximal 10.000 Einträge pro Eigentümer, 4 KiB pro Nachricht.
 - Die Nachrichten sind **best effort**: Simulator-zu-World wird in einem flüchtigen, begrenzten Speicherpuffer mit maximal drei Zustellversuchen übertragen, nicht dauerhaft lokal gepuffert. Der API-Verlauf setzt deshalb `complete=false` und `capture_mode=best_effort_owner_npc_direct_im`. Nach einer Unterbrechung kann ein Teil fehlen. Es gibt **keine** rückwirkende Rekonstruktion.
 
@@ -22,9 +22,10 @@ ExpectedRegionCount = 1
 
 [NexNPCChat]
 Enabled = true
-StoragePath = "/var/lib/opengenesislink/npc-chat/npc-chat.sqlite"
 RetentionDays = 30
 ```
+
+`NexNpcChatStore` erbt ausschließlich `StorageProvider` und `ConnectionString` aus der bereits konfigurierten ROBUST-Sektion `[DatabaseService]`. Es werden die separaten Tabellen `npc_chat_consent` und `npc_chat_messages` in dieser MariaDB automatisch angelegt. Falls `[DatabaseService]` nicht auf MariaDB/MySQL zeigt oder die Verbindung nicht funktioniert, bleibt das NPC-Chatarchiv deaktiviert; kein SQLite-Fallback. DB-Zugangsdaten bleiben in der bestehenden gesicherten Konfiguration.
 
 `ExpectedRegionCount` muss zur Zahl aller für das Grid erwarteten aktiven Simulator-Regionen passen; fehlende/stale Snapshots führen absichtlich zu 503. Die Freigabe darf erst nach Abgleich der tatsächlich eingesetzten Regionszahl erfolgen. Die R617-Quellverifizierung bleibt Pflicht.
 
@@ -35,7 +36,7 @@ NEX_NPC_INGEST_SECRET=<separates zufälliges 32+ Byte Secret>
 NEX_NPC_CHAT_SECRET=<anderes zufälliges 32+ Byte Secret>
 ```
 
-Die Verzeichnisse müssen für den ROBUST-Prozess schreibbar sein. Bei restriktiven Datei-/Container-Nutzern auf Besitzerrechte achten. HMAC-geschützte interne Pfade dürfen **nur** für autorisierte Simulatoren über HTTPS/WireGuard erreichbar sein; der Reverse-Proxy soll diese internen Pfade nicht öffentlich anbieten.
+Das bestehende MariaDB-Datenbankkonto des ROBUST-Prozesses benötigt für die beiden neuen Tabellen `CREATE`, `SELECT`, `INSERT`, `UPDATE` und `DELETE`. Bei der initialen Inbetriebnahme muss das Anlegen der Tabellen erlaubt sein. Benutzer- und NPC-IMs erhalten keine lokalen Datenbankdateien. HMAC-geschützte interne Pfade dürfen **nur** für autorisierte Simulatoren über HTTPS/WireGuard erreichbar sein; der Reverse-Proxy soll diese internen Pfade nicht öffentlich anbieten.
 
 ## Simulator – Beispiel
 
@@ -85,4 +86,4 @@ Das Lesen eigener NPC-IMs setzt weiterhin `GET /api/v1/npcs/mine` mit bestätigt
 
 Diese Version umfasst **keine** vollständige persistente Zustellgarantie und keinen Zugriff auf Gespräche Dritter. Das Portal muss Nutzer ausdrücklich auf den Best-Effort-Status und die begrenzte 30-Tage-Aufbewahrung hinweisen. Für garantiert vollständige Archive wäre künftig ein zustellbestätigter persistenter Outbox-Mechanismus **nach einer vorab synchronisierten Consent-Prüfung** erforderlich.
 
-Vor Aktivierung: NPC-Rechte-/Regionsschnappschuss und JSON-API-Tests, R619-Store-Regressionslauf, vollständiger .NET-Release-Build und abgesicherte Internal-API-Firewall. Ohne diese Nachweise **nicht** von produktiver Freigabe sprechen.
+Vor Aktivierung: NPC-Rechte-/Regionsschnappschuss und JSON-API-Tests, R620-Live-MariaDB-Regressionslauf, vollständiger .NET-Release-Build und abgesicherte Internal-API-Firewall. Ohne diese Nachweise **nicht** von produktiver Freigabe sprechen.
