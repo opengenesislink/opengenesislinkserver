@@ -693,8 +693,12 @@ namespace NexVerse.Server.Api
                     {
                         try
                         {
+                            // Use the existing grid database; NPC data lives
+                            // in separate InnoDB tables, never a local file.
+                            // No independent NPC-DB credentials or SQLite fallback.
                             npcChatStore = new NexNpcChatStore(
-                                npcChatConfig.GetString("StoragePath", "data/nexverse-npc-chat.sqlite"),
+                                databaseStorageProvider,
+                                databaseConnectionString,
                                 npcChatConfig.GetInt("RetentionDays", 30));
                             NexNpcChatIngress npcChatIngress =
                                 new NexNpcChatIngress(npcChatSecret, npcIndex, npcChatStore);
