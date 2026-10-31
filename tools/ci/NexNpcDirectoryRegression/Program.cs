@@ -57,6 +57,42 @@ Check(index.TryOwned(owner1,out var deduplicated,out _)&&
 Check(index.Replace(region1,2,new()),"Empty verified region snapshot accepted");
 Check(index.TryOwned(owner1,out var none,out _)&&none.Count==1,
     "Empty region does not delete NPCs in another valid region");
+// R621: With ExpectedRegionCount=0, use the *independently observed*
+// trusted NodeAgent region inventory. Missing snapshot or zero regions fails
+// closed; offline/stale region data must never appear under the owner's name.
+var liveRegions = new HashSet<Guid> { region1, region2 };
+var automatic = new NexNpcSnapshotIndex(1, () => liveRegions.ToArray());
+Check(!automatic.TryOwned(owner1, out _, out _),
+    "Auto regions: empty signed snapshot inventory unavailable");
+Check(automatic.Replace(region1, 1, new() { N(id1, owner1) }),
+    "Auto regions: first signed snapshot accepted");
+Check(!automatic.TryOwned(owner1, out _, out _),
+    "Auto regions: missing second expected region fails closed");
+Check(automatic.Replace(region2, 1, new() { N(id2, owner1) }),
+    "Auto regions: second signed snapshot accepted");
+Check(automatic.TryOwned(owner1, out var allLive, out _) && allLive.Count == 2,
+    "Auto regions: all reported NPCs visible");
+liveRegions.Remove(region2);
+Check(automatic.TryOwned(owner1, out var onlyLive, out _) &&
+    onlyLive.Count == 1 && onlyLive[0].npc_id == id1,
+    "Auto regions: offline-region snapshots cannot leak stale NPCs");
+liveRegions.Clear();
+Check(!automatic.TryOwned(owner1, out _, out _),
+    "Auto regions: missing trusted NodeAgent region list is unavailable");
+liveRegions.Add(region1);
+liveRegions.Add(Guid.Empty);
+Check(!automatic.TryOwned(owner1, out _, out _),
+    "Auto regions: malformed region IDs fail closed");
+liveRegions.Remove(Guid.Empty);
+var region3 = Guid.NewGuid();
+liveRegions.Add(region3);
+Check(!automatic.TryOwned(owner1, out _, out _),
+    "Auto regions: a newly discovered region requires fresh signed snapshot");
+Check(automatic.Replace(region3, 1, new()),
+    "Auto regions: newly discovered empty region snapshot accepted");
+Check(automatic.TryOwned(owner1, out var expanded, out _) && expanded.Count == 1,
+    "Auto regions: NPC owner directory works after topology expansion");
+
 bool badCoverage=false;
 try{new NexNpcSnapshotIndex(0);}catch(ArgumentOutOfRangeException){badCoverage=true;}
 Check(badCoverage,"Unconfigured expected region coverage rejected");
