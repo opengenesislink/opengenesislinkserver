@@ -64,6 +64,9 @@ namespace OpenSim.Region.OptionalModules.World.NPC
         /// </summary>
         public event Action<GridInstantMessage> OnInstantMessageToNPC;
 
+        // Only direct private owner/NPC IMs. No public chats or third parties.
+        public event Action<UUID, UUID, string, string> OnOwnerDirectMessage;
+
         private readonly string m_firstname;
         private readonly string m_lastname;
         private readonly Vector3 m_startPos;
@@ -211,6 +214,9 @@ namespace OpenSim.Region.OptionalModules.World.NPC
                     m_uuid, m_firstname + " " + m_lastname,
                     target, 0, false, message,
                     UUID.Zero, false, Position, Array.Empty<byte>(), true));
+            if (target == m_ownerID && !m_ownerID.IsZero() &&
+                !string.IsNullOrWhiteSpace(message))
+                OnOwnerDirectMessage?.Invoke(m_uuid, m_ownerID, "npc", message);
         }
 
         public void SendAgentOffline(UUID[] agentIDs)
@@ -726,6 +732,12 @@ namespace OpenSim.Region.OptionalModules.World.NPC
         public void SendInstantMessage(GridInstantMessage im)
         {
             OnInstantMessageToNPC?.Invoke(im);
+            if (im != null && !m_ownerID.IsZero() &&
+                im.fromAgentID == m_ownerID.Guid &&
+                im.toAgentID == m_uuid.Guid &&
+                !im.fromGroup && im.dialog == (byte)InstantMessageDialog.MessageFromAgent &&
+                !string.IsNullOrWhiteSpace(im.message))
+                OnOwnerDirectMessage?.Invoke(m_uuid, m_ownerID, "owner", im.message);
         }
 
         public void SendGenericMessage(string method, UUID invoice, List<string> message)
