@@ -422,10 +422,11 @@ namespace NexVerse.Server.Api
                     // Both user sessions and NPCs are counted in the official
                     // avatar total. The authenticated user list below contains
                     // only real identities, never synthetic logins for NPCs.
-                    total = gridUserAvailable && npcOnline.HasValue
-                        ? allOnline.Count + npcOnline.Value : (int?)null,
+                    total = gridUserAvailable
+                        ? allOnline.Count + (npcOnline ?? 0) : (int?)null,
                     authenticated_users = gridUserAvailable ? allOnline.Count : (int?)null,
                     npcs = npcOnline,
+                    npc_count_available = onlineNodes != null && onlineNodes.Length > 0,
                     avatars_present_inworld = avatarsPresent,
                     users = includeProtectedDetails
                         ? allOnline.Select(OnlinePayload).ToArray()
