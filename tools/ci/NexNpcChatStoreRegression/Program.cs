@@ -1,53 +1,60 @@
 // SPDX-License-Identifier: MPL-2.0
+// Real MariaDB regression; uses the same database service as OpenGenesisLINK.
 using System;
-using System.IO;
 using NexVerse.Server.Api;
 
-string dir=Path.Combine(Path.GetTempPath(),"npc-chat-r619-"+Guid.NewGuid().ToString("N"));
-Directory.CreateDirectory(dir);
+string connection = Environment.GetEnvironmentVariable("NEX_NPC_CHAT_MARIADB");
+if (string.IsNullOrWhiteSpace(connection))
+    throw new InvalidOperationException("NEX_NPC_CHAT_MARIADB is required (real SQL test).");
+Guid owner = Guid.NewGuid(), other = Guid.NewGuid();
+Guid npc = Guid.NewGuid(), otherNpc = Guid.NewGuid();
+NexNpcChatStore store = new NexNpcChatStore("OpenSim.Data.MySQL.dll", connection, 30);
 try
 {
-    string db=Path.Combine(dir,"chat.sqlite");
-    Guid owner=Guid.NewGuid(),otherOwner=Guid.NewGuid();
-    Guid npc=Guid.NewGuid(),otherNpc=Guid.NewGuid();
-    NexNpcChatStore store=new NexNpcChatStore(db,30);
-    Check(!store.IsEnabled(owner),"owner has no implicit consent");
-    Check(!store.Append(Guid.NewGuid(),owner,npc,"npc","pre-consent"),
-        "no IM recording before opt-in");
-    Check(store.Read(owner,npc,0,100).Messages.Count==0,"no pre-consent records");
+    Check(!store.IsEnabled(owner) && !store.IsEnabled(other), "no implicit consent");
+    Check(!store.Append(Guid.NewGuid(), owner, npc, "npc", "before opt-in"),
+        "cannot record before opt-in");
+    Check(store.Read(owner,npc,0,100).Messages.Count==0,"pre-consent archive empty");
+
     store.SetEnabled(owner,true);
-    Check(store.IsEnabled(owner),"explicit consent saved");
-    Guid first=Guid.NewGuid();
-    Check(store.Append(first,owner,npc,"npc","NPC response"),"NPC message written");
-    Check(store.Append(first,owner,npc,"npc","duplicate"),"replay is idempotently accepted");
-    Check(store.Read(owner,npc,0,100).Messages.Count==1,"replay is not duplicated");
-    Check(store.Append(Guid.NewGuid(),owner,npc,"owner","owner reply"),"owner reply");
-    Check(!store.Append(Guid.NewGuid(),otherOwner,npc,"npc","private"),
-        "other owner cannot record without opt-in");
+    Check(store.IsEnabled(owner), "opt-in stored");
+    Guid id = Guid.NewGuid();
+    Check(store.Append(id,owner,npc,"npc","hello"), "NPC IM inserted");
+    Check(store.Append(id,owner,npc,"npc","replay"), "idempotent replay acknowledged");
+    Check(store.Read(owner,npc,0,100).Messages.Count==1,"replay not duplicated");
+    Check(store.Append(Guid.NewGuid(),owner,npc,"owner","reply"),"owner reply stored");
+    Check(!store.Append(Guid.NewGuid(),other,npc,"npc","wrong owner"),
+        "unconsented owner cannot write");
     Check(!store.Append(Guid.NewGuid(),owner,npc,"visitor","third party"),
-        "other senders never accepted");
-    Check(store.Append(Guid.NewGuid(),owner,otherNpc,"npc","other npc"),
-        "different NPC belongs to same owner in ingest contract");
-    Check(store.Read(owner,npc,0,100).Messages.Count==2,"owner sees own NPC only");
-    Check(store.Read(otherOwner,npc,0,100).Messages.Count==0,"other owner invisible");
-    var page=store.Read(owner,npc,0,1);
-    Check(page.Messages.Count==1 && page.NextCursor.Length>0,"cursor page");
-    var end=store.Read(owner,npc,long.Parse(page.NextCursor),1);
-    Check(end.Messages.Count==1 && end.NextCursor=="","complete final page");
-    NexNpcChatStore reopened=new NexNpcChatStore(db,30);
-    Check(reopened.IsEnabled(owner) && reopened.Read(owner,npc,0,100).Messages.Count==2,
-        "durable consent and history");
-    reopened.DeleteHistory(owner);
-    Check(reopened.IsEnabled(owner) && reopened.Read(owner,npc,0,100).Messages.Count==0,
-        "delete history preserves consent");
-    reopened.Append(Guid.NewGuid(),owner,npc,"npc","to erase");
-    reopened.SetEnabled(owner,false);
-    Check(!reopened.IsEnabled(owner) && reopened.Read(owner,npc,0,100).Messages.Count==0,
-        "withdrawal deletes all owner's records");
-    Console.WriteLine("NPC_CHAT_R619_SQLITE_PASS");
+        "third party blocked");
+    Check(store.Append(Guid.NewGuid(),owner,otherNpc,"npc","other NPC"),
+        "different NPC separate");
+    Check(store.Read(owner,npc,0,100).Messages.Count==2,"NPC filter");
+    Check(store.Read(other,npc,0,100).Messages.Count==0,"cross-owner isolation");
+
+    var first=store.Read(owner,npc,0,1);
+    Check(first.Messages.Count==1 && first.NextCursor!="","pagination first page");
+    var second=store.Read(owner,npc,long.Parse(first.NextCursor),1);
+    Check(second.Messages.Count==1 && second.NextCursor=="","pagination final page");
+
+    var restarted = new NexNpcChatStore("OpenSim.Data.MySQL.dll", connection, 30);
+    Check(restarted.IsEnabled(owner) &&
+        restarted.Read(owner,npc,0,100).Messages.Count==2,"durability");
+    restarted.DeleteHistory(owner);
+    Check(restarted.IsEnabled(owner) &&
+        restarted.Read(owner,npc,0,100).Messages.Count==0,"delete preserves consent");
+    restarted.Append(Guid.NewGuid(),owner,npc,"npc","to delete");
+    restarted.SetEnabled(owner,false);
+    Check(!restarted.IsEnabled(owner) &&
+        restarted.Read(owner,npc,0,100).Messages.Count==0,"opt-out purges messages");
+    Console.WriteLine("NPC_CHAT_R620_MARIADB_PASS");
 }
-finally{try{Directory.Delete(dir,true);}catch(IOException){}}
-static void Check(bool assertion,string message)
+finally
 {
-    if(!assertion)throw new InvalidOperationException("NPC_CHAT_TEST_FAILED: "+message);
+    store.SetEnabled(owner,false);
+    store.SetEnabled(other,false);
+}
+static void Check(bool good,string message)
+{
+    if(!good)throw new InvalidOperationException("NPC_CHAT_MARIADB_FAILED: "+message);
 }

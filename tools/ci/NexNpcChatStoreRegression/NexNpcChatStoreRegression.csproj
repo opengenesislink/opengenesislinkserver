@@ -7,8 +7,10 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="Mono.Data.Sqlite">
-      <HintPath>../../../bin/Mono.Data.Sqlite.dll</HintPath>
+    <PackageReference Include="System.Security.Permissions" Version="8.0.0" />
+    <PackageReference Include="System.Configuration.ConfigurationManager" Version="8.0.0" />
+    <Reference Include="MySql.Data">
+      <HintPath>../../../bin/MySql.Data.dll</HintPath>
       <Private>True</Private>
     </Reference>
     <Compile Include="../../../NexVerse/Server/Api/NexNpcChatStore.cs" Link="NexNpcChatStore.cs" />
