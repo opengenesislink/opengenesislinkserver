@@ -14,6 +14,8 @@ SIM = (ROOT / "OpenSim/Region/OptionalModules/World/NPC/NPCModule.cs").read_text
 PUBLISH = (ROOT / "OpenSim/Region/OptionalModules/World/NPC/NexNpcSnapshotPublisher.cs").read_text()
 CONNECTOR = (ROOT / "NexVerse/Server/Api/NexVerseWorldApiConnector.cs").read_text()
 OPENAPI = (ROOT / "NexVerse/Server/Api/NexVerseWorldApiHandlers.cs").read_text()
+ROBUST = (ROOT / "bin/Robust.HG.ini").read_text()
+SIM_INI = (ROOT / "bin/OpenSim.ini").read_text()
 
 def check(condition, message):
     if not condition:
@@ -24,8 +26,15 @@ check('NEX_NPC_INGEST_SECRET' in CONNECTOR and
       'Encoding.UTF8.GetByteCount(npcSecret ?? "") >= 32' in CONNECTOR,
       "Strong separate secret required to enable NPC ingest")
 check('ExpectedRegionCount' in CONNECTOR and
-      'expectedRegions > 0' in CONNECTOR,
-      "World directory requires explicit expected region count")
+      'expectedRegions > 0' in CONNECTOR and 'autoRegions = expectedRegions == 0' in CONNECTOR,
+      "World directory requires explicit or authenticated NodeAgent region count")
+check('ExpectedRegionCount = 0' in ROBUST and
+      '[NexNPCPortal]' in ROBUST and '[NexNPCChat]' in ROBUST and
+      ROBUST.split('[NexNPCPortal]',1)[1].split('[',1)[0].count('Enabled = true') == 1 and
+      ROBUST.split('[NexNPCChat]',1)[1].split('[',1)[0].count('Enabled = true') == 1 and
+      'NexNPCSnapshotEnabled = true' in SIM_INI and
+      'NexNPCChatEnabled = true' in SIM_INI,
+      "Grid production templates enable NPC directory and MariaDB archive")
 check('npcIndex = null' in CONNECTOR and
       'new NexNpcWorldApi(authenticator, npcIndex, npcChatStore)' in CONNECTOR,
       "Disabled feed never returns a fabricated empty owned NPC list")
@@ -60,4 +69,4 @@ check('Uri.UriSchemeHttps' in PUBLISH and
 check('"/api/v1/npcs/mine"' in OPENAPI and
       '"/api/v1/npcs/{npcId}/messages"' in OPENAPI,
       "Both NPC API routes documented in OpenAPI")
-print("R617_NPC_SOURCE_BRIDGE=12/12_PASS")
+print("R617_NPC_SOURCE_BRIDGE=13/13_PASS")
