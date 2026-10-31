@@ -18,13 +18,24 @@ for marker in (
     '"Both GridUser history and complete UserAccount enumeration are unavailable."',
     'active_last_7_days = gridUserAvailable',
     'online_now = gridUserAvailable ? hypergridOnline.Count : (int?)null',
-    'total = gridUserAvailable ? allOnline.Count : (int?)null',
+    'total = gridUserAvailable && npcOnline.HasValue',
+    'authenticated_users = gridUserAvailable ? allOnline.Count : (int?)null',
+    'npcs = npcOnline',
+    'avatars_present_inworld = avatarsPresent',
+    'onlineNodes.Sum(node => Math.Max(0, node.NpcCount))',
+    'npcRegions.Select(region => new',
+    'npcs = group.Sum(x => x.Npcs)',
     'missing_metrics = (gridUserAvailable',
     'griduser_source = gridUserAvailable ? "available" : "unavailable"',
     'complete = gridUserAvailable && completeAccountEnumeration &&',
 ):
     assert marker in stats, "Statistics fallback contract missing: " + marker
 
+# Never fabricate sessions or treat NPCs as authenticated users.
+assert 'allOnline.Count + npcOnline.Value' in stats
+assert 'allOnline.Select(OnlinePayload)' in stats
+assert 'NexNodeRegistry nodes = null' in stats
+assert 'nodeRegistry);' in routes
 assert "m_UserAccounts == null || m_GridUsers == null" not in stats
 
 # Full OpenSim HG UUIs must be looked up exactly. Prefixing all lookups
