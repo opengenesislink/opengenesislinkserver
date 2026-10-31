@@ -20,11 +20,12 @@ CloudBaseMeters = 200
 LegacyParticleEmitters = true
 ; Height above the terrain in metres. Not the same as EEP cloud altitude.
 ; Particle age is finite, so very high sources can vanish before ground.
-EmitterHeightMeters = 65
+ViewerEnvironmentEffects = true
+EmitterHeightMeters = 22
 ; Typical 256x256 region: approximately 3x3 temporary emitters.
 EmitterSpacingMeters = 96
 MaxEmittersPerRegion = 16
-VisualRefreshSeconds = 60
+VisualRefreshSeconds = 12
 
 ; Operator testing only, OFF by default. A rain/snow startup test
 ; automatically expires after 1..60 minutes; auto uses the real forecast.

@@ -43,7 +43,7 @@ Die vorhandenen `addon-modules/.../build.sh`-Skripte bleiben ausschließlich fü
 - Aktueller Wetterstatus: Zustand, Temperatur, Stärke und Wind.
 - Fünf kommende Kalendertage: Wetterart, tatsächliches Tagesminimum/-maximum und Stunden mit Niederschlag. **Vorhersage und spätere Wirklichkeit sind das gleiche deterministische Modell** und ändern sich bei Neustart nicht, solange Seed, Zeitzone und Modellversion gleich bleiben.
 - **Kein manuelles Rezzen:** Die Legacy-Fallback-Emitter werden für Firestorm automatisch als kurzlebige, nicht persistente Objekte verwaltet. Zukünftige OGL Viewer können den nativen Wettervertrag verwenden.
-- Kein Schreiben in Terrain, Estate-, Parcel- oder EEP-Einstellungen. Bei aktiviertem Firestorm-Fallback werden ausschließlich serververwaltete temporäre Scene-Objekte erstellt und wieder entfernt.
+- Keine dauerhafte Änderung an Terrain, Estate-, Parcel- oder Region-EEP-Einstellungen. Für kompatible Firestorm-Viewer wird bei Regen, Schnee und Bewölkung **nur vorübergehend pro Avatar** eine abgedunkelte EEP-Umgebung angewendet; nach Wetterwechsel/Regionsende wird die ursprüngliche Einstellung wiederhergestellt. Eigene Avatar-Umgebungsüberschreibungen werden nicht überschrieben.
 - Jede Region sendet ihre Wetterdaten über `IWorldComm` an die optionale **Prim-Wettertafel**. Für native Viewer gibt es zusätzlich die pro Agent/Region ausgegebene read-only-CAPS `OGLWeatherState`. Diese selbst setzt kein Wetter-Prim voraus.
 
 ## Installation
@@ -77,7 +77,7 @@ CloudBaseMeters = 200
 
 OGLWeather nutzt **ein gemeinsames Wettermodell** und bietet zwei Darstellungen:
 
-- **Firestorm, ohne Viewer-Modifikation:** Der Server erzeugt automatisch, nur während Regen oder Schnee, eine begrenzte Anzahl **temporärer, unsichtbarer, nichtphysischer Emitter-Prims** in jeder besuchten Region. **Keine manuelle Platzierung, kein Rezz-Skript und keine LSL-Skripte in den Emitttern erforderlich.** Der Server setzt den SL/OpenSim-Standard-Partikelblock direkt auf die Prims. Regen/Snow und Stärke ändern sich aus der selben Vorhersage wie die Wettertafel.
+- **Firestorm, ohne Viewer-Modifikation:** Der Server erzeugt automatisch, nur während Regen oder Schnee, begrenzte **temporäre, unsichtbare, nichtphysische Emitter-Prims über tatsächlich anwesenden Avataren**. Sie folgen den Avataren in kurzen Intervallen, statt in einem weit entfernten festen Raster zu stehen. Zusätzlich wird die EEP-Wolken-/Himmelsbeleuchtung während Regen, Schnee und Bewölkung temporär pro Avatar angepasst. Die Wettertafel und diese Effekte stammen aus derselben Vorhersage. **Keine manuelle Platzierung, kein Rezz-Skript und keine LSL-Skripte erforderlich.**
 - **Künftiger OGL Viewer mit native Renderer:** Die read-only, pro Region/Avatar gebundene CAPS `OGLWeatherState` liefert die Daten für echte GPU-Partikel mit Ursprung in der Wolkendecke. `legacy_prim_emitters_active: true` wird **nur bei mindestens einem tatsächlich vorhandenen, nicht gelöschten, serververwalteten Emitter der Region** gesetzt – nicht bloß, weil `LegacyParticleEmitters=true` konfiguriert wurde. Wenn keine Emitter rezzbar sind (z. B. fehlender Estate-Owner), eine Region leer ist oder der Fallback deaktiviert ist, meldet die CAPS `false`. Der native Viewer kann so Doppelregen vermeiden, ohne bei nicht vorhandenen Legacy-Partikeln den eigenen Effekt zu unterdrücken. **Der Viewer-Renderer ist noch nicht implementiert.**
 
 ### Manuell Regen/Schnee testen (Simulator-Konsole)
@@ -110,6 +110,7 @@ Test einrichten:
 [OGLWeather]
 Enabled = true
 LegacyParticleEmitters = true
+ViewerEnvironmentEffects = true
 TestWeatherMode = auto
 TestWeatherIntensity = 70
 TestWeatherDurationMinutes = 15
@@ -136,25 +137,25 @@ künftig zu authentifizierendes Entwicklungsziel.
 [OGLWeather]
 Enabled = true
 LegacyParticleEmitters = true
-EmitterHeightMeters = 65
+EmitterHeightMeters = 22
 EmitterSpacingMeters = 96
 MaxEmittersPerRegion = 16
-VisualRefreshSeconds = 60
+VisualRefreshSeconds = 12
 CloudBaseMeters = 200
 ```
 
 - `Enabled` bleibt in der bereitgestellten Beispiel-INI aus Sicherheitsgründen **false**. Erst beim bewussten Aktivieren greift der Fallback.
-- `EmitterHeightMeters`: **20–150 m oberhalb des lokalen Terrains**, Standard 65 m. Auf hügeligem Terrain wird jede Position einzeln berechnet. Es ist eine **sichtbare Niederschlagszone aus Richtung Wolken**, kein physikalisch garantierter Start exakt auf der EEP-Wolkenoberfläche. Partikel besitzen begrenzte Lebensdauer; bei unrealistisch hohen Emitttern können sie über dem Boden verschwinden.
+- `EmitterHeightMeters`: **12–80 m oberhalb des jeweiligen Avatars**, Standard 22 m. Auf hügeligem Terrain wird die Mindesthöhe oberhalb des Bodens eingehalten. Das ist keine physikalische Wolkenhöhe; der Regen wird für Firestorm in der Avatar-Umgebung erzeugt, damit die Tropfen innerhalb ihrer Lebensdauer sichtbar zum Boden fallen können.
 - `EmitterSpacingMeters`: 32–256 m, Standard 96 m. Typische 256×256 m Region: **3×3 = 9 Emitter**. Bei großen Varregions begrenzt `MaxEmittersPerRegion` die Anzahl und verteilt die Punkte über die ganze Fläche; dadurch kann bei sehr großen Regionen nur teilweise Niederschlag sichtbar sein.
 - `MaxEmittersPerRegion`: 1–64, Standard 16. Bei Regen und Schnee sind gleichzeitig mehrere Tausend Partikel im Firestorm-Viewer möglich. Nicht alle Viewer zeigen alle Partikel; Grafik-/Partikelbudget kann die Menge begrenzen.
-- `VisualRefreshSeconds`: 30–300 Sekunden, Standard 60. Dauerhaftes Wetter verwendet dieselben Objekte weiter, statt alle 60 Sekunden neue zu rezzen.
-- Bei Sonne/Wolken oder wenn keine Viewer verbunden sind, werden **alle nur vom Modul erzeugten Emitter** aus dieser Region entfernt. Beim Entladen einer Region und beim Schließen des Moduls erfolgt die Bereinigung ebenfalls.
+- `VisualRefreshSeconds`: 5–300 Sekunden, Standard 12. Dauerhaftes Wetter verwendet dieselben Objekte weiter und bewegt sie mit den Avataren, statt in einem statischen Raster zu verbleiben.
+- Bei Sonne/Wolken oder wenn keine Viewer verbunden sind, werden **alle nur vom Modul erzeugten Emitter** aus dieser Region entfernt. Bei Sonne wird auch die temporäre EEP-Wetterüberschreibung entfernt. Beim Entladen einer Region und beim Schließen des Moduls erfolgt die Bereinigung ebenfalls.
 - Die Prims werden mit `Scene.AddNewSceneObject(group, false)` erzeugt: **nicht dauerhaft in der Regionsdatenbank gespeichert**, ohne Skriptinventar, physikfrei und phantom. Owner ist der Estate-Owner der Region. Es werden keine Objekte von Bewohnern gesucht oder gelöscht. Dennoch sind es echte temporäre Scene-Objekte und können bis zu ihrer Entfernung kurz in Objekt-/Primzählungen erscheinen.
 - Keine neue Script- oder Inventar-Asset-Abhängigkeit. Ein Emitter-Primsystem ist nötig, weil Standard-LL-Partikel objektgebunden sind. Ein Wettermodus ohne Objekte ist in unverändertem Firestorm technisch nicht möglich. <https://create.secondlife.com/script/lsl-reference/functions/llparticlesystem/>
 
 Der Native-CAPS `OGLWeatherState` liefert weiterhin JSON (`ogl.weather`, v1) mit aktueller Lage, Temperatur, Wind, Stärke, Wolkenhöhe und fünf Prognosetagen. Für den späteren nativen Renderer gilt weiterhin die Kompatibilitätsaufgabe [OGL Viewer Issue #28](https://github.com/opengenesislink/opengenesislinkviewer/issues/28).
 
-**Betriebsgrenzen:** Sichtbarkeit hängt von Firestorm-Sichtweite, Viewer-Partikellimit, Höhe über Gelände, Quellposition und Wind ab. Regen wird nicht vollständig über jeder Stelle eines riesigen Simulators garantiert; vor einem Produktions-Rollout im Viewer prüfen. Kein meteorologischer DWD-Livefeed.
+**Betriebsgrenzen:** Firestorm muss Partikel in den Grafikeinstellungen erlauben. Wetterpartikel sind kein eingebautes Regen-Protokoll des Standardviewers; sie können durch Partikelbudget, Sichtweite oder persönliche Grafikeinstellungen unsichtbar bleiben. EEP wird nur angewendet, wenn der Viewer die vom Simulator angebotene Umgebung verwendet; eine lokale, erzwungene Himmelsvoreinstellung kann die Serverumgebung übersteuern. EEP-Clouds verdunkeln den Himmel, garantieren aber nicht das vollständige Verdecken der Sonnenscheibe. Temporäre Partikel kollidieren nicht mit Gebäudedächern. Dieser Modus erzwingt keinen Regen über jeder Stelle einer leeren VarRegion. Kein meteorologischer DWD-Livefeed.
 
 ## Wettertafel
 
@@ -177,4 +178,4 @@ LSL akzeptiert ausschließlich die exakten Protokollkennungen, Channel, Quellnam
 - `.github/workflows/nexjast-ci.yml`: eigenständiger Release-Build und Regressionen. Historische Release-Dokumente bleiben unberührt.
 - Live-Abnahme: mindestens zwei Regionen im selben Prozess, eine Wettertafel, Firestorm-Regen/Schnee mit automatisch erstellten Emitttern, Statuswechsel, Entfernung bei trockenem Wetter, CAPS-GET / falsche Methode / Logout / Region-Crossing. Später nativen OGL Viewer und Wolkenhöhe separat prüfen. Zusätzlich anderen Simulatorprozess mit gleichem Seed auf dieselben Temperaturen prüfen.
 
-**Hinweis:** Das geplante Wetter ist garantierte **Spielwelt-Simulation**, nicht reale Wetterdaten aus der Umgebung. Änderungen an Seed, Zeitzone oder Algorithmen verändern die zukünftige Wetterkurve. Keine EEP-/Terrainänderungen. Der native Viewer-Renderer ist ein separater noch offener Entwicklungsteil.
+**Hinweis:** Das geplante Wetter ist eine **Spielwelt-Simulation**, nicht reale Wetterdaten aus der Umgebung. Änderungen an Seed, Zeitzone oder Algorithmen verändern die zukünftige Wetterkurve. EEP-Änderungen sind ausschließlich flüchtige Avatar-Overrides (keine Region-/Parzellenpersistenz); Terrain bleibt unangetastet. Der native Viewer-Renderer ist ein separater noch offener Entwicklungsteil.
