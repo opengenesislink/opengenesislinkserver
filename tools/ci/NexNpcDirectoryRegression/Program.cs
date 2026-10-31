@@ -70,12 +70,14 @@ Check(!automatic.TryOwned(owner1, out _, out _),
     "Auto regions: missing second expected region fails closed");
 Check(automatic.Replace(region2, 1, new() { N(id2, owner1) }),
     "Auto regions: second signed snapshot accepted");
-Check(automatic.TryOwned(owner1, out var allLive, out _) && allLive.Count == 2,
+Check(automatic.TryOwned(owner1, out var allLive, out long originalRevision) &&
+    allLive.Count == 2,
     "Auto regions: all reported NPCs visible");
 liveRegions.Remove(region2);
-Check(automatic.TryOwned(owner1, out var onlyLive, out _) &&
-    onlyLive.Count == 1 && onlyLive[0].npc_id == id1,
-    "Auto regions: offline-region snapshots cannot leak stale NPCs");
+Check(automatic.TryOwned(owner1, out var onlyLive, out long changedRevision) &&
+    onlyLive.Count == 1 && onlyLive[0].npc_id == id1 &&
+    changedRevision != originalRevision,
+    "Auto regions: offline-region snapshots excluded and pagination invalidated");
 liveRegions.Clear();
 Check(!automatic.TryOwned(owner1, out _, out _),
     "Auto regions: missing trusted NodeAgent region list is unavailable");
