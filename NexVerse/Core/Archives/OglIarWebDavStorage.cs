@@ -115,7 +115,9 @@ namespace NexVerse.Core.Archives
             if (file.Length < 1 || file.Length > maxBytes)
                 throw new IOException("IAR WebDAV upload exceeds configured quota.");
             using HttpRequestMessage req = Request("PUT", key);
-            req.Headers.TryAddWithoutValidation("If-None-Match", "*");
+            // Retriable PUT: a failed transfer may leave a partial resource.
+            // The key is a server-generated region/job UUID pair; only the
+            // authenticated job owner can trigger this upload.
             req.Content = new StreamContent(file);
             req.Content.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
             using HttpResponseMessage response = Send(req);
@@ -246,34 +248,83 @@ namespace NexVerse.Core.Archives
             using HttpResponseMessage response = Send(req);
             if (response.StatusCode == HttpStatusCode.NotFound) yield break;
             if (response.StatusCode != (HttpStatusCode)207) Check(response);
-            using Stream stream = response.Content.ReadAsStream();
-            using MemoryStream output = new();
-            byte[] buf = new byte[8192];
-            int n;
-            while ((n = stream.Read(buf, 0, buf.Length)) != 0)
-            {
-                if (output.Length + n > 2 * 1024 * 1024)
-                    throw new IOException("IAR WebDAV directory listing too large.");
-                output.Write(buf, 0, n);
-            }
-            output.Position = 0;
-            XDocument xml = XDocument.Load(output,
-                LoadOptions.None);
-            XNamespace ns = "DAV:";
             string prefix = new Uri(m_Root, region.ToString("D") + "/").AbsolutePath;
-            foreach (XElement entry in xml.Descendants(ns + "response"))
+            foreach (string path in Hrefs(response))
             {
-                string href = (string)entry.Element(ns + "href");
-                if (string.IsNullOrWhiteSpace(href)) continue;
-                string path = Uri.UnescapeDataString(
-                    Uri.TryCreate(href, UriKind.Absolute, out Uri absolute)
-                        ? absolute.AbsolutePath : href.Split('?')[0]);
                 if (!path.StartsWith(prefix, StringComparison.Ordinal)) continue;
                 string name = path.Substring(prefix.Length);
                 if (name.Contains('/') || !name.EndsWith(".iar", StringComparison.Ordinal)) continue;
                 if (Guid.TryParseExact(name.Substring(0, name.Length - 4),
                     "D", out Guid id) && id != Guid.Empty)
                     yield return id;
+            }
+        }
+
+        public System.Collections.Generic.IEnumerable<Guid> ListRegions()
+        {
+            using HttpRequestMessage req = Request("PROPFIND", "");
+            req.Headers.TryAddWithoutValidation("Depth", "1");
+            req.Content = new StringContent(
+                "<?xml version=\"1.0\"?><d:propfind xmlns:d=\"DAV:\"><d:prop><d:resourcetype/></d:prop></d:propfind>",
+                Encoding.UTF8, "application/xml");
+            using HttpResponseMessage response = Send(req);
+            if (response.StatusCode != (HttpStatusCode)207) Check(response);
+            foreach (string entry in Hrefs(response))
+            {
+                string path = entry;
+                string prefix = m_Root.AbsolutePath;
+                if (!path.StartsWith(prefix, StringComparison.Ordinal)) continue;
+                string name = path.Substring(prefix.Length).TrimEnd('/');
+                if (name.Contains('/') || !Guid.TryParseExact(name, "D", out Guid region) ||
+                    region == Guid.Empty || path != prefix + name + "/") continue;
+                yield return region;
+            }
+        }
+
+        public DateTimeOffset? MarkerModified(Guid region, Guid id)
+        {
+            using HttpRequestMessage req = Request("HEAD", MarkerKey(region, id));
+            using HttpResponseMessage response = Send(req);
+            if (response.StatusCode == HttpStatusCode.NotFound) return null;
+            Check(response);
+            return response.Content.Headers.LastModified;
+        }
+
+        private static System.Collections.Generic.IEnumerable<string> Hrefs(HttpResponseMessage response)
+        {
+            using Stream stream = response.Content.ReadAsStream();
+            using MemoryStream bounded = new();
+            byte[] buffer = new byte[8192];
+            int count;
+            while ((count = stream.Read(buffer, 0, buffer.Length)) != 0)
+            {
+                if (bounded.Length + count > 2 * 1024 * 1024)
+                    throw new IOException("IAR WebDAV PROPFIND response too large.");
+                bounded.Write(buffer, 0, count);
+            }
+            bounded.Position = 0;
+            using System.Xml.XmlReader reader = System.Xml.XmlReader.Create(
+                bounded, new System.Xml.XmlReaderSettings
+                {
+                    DtdProcessing = System.Xml.DtdProcessing.Prohibit,
+                    XmlResolver = null,
+                    MaxCharactersInDocument = 2 * 1024 * 1024
+                });
+            XDocument xml = XDocument.Load(reader);
+            XNamespace ns = "DAV:";
+            foreach (XElement entry in xml.Descendants(ns + "response"))
+            {
+                string href = (string)entry.Element(ns + "href");
+                if (string.IsNullOrWhiteSpace(href)) continue;
+                Uri resolved;
+                if (!Uri.TryCreate(href, UriKind.Absolute, out resolved))
+                    resolved = new Uri(response.RequestMessage.RequestUri, href);
+                // A forged PROPFIND response cannot escape the pinned share.
+                if (resolved.Host != response.RequestMessage.RequestUri.Host ||
+                    resolved.Port != response.RequestMessage.RequestUri.Port ||
+                    resolved.Scheme != Uri.UriSchemeHttps)
+                    continue;
+                yield return Uri.UnescapeDataString(resolved.AbsolutePath);
             }
         }
 
@@ -289,7 +340,7 @@ namespace NexVerse.Core.Archives
         private HttpRequestMessage Request(string method, string path)
         {
             // Key components are generated from GUIDs only.
-            if (string.IsNullOrWhiteSpace(path) ||
+            if (path == null ||
                 path.Contains("..", StringComparison.Ordinal) ||
                 path.IndexOfAny(new[] { '?', '#', '%', '\\' }) >= 0)
                 throw new ArgumentException("Invalid WebDAV resource path.");
