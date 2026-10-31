@@ -1,0 +1,88 @@
+# R619 – Private NPC-Chatarchivierung mit Eigentümer-Einwilligung
+
+Status: Source/CI-Integration. Produktiv **standardmäßig deaktiviert**. Die R617-Liste aktiver NPCs wird vorausgesetzt.
+
+## Abgrenzung und Datenschutz
+
+Nur direkte private Instant Messages (IM) zwischen einem aktiv bestätigten NPC und seinem **eigenen** Avatar werden erfasst. Öffentlicher Region-Chat, Gruppen-IMs, Objekt-/LSL-Chat und Unterhaltungen zwischen NPC und Dritten werden nicht archiviert. Es werden keine Bürger-IM-Archive als NPC-Chats umgedeutet. Speicherung nur nach **expliziter persönlicher Einwilligung**, nicht per Admin-Key oder fremdem Owner-Parameter.
+
+- Default: keine Speicherung; ohne Einwilligung wird der signierte IM-Ingest mit 403 abgewiesen.
+- Abschalten löscht **sämtliche** bisher gespeicherten NPC-IMs dieses Eigentümers, während die Einwilligung deaktiviert wird.
+- Separater Lösch-Endpunkt entfernt alle archivierten NPC-IMs des Besitzers, ohne die Einwilligung zu ändern.
+- SQLite-Datenbank ist separat von OpenSim-IMs und erhält auf Unix-Modulen Rechte 0600.
+- Standard-Aufbewahrung 30 Tage, konfigurierbar 1–90 Tage; maximal 10.000 Einträge pro Eigentümer, 4 KiB pro Nachricht.
+- Die Nachrichten sind **best effort**: Simulator-zu-World wird in einem flüchtigen, begrenzten Speicherpuffer mit maximal drei Zustellversuchen übertragen, nicht dauerhaft lokal gepuffert. Der API-Verlauf setzt deshalb `complete=false` und `capture_mode=best_effort_owner_npc_direct_im`. Nach einer Unterbrechung kann ein Teil fehlen. Es gibt **keine** rückwirkende Rekonstruktion.
+
+## World/ROBUST – Beispiel
+
+```ini
+[NexNPCPortal]
+Enabled = true
+ExpectedRegionCount = 1
+
+[NexNPCChat]
+Enabled = true
+StoragePath = "/var/lib/opengenesislink/npc-chat/npc-chat.sqlite"
+RetentionDays = 30
+```
+
+`ExpectedRegionCount` muss zur Zahl aller für das Grid erwarteten aktiven Simulator-Regionen passen; fehlende/stale Snapshots führen absichtlich zu 503. Die Freigabe darf erst nach Abgleich der tatsächlich eingesetzten Regionszahl erfolgen. Die R617-Quellverifizierung bleibt Pflicht.
+
+World-Prozessumgebung (Secret selbst niemals in Git, INI oder Logs):
+
+```text
+NEX_NPC_INGEST_SECRET=<separates zufälliges 32+ Byte Secret>
+NEX_NPC_CHAT_SECRET=<anderes zufälliges 32+ Byte Secret>
+```
+
+Die Verzeichnisse müssen für den ROBUST-Prozess schreibbar sein. Bei restriktiven Datei-/Container-Nutzern auf Besitzerrechte achten. HMAC-geschützte interne Pfade dürfen **nur** für autorisierte Simulatoren über HTTPS/WireGuard erreichbar sein; der Reverse-Proxy soll diese internen Pfade nicht öffentlich anbieten.
+
+## Simulator – Beispiel
+
+```ini
+[NPC]
+Enabled = true
+NexNPCSnapshotEnabled = true
+NexNPCChatEnabled = true
+```
+
+```text
+NEX_NPC_INGEST_URL=https://<internal-robust-host>/internal/nexnpc/snapshot/v1
+NEX_NPC_INGEST_SECRET=<identischer R617-Secret wie ROBUST>
+NEX_NPC_CHAT_INGEST_URL=https://<internal-robust-host>/internal/nexnpc/chat/v1
+NEX_NPC_CHAT_SECRET=<identischer NPC-Chat-Secret wie ROBUST>
+```
+
+HTTPS muss mit dem vertrauenswürdigen Zertifikat funktionieren. Kein TLS-Bypass. Beide Dienste kontrolliert neu starten, nachdem Build/CI vollständig erfolgreich waren. Der Simulator sendet private Owner/NPC-IM-Ereignisse, er speichert sie nicht ohne serverseitige Einwilligung.
+
+## Persönliche Endpunkte auf world.stadt-nexverse.de
+
+Verlangen einen authentifizierten **lokalen** aktiven Einwohner samt persönlichem Bearer-Token. Service-Key, Admin-Key, freie Owner-UUID und NPC-UUID allein sind keine Eigentümerautorisierung.
+
+| Methode | Route | Berechtigung |
+| --- | --- | --- |
+| GET | /api/v1/npcs/mine | relationships:read |
+| GET | /api/v1/npcs/chat/settings | relationships:read |
+| PUT | /api/v1/npcs/chat/settings | relationships:write |
+| DELETE | /api/v1/npcs/chat/history | relationships:write |
+| GET | /api/v1/npcs/{npcId}/messages?cursor=... | relationships:read |
+
+Erst die **bewusste** Aktivierung per `PUT /api/v1/npcs/chat/settings` mit diesem JSON führt zur Aufzeichnung nachfolgender Owner/NPC-Direkt-IMs:
+
+```json
+{"enabled":true,"acknowledge_private_owner_npc_im":true}
+```
+
+Abschalten (löscht außerdem die eigene Historie):
+
+```json
+{"enabled":false}
+```
+
+Das Lesen eigener NPC-IMs setzt weiterhin `GET /api/v1/npcs/mine` mit bestätigter Eigentümerzuordnung aus R617 voraus. Die chronologische Liste liefert `npc_id`, `owner_principal_id`, `messages` mit `message_id`, `npc_id`, `sender` (`npc`/`owner`), `text`, `sent_at` (RFC3339), `next_cursor` sowie `complete=false`. `cursor` ist die letzte erhaltene Nachrichten-Sequenz. Bei Ingest- oder Speicherfehlern wird `503 npc_chat_archive_unavailable` zurückgegeben, nicht eine leere Erfolgsliste. Bei fehlender Einwilligung: `403 npc_chat_opt_in_required`.
+
+## Grenzen / Rollout-Gates
+
+Diese Version umfasst **keine** vollständige persistente Zustellgarantie und keinen Zugriff auf Gespräche Dritter. Das Portal muss Nutzer ausdrücklich auf den Best-Effort-Status und die begrenzte 30-Tage-Aufbewahrung hinweisen. Für garantiert vollständige Archive wäre künftig ein zustellbestätigter persistenter Outbox-Mechanismus **nach einer vorab synchronisierten Consent-Prüfung** erforderlich.
+
+Vor Aktivierung: NPC-Rechte-/Regionsschnappschuss und JSON-API-Tests, R619-Store-Regressionslauf, vollständiger .NET-Release-Build und abgesicherte Internal-API-Firewall. Ohne diese Nachweise **nicht** von produktiver Freigabe sprechen.
