@@ -256,6 +256,10 @@
 [MediaOnAPrim]
 
 [NPC]
+    ; Private owner NPC directory: requires valid NEX_NPC_INGEST_URL and _SECRET.
+    NexNPCSnapshotEnabled = false
+    ; Private owner-NPC IM: NEX_NPC_CHAT_INGEST_URL and NEX_NPC_CHAT_SECRET.
+    NexNPCChatEnabled = false
 
 [Terrain]
 
