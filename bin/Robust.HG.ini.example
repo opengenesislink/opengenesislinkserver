@@ -747,6 +747,19 @@
     RetentionDays = 30
     SharedSecret = "${Environment|NEX_PORTAL_IM_SECRET}"
 
+; Optional owner-scoped NPC directory and direct-IM archive. Both disabled by default.
+; Uses the authoritative [DatabaseService] MariaDB connection, no SQLite.
+[NexNPCPortal]
+    Enabled = false
+    ; Number of expected reporting regions. Require complete signed snapshots.
+    ExpectedRegionCount = 0
+
+[NexNPCChat]
+    Enabled = false
+    ; Creates npc_chat_consent and npc_chat_messages in the existing MariaDB.
+    RetentionDays = 30
+    ; HMAC keys: NEX_NPC_INGEST_SECRET and NEX_NPC_CHAT_SECRET (process environment).
+
 [NexVerseWorldApi]
     Enabled = true
     ; Only the Stadtportal BACKEND with a dedicated users:register API key
