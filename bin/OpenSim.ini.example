@@ -314,16 +314,10 @@
 ; files are temporary and MUST fit the configured size. The operator IAR
 ; storage location is not changed automatically.
 ; Configure the same WebDAV URL and credentials as on ROBUST.
-; ============================================================================
 [OpenGenesisLINKIAR]
     Enabled = true
-    ; Keep original managed archive storage path for admin compatibility.
-    ; Set this to an absolute temporary work directory only after review.
-    StorageRoot = "OGLInventoryArchives"
-    MaximumArchiveMiB = 2048
     StorageBackend = "WebDAV"
     NasHost = "10.78.0.4"
     WebDavBaseUrl = ""
     WebDavUsername = ""
     WebDavPasswordFile = ""
-
