@@ -152,6 +152,21 @@ internal static class Program
         Require(small.Count <= 64, "malicious config remains bounded");
         Require(OglWeatherEmitterPlan.Positions(128, 128, 256, 16).Count == 1,
             "small region has exactly one fallback emitter");
+        // Dynamic Firestorm sources must track real viewer positions instead
+        // of leaving precipitation at a fixed, sparse region grid.
+        var focus = OglWeatherEmitterPlan.NearAvatars(256, 256,
+            new (float X, float Y)[] {
+                (125f, 124f), (129f, 125f), (250f, 12f)
+            }, 16);
+        Require(focus.Count == 2 && focus[0].X == 125f &&
+            focus[1].X == 250f, "avatar-focused weather emitter placement");
+        Require(OglWeatherEmitterPlan.NearAvatars(256, 256,
+            new (float X, float Y)[] { (-1f, 40f), (300f, 20f) }, 16).Count == 0,
+            "out-of-region emitters are rejected");
+        Require(OglWeatherEmitterPlan.NearAvatars(1024, 1024,
+            new (float X, float Y)[] { (100, 100), (300, 300), (600, 600) }, 2).Count == 2,
+            "varregion per-viewer emitter budget is respected");
+
         // Feature configuration alone never indicates working Firestorm
         // emitters. In particular, an empty region or a failed object add
         // must not switch off future native viewer precipitation.
