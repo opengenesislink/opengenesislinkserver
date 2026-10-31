@@ -37,6 +37,8 @@ namespace NexVerse.Server.Api
                     text TEXT NOT NULL,
                     accepted_at INTEGER NOT NULL,
                     UNIQUE(owner,event_id))");
+                if (!OperatingSystem.IsWindows())
+                    File.SetUnixFileMode(full, UnixFileMode.UserRead | UnixFileMode.UserWrite);
                 Exec(db, "CREATE INDEX IF NOT EXISTS ix_npc_chat_owner_npc_seq ON npc_chat_messages(owner,npc_id,seq)");
                 Exec(db, "CREATE INDEX IF NOT EXISTS ix_npc_chat_ttl ON npc_chat_messages(accepted_at)");
             }
