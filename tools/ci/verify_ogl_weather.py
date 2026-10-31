@@ -37,9 +37,9 @@ assert "WeatherSeed = 20261028" in config
 assert not (root / "addons/OGLWeather/WeatherEmitter.lsl").exists(), "No manually placed LSL emitters"
 assert "llParticleSystem(" not in module and "AddNewPrim" not in module
 for marker in (
-    'LegacyParticleEmitters", true', 'EmitterHeightMeters", 65',
+    'LegacyParticleEmitters", true', 'EmitterHeightMeters", 22',
     'EmitterSpacingMeters", 96', 'MaxEmittersPerRegion", 16',
-    'VisualRefreshSeconds", 60',
+    'VisualRefreshSeconds", 12',
     'OglWeatherLegacyEmitters.Apply(', 'OglWeatherLegacyEmitters.Clear(',
     'lock (state.WeatherLock)',
 ):
@@ -55,7 +55,9 @@ for marker in (
     'scene?.DeleteSceneObject(group, false)',
 ):
     assert marker in legacy, marker
-assert 'OglWeatherEmitterPlan.Positions(' in legacy
+assert 'OglWeatherEmitterPlan.NearAvatars(' in legacy
+assert 'emitter.AbsolutePosition = position;' in legacy
+assert 'OglWeatherEmitterPlan.Positions(' in plan
 assert 'Math.Clamp(maximum, 1, 64)' in plan
 assert 'while (columns * (long)rows > maximum)' in plan
 assert 'legacy_prim_emitters_active = legacyParticleEmitters' in viewer
@@ -99,7 +101,14 @@ assert 'Password' not in override and 'Http' not in override
 assert 'OglWeatherPortalProjection' not in module, "Never mutate public forecast from the simulator"
 
 assert 'LegacyParticleEmitters = true' in config
-assert 'EmitterHeightMeters = 65' in config
+assert 'ViewerEnvironmentEffects = true' in config
+assert 'ViewerEnvironmentEffects = true' in active_ini
+sky = read("addons/OGLWeather/OglWeatherViewerEnvironment.cs")
+assert 'avatar.Environment = newWeather;' in sky
+assert 'avatar.Environment = null;' in sky
+assert 'environment.WindlightRefreshForced(avatar, 0)' in sky
+assert 'StoreOnRegion' not in sky, "Weather must not persist or alter estate EEP settings"
+assert 'EmitterHeightMeters = 22' in config
 assert 'MaxEmittersPerRegion = 16' in config
 assert 'caps.RegisterSimpleHandler("OGLWeatherState"' in module
 assert "scene.EventManager.OnRegisterCaps += region.CapsHandler" in module
