@@ -66,7 +66,6 @@ namespace OpenGenesisLINK.Addons.OGLWeather
 
             for (int index = 0; index < points.Count; index++)
             {
-                {
                     (float x, float y) = points[index];
                     // Keep rainfall around the camera even while flying.
                     // Emitters remain invisible/phantom and nonpersistent.
