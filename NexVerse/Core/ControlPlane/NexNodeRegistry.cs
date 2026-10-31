@@ -19,8 +19,10 @@ namespace NexVerse.Core.ControlPlane
             int sizeX,
             int sizeY,
             int agentCount,
-            DateTimeOffset lastSeen)
+            DateTimeOffset lastSeen,
+            int npcCount = 0)
         {
+            NpcCount = Math.Clamp(npcCount, 0, Math.Max(0, agentCount));
             RegionId = regionId ?? string.Empty;
             Name = name ?? string.Empty;
             ServerUri = serverUri ?? string.Empty;
@@ -36,6 +38,7 @@ namespace NexVerse.Core.ControlPlane
         public int SizeX { get; }
         public int SizeY { get; }
         public int AgentCount { get; }
+        public int NpcCount { get; }
         public DateTimeOffset LastSeen { get; }
     }
 
@@ -72,8 +75,10 @@ namespace NexVerse.Core.ControlPlane
             IReadOnlyList<NexNodeRegionSnapshot> regions,
             string updateState = "",
             string updateOperationId = "",
-            DateTimeOffset? updateAt = null)
+            DateTimeOffset? updateAt = null,
+            int npcCount = 0)
         {
+            NpcCount = Math.Clamp(npcCount, 0, Math.Max(0, agentCount));
             NodeId = nodeId ?? string.Empty;
             Hostname = hostname ?? string.Empty;
             ServerVersion = serverVersion ?? string.Empty;
@@ -121,6 +126,7 @@ namespace NexVerse.Core.ControlPlane
         public long DiskTotalBytes { get; }
         public int RegionCount { get; }
         public int AgentCount { get; }
+        public int NpcCount { get; }
         public bool ManagedRegionCommands { get; }
         public bool CrossRegionObjectMessaging { get; }
         public bool CrossOwnerObjectMessaging { get; }
@@ -269,6 +275,9 @@ namespace NexVerse.Core.ControlPlane
                     ApplyRegionOnline(
                         nexEvent);
                     break;
+                case "region.presence":
+                    ApplyRegionPresence(nexEvent);
+                    break;
 
                 case "region.offline":
                     ApplyRegionOffline(
@@ -358,6 +367,8 @@ namespace NexVerse.Core.ControlPlane
                     nexEvent,
                     "agent_count",
                     value => record.AgentCount = value);
+                AssignInt(nexEvent, "npc_count", value =>
+                    record.NpcCount = Math.Clamp(value, 0, Math.Max(0, record.AgentCount)));
                 AssignBool(nexEvent, "maintenance_mode", value => record.MaintenanceMode = value);
                 AssignBool(nexEvent, "draining", value => record.Draining = value);
                 AssignBool(
@@ -494,8 +505,10 @@ namespace NexVerse.Core.ControlPlane
                         "agent_count",
                         out int agentCount))
                 {
-                    region.AgentCount = agentCount;
+                    region.AgentCount = Math.Max(0, agentCount);
                 }
+                if (TryParseInt(nexEvent, "npc_count", out int npcCount))
+                    region.NpcCount = Math.Clamp(npcCount, 0, region.AgentCount);
 
                 region.LastSeen =
                     receivedAt;
@@ -510,6 +523,26 @@ namespace NexVerse.Core.ControlPlane
                         record.AgentCount,
                         record.Regions.Values.Sum(x =>
                             Math.Max(0, x.AgentCount)));
+            }
+        }
+
+        // A compact, current presence update delivered alongside each node heartbeat.
+        // Never resurrect regions which were removed or mark offline nodes online.
+        private void ApplyRegionPresence(NexEvent ev)
+        {
+            if (!TryData(ev, "node_id", out string nodeId) ||
+                !TryData(ev, "region_id", out string regionId) ||
+                !TryParseInt(ev, "agent_count", out int agents) ||
+                !TryParseInt(ev, "npc_count", out int npcs) ||
+                !m_Nodes.TryGetValue(nodeId, out NodeRecord record))
+                return;
+            lock (record.Sync)
+            {
+                if (record.ExplicitOffline || !record.Regions.TryGetValue(regionId, out RegionRecord region))
+                    return;
+                region.AgentCount = Math.Max(0, agents);
+                region.NpcCount = Math.Clamp(npcs, 0, region.AgentCount);
+                region.LastSeen = DateTimeOffset.UtcNow;
             }
         }
 
@@ -650,7 +683,8 @@ namespace NexVerse.Core.ControlPlane
                                 region.SizeX,
                                 region.SizeY,
                                 region.AgentCount,
-                                region.LastSeen))
+                                region.LastSeen,
+                                region.NpcCount))
                         .ToArray();
 
                 return new NexNodeSnapshot(
@@ -686,7 +720,8 @@ namespace NexVerse.Core.ControlPlane
                     regions,
                     record.UpdateState,
                     record.UpdateOperationId,
-                    record.UpdateAt);
+                    record.UpdateAt,
+                    record.NpcCount);
             }
         }
 
@@ -973,6 +1008,7 @@ namespace NexVerse.Core.ControlPlane
             public long DiskTotalBytes;
             public int RegionCount;
             public int AgentCount;
+            public int NpcCount;
             public bool ManagedRegionCommands;
             public bool CrossRegionObjectMessaging;
             public bool CrossOwnerObjectMessaging;
@@ -1015,6 +1051,7 @@ namespace NexVerse.Core.ControlPlane
             public int SizeX;
             public int SizeY;
             public int AgentCount;
+            public int NpcCount;
             public DateTimeOffset LastSeen;
         }
     }
