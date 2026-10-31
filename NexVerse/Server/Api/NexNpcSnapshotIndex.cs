@@ -27,6 +27,7 @@ namespace NexVerse.Server.Api
         private readonly Dictionary<Guid, Region> m_Regions =
             new Dictionary<Guid, Region>();
         private long m_Version;
+        private HashSet<Guid> m_LastExpectedRegionIds;
         private readonly int m_RequiredRegions;
         // Optional trusted NodeAgent inventory. Never infer expected regions
         // from whichever NPC snapshots happen to have arrived.
@@ -64,6 +65,14 @@ namespace NexVerse.Server.Api
                 {
                     HashSet<Guid> unique = new HashSet<Guid>(expected);
                     if (unique.Count != expected.Count) return false;
+                    // A region going online/offline changes the cursor
+                    // generation even before new NPC snapshots arrive.
+                    if (m_LastExpectedRegionIds == null ||
+                        !m_LastExpectedRegionIds.SetEquals(unique))
+                    {
+                        m_LastExpectedRegionIds = unique;
+                        ++m_Version;
+                    }
                     fresh = new List<Region>(unique.Count);
                     foreach (Guid regionId in unique)
                     {
