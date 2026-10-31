@@ -5,126 +5,161 @@ OpenGenesisLINK erweitert die bestehende **administrative** World API
 für angemeldete lokale Avatar-Konten. Keine Weitergabe von Passwort,
 fremdem Benutzerkennzeichen oder rohem Archivinhalt über NexBus.
 
-**Wichtig:** Dies ist eine opt-in **Shared-Storage-Implementierung**.
-Im Standardzustand ist sie deaktiviert. Für getrennte Server MUSS
-ein gemeinsames verlässliches POSIX-Verzeichnis (z. B. NFS) auf ROBUST
-und auf jedem teilnehmenden Regionssimulator gemountet sein.
-Es wird **kein** netzwerkübergreifender IAR-Byte-Transport über NexBus
-implementiert. Unterschiedliche lokale Verzeichnisse sind nicht ausreichend.
+**Status:** Benutzergebundener Self-Service bleibt standardmäßig deaktiviert
+(`Enabled=false`). **WebDAV ist der bevorzugte und voreingestellte
+StorageBackend-Typ**, NFS kann explizit als Legacy-Backend gewählt werden.
+Die Inventararchivierung selbst verwendet weiterhin native
+OpenSim-Datei-/Stream-Schnittstellen; bei WebDAV werden daher ausschließlich
+**temporäre Arbeitsdateien** auf ROBUST und dem Zielsimulator benötigt.
+Das dauerhafte Archiv liegt auf dem NAS. Ohne funktionierenden WebDAV-Zugang
+startet kein neuer Self-Service-Job.
 
-## Zentrales IAR-Backup auf UGREEN NASync DXP2800 (10.78.0.4)
+## UGREEN NASync DXP2800 / WireGuard / WebDAV (Standard)
 
-Das Netzlaufwerk ist unter `10.78.0.4` im WireGuard-Netz
-`10.78.0.0/24` erreichbar. UGOS Pro unterstützt NFS. Bei diesem
-Storage-Modus werden Import- und Export-IARs **direkt auf dem NAS**
-angelegt: kein dauerhafter IAR-Export auf der Systemplatte des
-Regionssimulators und keine lokale Ausweichablage bei NAS-Ausfall.
+Die NAS-IP `10.78.0.4` ist aus OpenGenesisLINK über den bereits eingerichteten
+WireGuard-Split-Tunnel erreichbar. Damit bleibt die öffentliche Serverroute
+unberührt. Der 1blu-OpenVZ-Host benötigt für WebDAV kein NFS-Kernelmodul.
 
-### NAS einrichten (UGOS Pro)
+1. UGOS Pro: **Systemsteuerung > Dateidienste > WebDAV** öffnen;
+   HTTPS aktivieren (häufig Port 5006; tatsächlich eingestellten Port prüfen).
+2. Eine **eigene Freigabe/Unterverzeichnis** für IAR-Archive erstellen.
+   Dafür einen eigenen NAS-Benutzer nur mit Les-/Schreibrechten für diese
+   Freigabe anlegen; nicht das NAS-Admin-Konto verwenden.
+3. NAS-WebDAV-HTTPS-Zertifikat korrekt konfigurieren:
+   `WebDavBaseUrl` muss einen **gültigen, vertrauenswürdigen
+   Zertifikatsnamen** verwenden, der NAS-IP zugeordnet ist.
+   Beim Zugriff per `https://10.78.0.4:5006/...` muss ein
+   *IP-SubjectAlternativeName* im Zertifikat stehen. Bei einem
+   DNS-Hostnamen muss dessen Zertifikat zum Namen passen. Weder
+   `--insecure` noch ein TLS-Validierungs-Bypass sind zulässig.
+   Der WebDAV-Client verbindet sich unabhängig vom DNS immer
+   mit `10.78.0.4` (kein Proxy, kein Redirect).
+4. Den tatsächlichen **WebDAV-Ordnerpfad** aus UGOS Pro verwenden.
+   Er wird nicht aus dem bisherigen NFS-Pfad abgeleitet.
+5. Den Servern über WireGuard nur Zugriff auf den WebDAV-Port des NAS
+   gestatten; **keine öffentliche Freigabe**. Vom ROBUST- und SIM-Host
+   `nc -zvw3 10.78.0.4 5006` bzw. den konfigurierten Port testen.
+6. Auf ROBUST und jedem Regionssimulator eine **eigene** Passwortdatei
+   für denselben dedizierten NAS-Account ablegen (nur Eigentümer lesbar):
 
-1. Auf dem DXP2800 eine eigene Freigabe für OGL-IAR erstellen.
-2. **Systemsteuerung > Dateidienste > NFS** aktivieren.
-3. Die Freigabe in **Dateien > Freigegebener Ordner > Eigenschaften >
-   NFS-Berechtigungen** ausschließlich für die tatsächlichen
-   VPN-Client-IP-Adressen von ROBUST und der Regionsserver öffnen,
-   Lese-/Schreibrecht setzen. Zugriffsrechte/UID-GID-Mapping abstimmen.
-4. TCP-Port **2049** auf dem WireGuard-Pfad erlauben und aus dem
-   öffentlichen Internet **nicht** freigeben.
-5. In UGOS den **genauen Exportpfad** der Freigabe nachschlagen.
-   Der Pfad hängt vom NAS-Speicherpool ab; hier wird **kein**
-   unbekannter NAS-Exportpfad erfunden.
+   ```bash
+   sudo install -d -m 700 /etc/opengenesislink
+   sudo sh -c 'umask 077; cat > /etc/opengenesislink/iar-webdav.pass'
+   # Passwort eingeben, mit Ctrl+D beenden. Achtung: eigene Shell ohne Echo-Schutz.
+   sudo chmod 600 /etc/opengenesislink/iar-webdav.pass
+   ```
 
-### Linux-Hosts mounten
+   Das Kennwort **nicht** in Git oder in World-API-/NexBus-Payloads hinterlegen.
+   Bei Datenzugriff über systemd muss der Dienstbenutzer die Datei lesen dürfen.
 
-Auf **jedem** beteiligten Server, also ROBUST und Regionssimulator:
-
-```bash
-sudo apt install nfs-common
-sudo mkdir -p /mnt/ogl-iar
-# EXPORTPFAD durch den exakten NFS-Pfad aus der UGREEN-Oberflaeche ersetzen!
-sudo mount -t nfs4 -o vers=4.1,hard,nosuid,nodev,noexec \
-  10.78.0.4:/EXPORTPFAD /mnt/ogl-iar
-findmnt -T /mnt/ogl-iar -o TARGET,SOURCE,FSTYPE
-```
-
-Die `findmnt`-Ausgabe muss den **exakten Mountpunkt**
-`/mnt/ogl-iar`, den NFS-Typ und die Quelle
-`10.78.0.4:/...` zeigen. Ein leeres lokales Verzeichnis genügt
-**nicht**. In der Systemd-Service-Unit für ROBUST bzw. OpenSim
-`RequiresMountsFor=/mnt/ogl-iar` ergänzen und einen persistenten
-NFS-Mount (fstab/mount-Unit) konfigurieren. Unter dem Mountpunkt
-auf dem Host **keine** ungeschützten lokalen Backup-Dateien anlegen.
-Für starke Fail-Closed-Semantik sollte der lokale Mountpoint ohne
-NFS für den Dienstbenutzer nicht beschreibbar sein.
-
-Simulator-Konfiguration in der jeweils tatsächlich geladenen INI:
-
-```ini
-[OpenGenesisLINKIAR]
-Enabled = true
-StorageRoot = "/mnt/ogl-iar"
-MaximumArchiveMiB = 2048
-```
-
-World-API-/ROBUST-Konfiguration:
+### ROBUST: tatsächliche `Robust.HG.ini`
 
 ```ini
 [OglIarSelfService]
 Enabled = true
+StorageBackend = "WebDAV"
+NasHost = "10.78.0.4"
+WebDavBaseUrl = "https://NAS-ZERTIFIKATSNAME:5006/WEB_DAV_IAR_ORDNER"
+WebDavUsername = "ogl-iar"
+WebDavPasswordFile = "/etc/opengenesislink/iar-webdav.pass"
+TemporaryStorageRoot = "/var/lib/opengenesislink/iar-staging"
+RetentionDays = 30
+MaximumArchiveMiB = 2048
+```
+
+Die URL ist **ein Muster**, kein garantierter UGOS-Pro-WebDAV-Pfad.
+`TemporaryStorageRoot` ist kein Backup-Ort. Upload-Blöcke
+werden dort zunächst geschrieben, SHA-256-verifiziert und anschließend
+per HTTPS ins NAS übertragen; erst dann wird der native Import
+im Simulator ausgelöst.
+
+### Simulator: tatsächlich verwendete `OpenSim.ini`
+
+```ini
+[OpenGenesisLINKIAR]
+Enabled = true
+StorageBackend = "WebDAV"
+NasHost = "10.78.0.4"
+WebDavBaseUrl = "https://NAS-ZERTIFIKATSNAME:5006/WEB_DAV_IAR_ORDNER"
+WebDavUsername = "ogl-iar"
+WebDavPasswordFile = "/etc/opengenesislink/iar-webdav.pass"
+StorageRoot = "OGLInventoryArchives"
+MaximumArchiveMiB = 2048
+```
+
+Auf jedem SIM muss die Region-Archivverwaltung mit WebDAV-Client und
+NexVerseNodeAgent aktiv sein. Der vorhandene `StorageRoot` des
+administrativen IAR-Dienstes bleibt standardmäßig erhalten.
+Beim Selbstbedienungs-Export schreibt der native Archiv-Manager erst
+eine **temporäre** Datei in seinen `StorageRoot/<Region-UUID>/`.
+Nur nach erfolgreichem WebDAV-PUT wird das Remote-Archiv als
+fertig gemeldet und die Arbeitsdatei gelöscht.
+Beim Import wird das über ROBUST hochgeladene NAS-Archiv in eine
+vorübergehende Datei am SIM geladen, geprüft und über den nativen
+IAR-Archiver eingelesen. Auch diese Datei wird nach Jobabschluss
+entfernt. **Vor dem Aktivieren den benötigten lokalen
+temporären Speicher für maximale Archive berücksichtigen.**
+
+### Retention – maximal 30 Tage
+
+- Neue Self-Service-Archive erhalten eine eindeutige
+  `<region-uuid>/<operation-uuid>.iar`-Adresse und eine
+  `.ogl-retention`-Markierung im NAS-Ordner.
+- Im aktiven ROBUST entfernt der stündliche Worker abgelaufene
+  Archive, soweit die dazugehörigen **terminalen Self-Service-Jobs**
+  noch im verfügbaren Jobstore stehen. Downloads werden nach
+  Ablauf auch vor der physischen Löschung gesperrt.
+- **Einschränkung:** Der aktuelle WebDAV-Worker bereinigt keine
+  verwaisten Archive nach Jobstore-Rotation und nicht während
+  ROBUST-Ausfällen. Für eine garantierte physische 30-Tage-Grenze
+  zusätzlich eine unabhängige Retention am NAS konfigurieren,
+  **nur auf dem dedizierten IAR-Archivordner**, nicht auf anderen
+  NAS-Freigaben. NAS-Snapshots/Recycle-Bin haben eigene Retention.
+- Staged Uploads nach über 24 Stunden Inaktivität werden beim
+  nächsten Jobstart des Avatars verworfen. Crash-Restbestände
+  auf dem Simulator erfordern derzeit operative Kontrolle.
+- Kennwort-/Zertifikatsfehler, NAS-Ausfälle, nicht lesbare Archive
+  und WebDAV-Fehler führen zu einer Fehlermeldung. Es gibt **keinen
+  automatischen dauerhaften lokalen Backup-Fallback**.
+
+### Legacy-Backend: NFS
+
+Für Hosts mit NFS-Kernelunterstützung kann weiter verwendet werden:
+
+```ini
+[OglIarSelfService]
+Enabled = true
+StorageBackend = "NFS"
 SharedStorageRoot = "/mnt/ogl-iar"
 NasHost = "10.78.0.4"
 RetentionDays = 30
 MaximumArchiveMiB = 2048
 ```
 
-Der aktualisierte Self-Service akzeptiert ausschließlich NFS/NFSv4
-mit dem **exakten Mountpoint** und dieser NAS-Quelladresse.
-Fehlt die Freigabe, liefert die API HTTP 503; der Simulator verweigert
-den Bürger-Export/-Import ebenfalls. Es wird kein lokaler
-Fallback erzeugt. Die administrative IAR-Verwaltung ist davon
-unabhängig; für das beabsichtigte NAS-only-Betriebsmodell dürfen
-auch dort ausschließlich NAS-Pfade konfiguriert werden.
+Im Simulator dazu denselben **tatsächlich gemounteten**
+`[OpenGenesisLINKIAR].StorageRoot=/mnt/ogl-iar` einstellen.
+Die vorhandene Linux-Mountinfo-Überprüfung bleibt fail-closed.
+Auf dem OpenVZ-Server von 1blu ist dieser Modus mangels NFS-Client
+derzeit nicht nutzbar. `StorageBackend` ist **kein Protokoll-Umschalter
+für die administrative Legacy-IAR-API**; deren bestehende Dateipfade
+sind gesondert zu beachten.
 
-### Maximale Aufbewahrung: 30 Tage
+## Aktivierung und Betrieb
 
-`RetentionDays` kann zwischen **1 und 30** konfiguriert werden.
-Werte über 30 deaktivieren den Self-Service statt die Grenze
-stillschweigend zu verlängern.
-
-- Der World-API-Prozess kontrolliert den Speicher **kurz nach dem Start**
-  und danach **stündlich** und löscht abgeschlossene, abgelaufene
-  `<region-uuid>/<operation-uuid>.iar`-Archive.
-- Der Ablauf beginnt mit Abschluss des Import-/Exportjobs;
-  wenn kein Jobdatensatz mehr vorhanden ist, dient der
-  Datei-Änderungszeitpunkt als Fallback.
-- Ab dem Ablaufzeitpunkt wird der **Download sofort verweigert**,
-  auch wenn die nächste physische Bereinigung noch nicht lief.
-- Noch aktive IAR-Jobs werden aus Sicherheitsgründen nicht
-  mitten im Schreibvorgang gelöscht. Die vorher vorhandene
-  24-Stunden-Bereinigung abgebrochener Uploads bleibt bestehen.
-- Die automatische Bereinigung läuft **nur während ROBUST/World API
-  aktiv und das NAS verbunden ist**. Wenn die 30-Tage-Grenze
-  auch bei komplett abgeschaltetem ROBUST physisch garantiert
-  werden soll, muss zusätzlich eine eigenständige Aufbewahrungsregel
-  auf dem NAS eingerichtet werden. Diese wird hier bewusst
-  **nicht automatisch auf dem DXP2800 konfiguriert**.
-- Für neue Self-Service-Archive wird eine kleine
-  `.iar.ogl-retention`-Markierungsdatei auf dem NAS angelegt.
-  Damit bleibt die Aufbewahrungsregel auch bei einem
-  aus der Job-Datenbank entfernten Eintrag nachvollziehbar.
-- Gelöscht werden nur vom Self-Service generierte IAR-Dateinamen
-  in UUID-Regionverzeichnissen, keine unbekannten Dateien,
-  Unterordner oder NAS-Systemdateien. Ein Datei-Job ohne 
-  gültige zugehörige Job-/Markierungsinformation wird niemals 
-  eigenmächtig gelöscht.
-- RAID oder NAS-Snapshots ersetzen keine weitere unabhängige
-  Sicherung. Kopien außerhalb des IAR-Ordners unterliegen
-  nicht automatisch dieser Regel.
-
-**Vor Aktivierung:** Bereits vorhandene `.iar`-Dateien im alten
-lokalen Speicher werden nicht automatisch migriert oder gelöscht.
-Den Altbestand separat prüfen und sicher umziehen. Die NAS-Regionordner
-müssen zu den vorhandenen IAR-Jobpfaden passen.
+1. Vorhandene `Robust.HG.ini` und `OpenSim.ini` sichern, da
+   `git pull` keine lokalen Änderungen überschreiben darf.
+2. WebDAV-Ordner und NAS-Account auf UGOS einrichten; HTTPS-Zertifikat
+   und Dateirechte prüfen.
+3. Passwortdatei auf jedem betroffenen Host sichern und konfigurieren.
+4. ROBUST und Simulatoren auf dieselbe neue Version aktualisieren,
+   beide Konfigurationen für WebDAV setzen und neu starten.
+5. **Zuerst Staging mit Testavatare**: Import und Export von
+   `>100 MiB` testen, SHA-256, Download, 30-Tage-Status, Cleanup,
+   NAS-Ausfall, Wiederanlauf und Rechtefilter Copy+Transfer prüfen.
+6. Abgeschlossene Jobs kontrollieren: fertige Archive müssen auf
+   dem NAS liegen, temporäre lokale Arbeitsdateien verschwinden.
+7. Unabhängige 30-Tage-NAS-Retention und Speicher-/Netzmonitoring
+   ergänzen. Ein WebDAV-Zertifikatsfehler darf nicht übergangen werden.
 
 ## Berechtigungen / Voraussetzungen
 
@@ -338,7 +373,7 @@ unautorisierten Downloadlink.
 - Keine fertige direkte Inworld-Firestorm-Dateiauswahl; IARs werden
   über das authentifizierte **Webportal** oder einen HTTP-Client
   hoch- und heruntergeladen.
-- Kein echtes Cross-Host-Byte-Routing ohne Shared-Mount.
+- WebDAV verbindet ROBUST und Simulator ohne Shared-Mount; temporäre native Arbeitsdateien sind erforderlich.
 - **Kein automatischer Resume nach ROBUST-Neustart**, wenn ein
   Upload bereits als laufend markiert war. Die vorhandene persistente
   Job-Engine kennzeichnet unterbrochene Jobs als fehlgeschlagen;
@@ -353,7 +388,7 @@ unautorisierten Downloadlink.
   Cache.
 - Die im Archiv vorhandenen Rechte bleiben Gegenstand des
   ursprünglichen OpenSim-/Asset-/Inventory-Importpfades.
-- Vollständige automatische Dateiretention für erfolgreiche Archive,
+- Vollständige NAS-seitige Dateiretention auch bei Offlinezeiten,
   ein generischer Browser-Download ohne
   Clientcode und vollständig gridgebundene Quotenverwaltung sind
   Folgeschritte. Ein Export wird in dieser Version nur blockweise
