@@ -19,10 +19,12 @@ assert connector.index('"/api/v1/iar/me"') < connector.index('"/api/v1/iar"')
 for cfg in cfgs:
     assert cfg.count("[OglIarSelfService]") == 1
     assert "Enabled = false" in cfg.split("[OglIarSelfService]")[-1]
+    assert 'StorageBackend = "WebDAV"' in cfg.split("[OglIarSelfService]")[-1]
+    assert 'WebDavPasswordFile = ""' in cfg.split("[OglIarSelfService]")[-1]
     assert 'SharedStorageRoot = ""' in cfg.split("[OglIarSelfService]")[-1]
 
 for marker in (
-    '"Enabled", false', '"SharedStorageRoot", ""',
+    '"Enabled", false', '"SharedStorageRoot",
     "m_SharedRoot = m_Enabled ?", "maximumTotal",
     "NexScopes.InventoryRead", "NexScopes.InventoryWrite",
     "resident_token_required", "principal.Subject",
@@ -81,7 +83,7 @@ for marker in (
 ):
     assert marker in nas, marker
 for marker in (
-    'GetString("NasHost", "")', 'GetInt("RetentionDays", 30)',
+    'GetString("NasHost", "10.78.0.4")', 'GetInt("RetentionDays", 30)',
     'string.Equals(m_NasHost, "10.78.0.4"',
     "m_CleanupTimer = new Timer(", "TimeSpan.FromHours(1)",
     "OglIarNasStorage.RequireMounted(m_SharedRoot, m_NasHost)",
@@ -106,3 +108,27 @@ assert "OglIarNasStorage.cs" in text(
     "tools/ci/OglIarSelfServiceRegression/OglIarSelfServiceRegression.csproj")
 assert "10.78.0.4" in text("doc/NexVerse/OGL_IAR_SELF_SERVICE.md")
 print("OGL IAR resident self-service static contracts PASS")
+
+# WebDAV is the default storage contract; NFS remains opt-in and fail-closed.
+dav = text("NexVerse/Core/Archives/OglIarWebDavStorage.cs")
+for marker in ('BackendName = "WebDAV"', 'ConnectCallback', '10.78.0.4',
+               'AllowAutoRedirect = false', 'UseProxy = false',
+               'Uri.UriSchemeHttps', 'File.GetUnixFileMode',
+               'Request("MKCOL"', 'Request("PUT"', 'Request("HEAD"',
+               'Request("GET"', 'Request("DELETE"', 'Request("PROPFIND"',
+               'Content-Range', 'HttpCompletionOption.ResponseHeadersRead'):
+    assert marker in dav, marker
+for marker in ('m_WebDav.Upload(', 'm_WebDav.DownloadChunk(',
+               'm_WebDav.Digest(', 'm_WebDav.Delete(', 'm_WebDav.Size(',
+               'm_UseWebDav ? "WebDAV" : "NFS"', 'TemporaryStorageRoot',
+               'if (!m_UseWebDav)', 'CleanupExpiredWebDav'):
+    assert marker in api, marker
+for marker in ('m_IarWebDav.Download(', 'm_IarWebDav.Upload(',
+               'm_IarWebDavMaximumBytes', 'File.Delete(stage)',
+               '"storage_backend"', 'OglIarNasStorage.RequireMounted('):
+    assert marker in node, marker
+for p in ("bin/OpenSim.ini", "bin/OpenSim.ini.example"):
+    ini = text(p)
+    assert '[OpenGenesisLINKIAR]' in ini
+    assert 'StorageBackend = "WebDAV"' in ini
+    assert 'WebDavPasswordFile = ""' in ini
