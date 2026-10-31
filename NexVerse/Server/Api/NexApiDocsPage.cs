@@ -677,7 +677,8 @@ body.ogl-sidebar-collapsed .ogl-admin-header,body.ogl-sidebar-collapsed main{gri
 </div>
 <div class="cards">
 <div class="card"><div class="label">Registriert</div><div class="value" id="statRegistered">–</div><div class="sub">lokale Einwohnerkonten</div></div>
-<div class="card"><div class="label">Gerade online</div><div class="value" id="statOnlineTotal">–</div><div class="sub">Einwohner + Hypergrid</div></div>
+<div class="card"><div class="label">Gerade online</div><div class="value" id="statOnlineTotal">–</div><div class="sub">Einwohner + Hypergrid + NPCs</div></div>
+<div class="card"><div class="label">NPCs online</div><div class="value" id="statNpcOnline">–</div><div class="sub">in Regionen anwesende NPC-Avatare</div></div>
 <div class="card"><div class="label">Einwohner online</div><div class="value" id="statResidentsOnline">–</div><div class="sub">auf diesem Grid</div></div>
 <div class="card"><div class="label">Aktiv letzte 7 Tage</div><div class="value" id="statActive7">–</div><div class="sub">eindeutige Einwohner</div></div>
 <div class="card"><div class="label">Aktiv letzte 30 Tage</div><div class="value" id="statActive30">–</div><div class="sub">eindeutige Einwohner</div></div>
@@ -686,7 +687,7 @@ body.ogl-sidebar-collapsed .ogl-admin-header,body.ogl-sidebar-collapsed main{gri
 <div class="card"><div class="label">HG letzte 30 Tage</div><div class="value" id="statHg30">–</div><div class="sub">eindeutige Besucher</div></div>
 </div>
 <div class="section">
-<h2>Gerade online</h2><p class="sectionlead">Lokale Einwohner und Hypergrid-Besucher mit aktuell ermittelter Region.</p>
+<h2>Angemeldete Benutzer</h2><p class="sectionlead">Lokale Einwohner und Hypergrid-Besucher mit aktiver Anmeldung. NPCs zaehlen zur Gesamtanzeige und Regionsbelegung, haben aber keine Login-Sitzung.</p>
 <div class="tablewrap"><table class="datatable"><thead><tr><th>Name</th><th>Typ</th><th>Region</th><th>Heimat-Grid</th><th>Login</th></tr></thead><tbody id="statsOnlineBody"></tbody></table></div>
 </div>
 <div class="section">
@@ -694,8 +695,8 @@ body.ogl-sidebar-collapsed .ogl-admin-header,body.ogl-sidebar-collapsed main{gri
 <div class="tablewrap"><table class="datatable"><thead><tr><th>Heimat-Grid</th><th>Bekannt</th><th>Online</th><th>7 Tage</th><th>30 Tage</th></tr></thead><tbody id="statsHgBody"></tbody></table></div>
 </div>
 <div class="section">
-<h2>Regionen jetzt</h2><p class="sectionlead">Aktuelle Belegung nach Region, getrennt nach lokalen Einwohnern und Hypergrid-Besuchern.</p>
-<div class="tablewrap"><table class="datatable"><thead><tr><th>Region</th><th>Gesamt</th><th>Einwohner</th><th>Hypergrid</th></tr></thead><tbody id="statsRegionBody"></tbody></table></div>
+<h2>Regionen jetzt</h2><p class="sectionlead">Aktuelle Avatar-Belegung je Region inklusive NPCs. Diese Details sind nur mit statistics:read sichtbar.</p>
+<div class="tablewrap"><table class="datatable"><thead><tr><th>Region</th><th>Gesamt</th><th>Einwohner</th><th>Hypergrid</th><th>NPCs</th></tr></thead><tbody id="statsRegionBody"></tbody></table></div>
 </div>
 <div class="section">
 <h2>Datenbasis</h2><pre id="statsQuality">Statistik noch nicht geladen.</pre>
@@ -1810,6 +1811,7 @@ function renderStatistics(data){
   oglGithubText('dashResidents',residents.registered_total==null?'–':residents.registered_total);
   oglGithubText('dashOnline',online.total==null?'–':online.total);
   statText('statOnlineTotal',online.total);
+  statText('statNpcOnline',online.npcs);
   statText('statResidentsOnline',residents.online_now);
   statText('statActive7',residents.active_last_7_days);
   statText('statActive30',residents.active_last_30_days);
@@ -1839,10 +1841,10 @@ function renderStatistics(data){
     appendStatsRow('statsHgBody',[originLabel,'','','','']);
   }
   $('statsRegionBody').replaceChildren();
-  (data.regions||[]).forEach(item=>appendStatsRow('statsRegionBody',[
-    item.region_name||item.region_id,item.online_total,item.residents,item.hypergrid
+  (data.region_online_users||[]).forEach(item=>appendStatsRow('statsRegionBody',[
+    item.region_name||item.region_id,item.online_total,item.residents,item.hypergrid,item.npcs??0
   ]));
-  if(!(data.regions||[]).length)appendStatsRow('statsRegionBody',[protectedDetails?'Keine Online-Belegung':'Geschützte Details – statistics:read erforderlich','','','']);
+  if(!(data.region_online_users||[]).length)appendStatsRow('statsRegionBody',[protectedDetails?'Keine Online-Belegung':'Geschützte Details – statistics:read erforderlich','','','','']);
   const states=Object.fromEntries(Object.entries(data.account_states||{}).map(([k,v])=>[accountStateLabels[k]||k,v]));
   const quality=data.data_quality||{};
   const qualityValues={

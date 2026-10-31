@@ -1116,7 +1116,8 @@ namespace NexVerse.Server.Api
                     authenticator,
                     true,
                     LoadRegionData(config),
-                    assets);
+                    assets,
+                    nodeRegistry);
 
                 INexSecurityStore securityStore =
                     new PersistentNexSecurityStore(

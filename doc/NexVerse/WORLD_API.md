@@ -148,6 +148,31 @@ These endpoints are public and read-only.
 
 Without credentials, the endpoint returns resident/Hypergrid aggregates plus **all locally registered regions from authoritative GridStore** (including offline and reserved records). Public region metadata includes only region UUID, name, position, size and GridStore online flag; it never includes avatars, personal identities, estate owners, simulator connection endpoints or region secrets. Hypergrid link entries are counted separately and excluded from local region totals. The pre-existing avatar-based region online-population breakdown is available only as `region_online_users` with `statistics:read` authentication. Hypergrid home-grid identity details remain protected.
 
+### NPC presence in official avatar statistics (OpenGenesisLINK Gen1)
+
+Region root presence includes human avatars **and** server-controlled NPC avatars.
+The existing `online.total` now counts authenticated residents/Hypergrid visitors
+**plus** NPCs observed through the live, signed NexBus simulator heartbeats.
+`online.authenticated_users` remains the count of real signed-in users;
+`online.npcs` is the NPC contribution. `online.npc_count_available` indicates
+whether at least one active node supplied a heartbeat and
+`online.avatars_present_inworld` counts all root presences observed on active
+simulators (including NPCs). In the absence of node telemetry,
+`online.total` continues returning the known signed-in user count instead
+of returning a spurious error; `online.npcs` is null when the node registry
+is unavailable. Per-region `region_online_users.online_total` also includes
+NPCs and contains a distinct `npcs` number; these region details still require
+`statistics:read`.
+
+NPCs also appear as avatar-location green dots on the viewer world map.
+The existing `llGetAgentList`, `llGetRegionAgentCount`, and OSSL NPC-aware
+scene-presence interfaces continue to operate. NPC identity is **not** converted
+into a login session, a GridUser entry, a password, or an API bearer principal.
+No administrator, economy, OAuth, Voice/WebRTC, social, or external-grid
+privileges are automatically assigned to NPCs. Functions that require a real
+viewer client or user account retain those security boundaries.
+
+
 `region_summary` gives `registered_total`, `online_total`, `offline_total`, `reserved_total` and `hypergrid_links`. Count fields are `null` when GridStore cannot be read, rather than a misleading 0. `RegionOnline` reflects **GridService registration state**; it is not a separate live network heartbeat and may be stale after a sudden simulator crash. VAR regions count once by region UUID, not by their occupied 256m map cells.
 
 `services.grid.status` and `services.asset.status` report `ok`, `degraded` or `unavailable`. Grid service `ok` requires the local GridService and successful GridStore inventory access. Asset service `ok` requires successful read-only `AssetsExist` datastore probing with a nonexistent UUID (both `true` and `false` are valid answers). These checks do not guarantee remote simulator reachability, upload success, disk space or end-to-end asset delivery. Probe failures leave the resident statistics available but set `data_quality.complete=false` and list missing metrics.

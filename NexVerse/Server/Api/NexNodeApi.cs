@@ -332,6 +332,8 @@ namespace NexVerse.Server.Api
                     node.RegionCount,
                 agent_count =
                     node.AgentCount,
+                npc_count =
+                    node.NpcCount,
                 managed_region_commands =
                     node.ManagedRegionCommands,
                 cross_region_object_messaging =
@@ -372,6 +374,8 @@ namespace NexVerse.Server.Api
                             region.SizeY,
                         agent_count =
                             region.AgentCount,
+                        npc_count =
+                            region.NpcCount,
                         last_seen =
                             region.LastSeen
                     }).ToArray()

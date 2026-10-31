@@ -416,9 +416,9 @@ namespace OpenSim.Region.CoreModules.World.WorldMap
                 switch (itemtype)
                 {
                     case (int)GridItemType.AgentLocations:
-                        // Service 6 right now (MAP_ITEM_AGENTS_LOCATION; green dots)
+                        // Service 6 (MAP_ITEM_AGENTS_LOCATION; green dots): NPCs are in-world avatars.
 
-                        if (m_scene.GetRootAgentCount() <= 1) //own position is not sent
+                        if (m_scene.GetRootAgentCount() <= 1 && m_scene.GetRootNPCCount() == 0) //own position is not sent
                         {
                             mapitem = new mapItemReply(
                                         m_regionGlobalX + 1,
@@ -435,7 +435,7 @@ namespace OpenSim.Region.CoreModules.World.WorldMap
                                 // Don't send a green dot for yourself
                                 if (sp.UUID != remoteClient.AgentId)
                                 {
-                                    if (sp.IsNPC || sp.IsDeleted || sp.IsInTransit)
+                                    if (sp.IsChildAgent || sp.IsDeleted || sp.IsInTransit)
                                         return;
 
                                     mapitem = new mapItemReply(
@@ -541,7 +541,7 @@ namespace OpenSim.Region.CoreModules.World.WorldMap
 
                 // Service 6 right now (MAP_ITEM_AGENTS_LOCATION; green dots)
 
-                if (m_scene.GetRootAgentCount() <= 1) // own is not sent
+                if (m_scene.GetRootAgentCount() <= 1 && m_scene.GetRootNPCCount() == 0) // own is not sent
                 {
                     mapitem = new mapItemReply(
                                 m_regionGlobalX + 1,
@@ -558,7 +558,7 @@ namespace OpenSim.Region.CoreModules.World.WorldMap
                         // Don't send a green dot for yourself
                         if (sp.UUID != remoteClient.AgentId)
                         {
-                            if (sp.IsNPC || sp.IsDeleted || sp.IsInTransit)
+                            if (sp.IsChildAgent || sp.IsDeleted || sp.IsInTransit)
                                 return;
 
                             mapitem = new mapItemReply(
@@ -1459,7 +1459,7 @@ namespace OpenSim.Region.CoreModules.World.WorldMap
                 OSDArray responsearr = new OSDArray(); // Don't preallocate. MT (m_scene.GetRootAgentCount());
                 m_scene.ForEachRootScenePresence(delegate (ScenePresence sp)
                 {
-                    if (sp.IsNPC || sp.IsDeleted || sp.IsInTransit)
+                    if (sp.IsChildAgent || sp.IsDeleted || sp.IsInTransit)
                         return;
                     OSDMap responsemapdata = new OSDMap();
                     responsemapdata["X"] = OSD.FromInteger((int)(m_regionGlobalX + sp.AbsolutePosition.X));

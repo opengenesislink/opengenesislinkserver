@@ -1364,6 +1364,10 @@ namespace NexVerse.RegionModules.NodeAgent
                     "node.heartbeat",
                     "nexverse.simulator",
                     NodeData()));
+                // Keep per-region NPC and total avatar presence fresh rather than
+                // relying on the count captured at region startup.
+                foreach (Scene scene in m_Scenes.Values.ToArray())
+                    PublishRegionEvent("region.presence", scene);
             }
             catch (Exception e)
             {
@@ -1375,6 +1379,7 @@ namespace NexVerse.RegionModules.NodeAgent
         {
             Scene[] scenes = m_Scenes.Values.ToArray();
             int agents = scenes.Sum(x => x.GetRootAgentCount());
+            int npcs = scenes.Sum(x => x.GetRootNPCCount());
             LunaTextureNodeSummary lunaTexture =
                 CollectLunaTextureDiagnostics(scenes);
 
@@ -1396,6 +1401,7 @@ namespace NexVerse.RegionModules.NodeAgent
                 ["disk_total_bytes"] = drive.TotalSize.ToString(),
                 ["region_count"] = scenes.Length.ToString(),
                 ["agent_count"] = agents.ToString(),
+                ["npc_count"] = npcs.ToString(),
                 ["maintenance_mode"] = m_MaintenanceMode.ToString(),
                 ["draining"] = m_Draining.ToString(),
                 ["update_staging_enabled"] = m_UpdateStagingEnabled.ToString(),
@@ -1531,7 +1537,8 @@ namespace NexVerse.RegionModules.NodeAgent
                     ["server_uri"] = scene.RegionInfo.ServerURI ?? string.Empty,
                     ["size_x"] = scene.RegionInfo.RegionSizeX.ToString(),
                     ["size_y"] = scene.RegionInfo.RegionSizeY.ToString(),
-                    ["agent_count"] = scene.GetRootAgentCount().ToString()
+                    ["agent_count"] = scene.GetRootAgentCount().ToString(),
+                    ["npc_count"] = scene.GetRootNPCCount().ToString()
                 }));
         }
 
