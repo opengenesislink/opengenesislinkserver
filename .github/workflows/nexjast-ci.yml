@@ -653,6 +653,12 @@ jobs:
           dotnet run --configuration Release --project tools/ci/NexNpcDirectoryRegression/NexNpcDirectoryRegression.csproj
           python3 tools/ci/verify_npc_owner_bridge_r617.py
 
+      - name: Regression-test NPC direct IM archive opt-in, owner privacy and retention (R619)
+        shell: bash
+        run: |
+          dotnet run --configuration Release --project tools/ci/NexNpcChatStoreRegression/NexNpcChatStoreRegression.csproj
+          python3 tools/ci/verify_npc_chat_r619.py
+
       - name: Regression-test OGL FastMap deferred startup queue
         shell: bash
         run: dotnet run --configuration Release --project tools/ci/OglFastMapStartupRegression/OglFastMapStartupRegression.csproj
