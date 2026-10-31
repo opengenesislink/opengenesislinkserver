@@ -39,6 +39,8 @@ namespace OpenGenesisLINK.Addons.OGLWeather
             public long NextDays;
             public long NextVisual;
             public string LastVisual = string.Empty;
+            public string LastSkyVisual = string.Empty;
+            public readonly Dictionary<UUID, ViewerEnvironment> WeatherSkies = new();
             public readonly object WeatherLock = new object();
             public readonly List<SceneObjectGroup> Emitters = new List<SceneObjectGroup>();
         }
@@ -57,6 +59,7 @@ namespace OpenGenesisLINK.Addons.OGLWeather
         private TimeZoneInfo m_TimeZone;
         private int m_CloudBaseMeters;
         private bool m_LegacyParticleEmitters;
+        private bool m_ViewerEnvironmentEffects;
         private int m_EmitterHeightMeters;
         private int m_EmitterSpacingMeters;
         private int m_MaxEmittersPerRegion;
@@ -77,10 +80,11 @@ namespace OpenGenesisLINK.Addons.OGLWeather
             m_DailySeconds = Math.Clamp(cfg.GetInt("ForecastBroadcastSeconds", 300), 60, 3600);
             m_CloudBaseMeters = Math.Clamp(cfg.GetInt("CloudBaseMeters", 200), 64, 2048);
             m_LegacyParticleEmitters = cfg.GetBoolean("LegacyParticleEmitters", true);
-            m_EmitterHeightMeters = Math.Clamp(cfg.GetInt("EmitterHeightMeters", 65), 20, 150);
+            m_ViewerEnvironmentEffects = cfg.GetBoolean("ViewerEnvironmentEffects", true);
+            m_EmitterHeightMeters = Math.Clamp(cfg.GetInt("EmitterHeightMeters", 22), 12, 80);
             m_EmitterSpacingMeters = Math.Clamp(cfg.GetInt("EmitterSpacingMeters", 96), 32, 256);
             m_MaxEmittersPerRegion = Math.Clamp(cfg.GetInt("MaxEmittersPerRegion", 16), 1, 64);
-            m_VisualRefreshSeconds = Math.Clamp(cfg.GetInt("VisualRefreshSeconds", 60), 30, 300);
+            m_VisualRefreshSeconds = Math.Clamp(cfg.GetInt("VisualRefreshSeconds", 12), 5, 300);
             if (m_Channel >= 0)
             {
                 Log.Error("[OGL-WEATHER]: LSLChannel muss negativ sein; Modul deaktiviert.");
@@ -298,7 +302,8 @@ namespace OpenGenesisLINK.Addons.OGLWeather
             if (!m_Enabled || m_Closing) return;
             long now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
             if (now < state.NextNow && now < state.NextDays &&
-                (!m_LegacyParticleEmitters || now < state.NextVisual))
+                ((!m_LegacyParticleEmitters && !m_ViewerEnvironmentEffects) ||
+                 now < state.NextVisual))
                 return;
 
             // Each region has its own cadence. All of them use the same seed,
@@ -308,7 +313,8 @@ namespace OpenGenesisLINK.Addons.OGLWeather
                 IWorldComm comm = state.Scene.RequestModuleInterface<IWorldComm>();
                 // Do not couple legacy precipitation to the availability of
                 // the region chat service (forecast boards are optional).
-                if (comm == null && !m_LegacyParticleEmitters) return;
+                if (comm == null && !m_LegacyParticleEmitters &&
+                    !m_ViewerEnvironmentEffects) return;
                 Vector3 location = new Vector3(state.Scene.RegionInfo.RegionSizeX / 2f,
                     state.Scene.RegionInfo.RegionSizeY / 2f, 20f);
                 DateTimeOffset utc = DateTimeOffset.UtcNow;
@@ -339,30 +345,45 @@ namespace OpenGenesisLINK.Addons.OGLWeather
                     }
                 }
 
-                if (m_LegacyParticleEmitters && now >= state.NextVisual)
+                if (now >= state.NextVisual &&
+                    (m_LegacyParticleEmitters || m_ViewerEnvironmentEffects))
                 {
                     state.NextVisual = now + m_VisualRefreshSeconds;
                     WeatherReading weather = effective;
-                    string signature = weather.Condition + "|" +
-                        weather.Intensity.ToString();
+                    string signature = weather.Condition + "|" + weather.Intensity;
+                    bool wet = weather.Condition == "snow" ||
+                        weather.Condition == "rain";
+                    bool overcast = wet || weather.Condition == "cloud";
                     lock (state.WeatherLock)
                     {
-                        bool wet = weather.Condition == "snow" ||
-                            weather.Condition == "rain";
-                        bool needsUpdate = signature != state.LastVisual ||
-                            (wet && state.Scene.GetNumberOfClients() > 0 &&
-                             (state.Emitters.Count == 0 ||
-                              state.Emitters.Exists(e => e == null || e.IsDeleted))) ||
-                            (!wet && state.Emitters.Count > 0) ||
-                            (state.Scene.GetNumberOfClients() == 0 &&
-                             state.Emitters.Count > 0);
-                        if (needsUpdate)
+                        if (m_LegacyParticleEmitters)
                         {
+                            // Existing sources are moved above the active
+                            // viewers even when the weather has not changed.
+                            // A static grid misses most avatars in Firestorm.
                             OglWeatherLegacyEmitters.Apply(
                                 state.Scene, state.Emitters, weather,
                                 m_EmitterHeightMeters, m_EmitterSpacingMeters,
                                 m_MaxEmittersPerRegion);
                             state.LastVisual = signature;
+                        }
+                        if (m_ViewerEnvironmentEffects && overcast)
+                        {
+                            // Environment changes are transient and per agent.
+                            // NEVER call StoreOnRegion: it writes estate EEP
+                            // into the persistent database.
+                            if (state.LastSkyVisual != signature)
+                                OglWeatherViewerEnvironment.Clear(
+                                    state.Scene, state.WeatherSkies);
+                            OglWeatherViewerEnvironment.Apply(
+                                state.Scene, state.WeatherSkies, weather);
+                            state.LastSkyVisual = signature;
+                        }
+                        else if (state.WeatherSkies.Count > 0)
+                        {
+                            OglWeatherViewerEnvironment.Clear(
+                                state.Scene, state.WeatherSkies);
+                            state.LastSkyVisual = string.Empty;
                         }
                     }
                 }
@@ -382,7 +403,10 @@ namespace OpenGenesisLINK.Addons.OGLWeather
                 scene.EventManager.OnFrame -= state.Handler;
                 scene.EventManager.OnRegisterCaps -= state.CapsHandler;
                 lock (state.WeatherLock)
+                {
                     OglWeatherLegacyEmitters.Clear(scene, state.Emitters);
+                    OglWeatherViewerEnvironment.Clear(scene, state.WeatherSkies);
+                }
             }
         }
 
@@ -394,7 +418,10 @@ namespace OpenGenesisLINK.Addons.OGLWeather
                 state.Scene.EventManager.OnFrame -= state.Handler;
                 state.Scene.EventManager.OnRegisterCaps -= state.CapsHandler;
                 lock (state.WeatherLock)
+                {
                     OglWeatherLegacyEmitters.Clear(state.Scene, state.Emitters);
+                    OglWeatherViewerEnvironment.Clear(state.Scene, state.WeatherSkies);
+                }
             }
             m_Regions.Clear();
             m_TestOverride.Clear();
