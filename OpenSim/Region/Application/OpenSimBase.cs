@@ -974,6 +974,22 @@ namespace OpenSim
         /// </summary>
         protected override void ShutdownSpecific()
         {
+            // A process shutdown must move clients to a DIFFERENT server.
+            // All regions hosted by this process are excluded as targets.
+            try
+            {
+                var evacConfig = Config?.Configs["NexVerseAvatarEvacuation"];
+                if (evacConfig?.GetBoolean("Enabled", true) != false &&
+                    SceneManager != null)
+                    NexVerseAvatarEvacuation.EvacuateInstance(
+                        SceneManager.Scenes.ToArray(),
+                        evacConfig?.GetInt("WaitSeconds", 25) ?? 25);
+            }
+            catch (Exception e)
+            {
+                m_log.Error("[NEX-EVAC]: Evacuation failed; continuing bounded process shutdown.", e);
+            }
+
             if (proxyUrl.Length > 0)
             {
                 Util.XmlRpcCommand(proxyUrl, "Stop");
