@@ -605,13 +605,6 @@ namespace NexVerse.RegionModules.NodeAgent
                     return false;
                 }
 
-                if (scene.GetRootAgentCount() > 0)
-                {
-                    error =
-                        "region_has_agents";
-                    return false;
-                }
-
                 string configPath =
                     ConfigPath(regionId);
 
@@ -622,6 +615,17 @@ namespace NexVerse.RegionModules.NodeAgent
                 {
                     error =
                         "region_not_nexverse_managed";
+                    return false;
+                }
+
+                // Validate managed ownership before relocating anyone.
+                // A failed evacuation leaves the region running.
+                if (NexVerseAvatarEvacuation.HasHumanRootAgents(scene) &&
+                    !NexVerseAvatarEvacuation.Evacuate(
+                        scene, new HashSet<UUID> { regionId }, 25,
+                        "Managed region stop"))
+                {
+                    error = "region_evacuation_incomplete";
                     return false;
                 }
 
@@ -781,13 +785,6 @@ namespace NexVerse.RegionModules.NodeAgent
                     return false;
                 }
 
-                if (scene.GetRootAgentCount() > 0)
-                {
-                    error =
-                        "region_has_agents";
-                    return false;
-                }
-
                 string configPath =
                     ConfigPath(regionId);
 
@@ -798,6 +795,17 @@ namespace NexVerse.RegionModules.NodeAgent
                 {
                     error =
                         "region_not_nexverse_managed";
+                    return false;
+                }
+
+                // Validate managed ownership before relocating anyone.
+                // A failed evacuation leaves the region running.
+                if (NexVerseAvatarEvacuation.HasHumanRootAgents(scene) &&
+                    !NexVerseAvatarEvacuation.Evacuate(
+                        scene, new HashSet<UUID> { regionId }, 25,
+                        "Managed region restart"))
+                {
+                    error = "region_evacuation_incomplete";
                     return false;
                 }
 
