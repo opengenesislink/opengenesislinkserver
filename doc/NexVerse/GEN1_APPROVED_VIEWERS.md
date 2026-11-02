@@ -7,6 +7,7 @@
 - **Firestorm Viewer** – `Firestorm` und Firestorm-Channel wie `Firestorm-Releasex64`
 - **OpenGenesisLINK Viewer** – `OpenGenesisLINK` und der projektinterne Name `OGL Viewer`
 - **Radegast-ng** – `Radegast-ng` und kompatibler Alias `Radegast`
+- **WolfViewer-Release** – exakt dieser Viewer-Familienpräfix (auch mit nachgestellter Versionsnummer), für lokalen Login, Hypergrid und Regionseintritt
 
 Andere selbst gemeldete Viewernamen – einschließlich **Darkstorm**, **Hydrastorm**, Alchemy, Singularity, Cool VL und unbekannter Clients – sind nicht zugelassen.
 
@@ -50,7 +51,7 @@ Ebenso ist ein öffentlicher Hypergrid-Asset-HTTP-Endpunkt nicht automatisch ein
 
 ## Tests vor Produktivbetrieb
 
-- Anmelden lokal: Firestorm und OpenGenesisLINK (auch interne Aliaskennung) erfolgreich.
+- Anmelden lokal: Firestorm, OpenGenesisLINK (auch interne Aliaskennung), Radegast-ng und WolfViewer-Release erfolgreich.
 - Ablehnen lokal: Darkstorm, Hydrastorm, nicht freigegebene/fehlende Kennungen und bekannte Spoof-Kombinationen.
 - Gatekeeper: Firestorm-Gast darf hinein, Darkstorm/Hydrastorm sowie unbekannte Gäste werden vor Präsenzanlage abgelehnt.
 - Regionen: Zugelassene lokale/HG-Avatare können teleportieren und Regionen wechseln; sonstige werden abgewiesen.
