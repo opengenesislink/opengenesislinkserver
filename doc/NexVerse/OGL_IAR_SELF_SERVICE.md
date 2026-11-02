@@ -179,10 +179,20 @@ sind gesondert zu beachten.
   oder heruntergeladen werden. Job-UUIDs allein autorisieren nichts.
 - Der vorhandene signierte IAR-Feature-Gate bleibt aktiv und kann
   Importe und Exporte je nach Node-Lizenz verweigern.
-- Bürgerexporte wenden im originalen Archiver `checkPermissions=CT`
-  an. Nur Gegenstände mit **Copy- UND Transfer-Rechten** können
-  exportiert werden. Das ersetzt keine umfassende Prüfung aller
-  Asset-Eigentumsrechte und Copybot-Risiken.
+- Bürgerexporte sind als **vollständige Sicherung des eigenen Inventars**
+  ausgelegt. Der IAR-Exporter setzt **keinen Copy-/Transfer-Filter**:
+  auch No-Copy-/No-Transfer-Einträge werden archiviert, sofern die
+  zugehörigen Assets tatsächlich im Grid verfügbar und lesbar sind.
+  Das native IAR-Format serialisiert die bestehenden Berechtigungen;
+  es werden **keine neuen Rechte** an Gegenständen vergeben.
+- **Achtung:** Der Download eines vollständigen IAR kann auch Inhalte
+  enthalten, deren Weitergabe durch Rechte der Urheber untersagt ist.
+  Solche Archive ausschließlich für berechtigte eigene Sicherung und
+  Wiederherstellung verwenden, nicht als Copybot-/Transfermechanismus.
+  Zugriffskontrolle, OAuth-Scopes und getrennte, private NAS-Ablage
+  sind unbedingt beizubehalten. Ein Archiv ohne fehlende Assets ist
+  nicht garantiert: fehlende/beschädigte Asset-Daten werden nicht
+  durch das Weglassen des Permission-Filters repariert.
 
 ## Aktivierung
 
