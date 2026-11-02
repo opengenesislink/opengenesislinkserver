@@ -16,7 +16,8 @@ def section(data, name):
 
 policy = read("OpenSim/Framework/OglApprovedViewerPolicy.cs")
 for marker in (
-    '"Firestorm", "OpenGenesisLINK", "OGL Viewer", "Radegast-ng", "Radegast"',
+    '"Firestorm", "OpenGenesisLINK", "OGL Viewer", "Radegast-ng", "Radegast",',
+    '"WolfViewer-Release"',
     '"Darkstorm", "Hydrastorm", "Copybot"',
     "StartsWithApprovedName",
     "ContainsKnownCopybotName",

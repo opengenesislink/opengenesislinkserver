@@ -51,6 +51,18 @@ internal static class Program
         Check("2.3.0", "Radegast", true);
         Check("Radegast-ng-malice", "Hydrastorm", false);
 
+        // Explicit WolfViewer-Release exception: preserve the existing
+        // anti-spoofing and exact family-boundary checks.
+        Check("WolfViewer-Release 1.0", "WolfViewer-Release", true);
+        Check("1.0.0.1", "WolfViewer-Release", true);
+        Check("WolfViewer-Release", "", true);
+        Check("wolfviewer-release 2.0", "WOLFVIEWER-RELEASE", true);
+        Check("WolfViewer-ReleaseCandidate", "", false);
+        Check("WolfViewer", "WolfViewer", false);
+        Check("WolfViewer-Release", "UnknownViewer", false);
+        Check("WolfViewer-Release Copybot", "WolfViewer-Release", false);
+        Check("WolfViewer-Release", "Hydrastorm", false);
+
         // Denials: explicit known Copybot labels and every other viewer family.
         Check("Darkstorm 2.0", "Darkstorm", false);
         Check("Hydrastorm 1.0", "Hydrastorm", false);

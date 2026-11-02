@@ -4066,7 +4066,7 @@ namespace OpenSim.Region.Framework.Scenes
             if (m_OglApprovedViewersOnly &&
                 !OglApprovedViewerPolicy.IsAllowed(acd.Viewer, acd.Channel))
             {
-                reason = "Only Firestorm, OpenGenesisLINK or Radegast-ng Viewer is permitted";
+                reason = "Only Firestorm, OpenGenesisLINK, Radegast-ng or WolfViewer-Release is permitted";
                 m_log.InfoFormat("[OGL VIEWER ACCESS]: Region {0} rejected viewer {1}, channel {2}",
                     RegionInfo.RegionName, acd.Viewer, acd.Channel);
                 return false;
