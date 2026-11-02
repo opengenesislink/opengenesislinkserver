@@ -56,7 +56,17 @@ assert "request.InputStream.Read(" not in api or "remaining" in api
 assert "m_Jobs.List(1000).Any(" in api
 assert "inventory_path" in api
 assert '["self_service"] = "true"' in api
-assert '["checkPermissions"] = "CT"' in node, "Self-service export requires copy+transfer"
+# The resident IAR backup includes inventory regardless of Copy/Transfer bits.
+# Native permissions remain serialized in the archive; no privileged rights are granted.
+manager = text("NexVerse/RegionModules/Archives/OglIarOperationManager.cs")
+writer = text("OpenSim/Region/CoreModules/Avatar/Inventory/Archiver/InventoryArchiveWriteRequest.cs")
+assert 'operations.StartExport(operationId, user, inventoryPath, fileName)' in node
+assert '["checkPermissions"] = "CT"' not in node, "Self-service must not filter Copy/Transfer"
+assert 'options ?? new Dictionary<string, object>()' in manager
+assert 'FilterContent = null;' in writer and 'if (FilterContent == null)' in writer
+assert 'UserInventoryItemSerializer.Serialize(inventoryItem, options, userAccountService)' in writer
+assert 'UserAccount user = scene.UserAccountService.GetUserAccount(' in node
+assert 'OwnJob(user, id)' in api, "Never expose another avatar's IAR jobs"
 
 for marker in (
     "MaximumChunkBytes = 4 * 1024 * 1024",
