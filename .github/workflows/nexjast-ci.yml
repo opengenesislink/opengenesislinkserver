@@ -338,6 +338,10 @@ jobs:
         shell: bash
         run: python3 tools/ci/verify_region_mutations.py
 
+      - name: Verify graceful avatar relocation before region restart and simulator shutdown
+        shell: bash
+        run: python3 tools/ci/verify_avatar_evacuation.py
+
       - name: Verify World API public statistics degraded-mode correctness
         shell: bash
         run: python3 tools/ci/verify_statistics_fallback.py
