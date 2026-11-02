@@ -99,40 +99,57 @@ namespace OpenSim.Region.Framework.Scenes
                 return false;
             }
 
-            // Grid-provided online regions are not guaranteed to accept every
-            // user. The existing native entity transfer enforces parcel/estate
-            // access checks, scripted attachment policy and Hypergrid rules.
-            // Request ONE candidate at a time; do not race multiple teleports.
-            foreach (ScenePresence sp in residents)
-            {
-                if (sp.IsInTransit) continue;
-                GridRegion destination = targets[0];
-                try
-                {
-                    sp.ControllingClient?.SendAlertMessage(
-                        reason + ": moving you to " + destination.RegionName + ".");
-                    Vector3 landing = new Vector3(
-                        Math.Clamp(destination.RegionSizeX / 2f, 1f, destination.RegionSizeX - 1f),
-                        Math.Clamp(destination.RegionSizeY / 2f, 1f, destination.RegionSizeY - 1f),
-                        35f);
-                    transfer.Teleport(sp, destination.RegionHandle, landing,
-                        new Vector3(1f, 0f, 0f), (uint)TPFlags.ViaLocation);
-                }
-                catch (Exception e)
-                {
-                    Log.WarnFormat("[NEX-EVAC]: Teleport request failed for {0}: {1}",
-                        sp.UUID, e.GetType().Name);
-                }
-            }
+            // Native entity transfer enforces access checks. Teleport() is
+            // asynchronous: retry the next closest ONLINE destination only
+            // after a request has had time to finish, and never while a
+            // transfer is in progress. All residents share one bounded clock.
+            var attempts = new Dictionary<UUID, int>();
+            var lastAttempt = new Dictionary<UUID, long>();
+            int options = Math.Min(targets.Count, 6);
             int timeoutMs = Math.Clamp(waitSeconds, 5, 90) * 1000;
             long until = Environment.TickCount64 + timeoutMs;
             while (Environment.TickCount64 < until)
             {
-                if (!HasHumanRootAgents(scene))
+                List<ScenePresence> remaining = Residents(scene);
+                if (remaining.Count == 0)
                 {
                     Log.InfoFormat("[NEX-EVAC]: Moved {0} avatars away from {1}.",
                         residents.Count, scene.Name);
                     return true;
+                }
+                foreach (ScenePresence sp in remaining)
+                {
+                    if (sp.IsInTransit) continue;
+                    int next = attempts.TryGetValue(sp.UUID, out int index) ? index : 0;
+                    if (next >= options) continue;
+                    long now = Environment.TickCount64;
+                    if (lastAttempt.TryGetValue(sp.UUID, out long attempted) &&
+                        now - attempted < 4000)
+                        continue;
+
+                    // Advance before dispatch so a synchronous rejection cannot
+                    // cause the same destination to be tried indefinitely.
+                    attempts[sp.UUID] = next + 1;
+                    lastAttempt[sp.UUID] = now;
+                    GridRegion destination = targets[next];
+                    try
+                    {
+                        sp.ControllingClient?.SendAlertMessage(
+                            reason + ": moving you to " + destination.RegionName + ".");
+                        Vector3 landing = new Vector3(
+                            Math.Clamp(destination.RegionSizeX / 2f, 1f,
+                                destination.RegionSizeX - 1f),
+                            Math.Clamp(destination.RegionSizeY / 2f, 1f,
+                                destination.RegionSizeY - 1f),
+                            35f);
+                        transfer.Teleport(sp, destination.RegionHandle, landing,
+                            new Vector3(1f, 0f, 0f), (uint)TPFlags.ViaLocation);
+                    }
+                    catch (Exception e)
+                    {
+                        Log.WarnFormat("[NEX-EVAC]: Teleport request for {0} to {1} failed: {2}",
+                            sp.UUID, destination.RegionID, e.GetType().Name);
+                    }
                 }
                 Thread.Sleep(250);
             }
