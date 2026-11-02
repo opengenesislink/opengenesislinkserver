@@ -36,7 +36,8 @@ checks={
         ('IEntityTransferModule' in evac and 'TPFlags.ViaLocation' in evac and
          'DoTeleport(' not in evac),
     "wait for actual avatar exit":
-        ('!HasHumanRootAgents(scene)' in evac and
+        ('List<ScenePresence> remaining = Residents(scene)' in evac and
+         'if (remaining.Count == 0)' in evac and
          'Thread.Sleep(250)' in evac and 'Environment.TickCount64' in evac),
     "managed stop and restart":
         (managed.count('NexVerseAvatarEvacuation.Evacuate(')==2 and
