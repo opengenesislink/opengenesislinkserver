@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
+using System.Threading.Tasks;
 using log4net;
 using OpenMetaverse;
 using OpenSim.Framework;
@@ -38,7 +39,7 @@ namespace OpenSim.Region.Framework.Scenes
         /// Hypergrid hyperlinks. A missing grid service is NOT a valid target.
         /// </summary>
         public static List<GridRegion> Destinations(Scene scene,
-            ISet<UUID> excluded, int limit = 128)
+            ISet<UUID> excluded, int limit = 1024)
         {
             if (scene == null) return new List<GridRegion>();
             List<GridRegion> online = scene.GridService.GetOnlineRegions(
@@ -70,7 +71,7 @@ namespace OpenSim.Region.Framework.Scenes
         /// may fail; issuing it is NOT counted as a successful evacuation.
         /// </summary>
         public static bool Evacuate(Scene scene, ISet<UUID> excluded, int waitSeconds,
-            string reason = "Region restart")
+            string reason = "Region restart", CancellationToken cancellation = default)
         {
             if (scene == null) return true;
             List<ScenePresence> residents = Residents(scene);
@@ -108,7 +109,7 @@ namespace OpenSim.Region.Framework.Scenes
             int options = Math.Min(targets.Count, 6);
             int timeoutMs = Math.Clamp(waitSeconds, 1, 90) * 1000;
             long until = Environment.TickCount64 + timeoutMs;
-            while (Environment.TickCount64 < until)
+            while (Environment.TickCount64 < until && !cancellation.IsCancellationRequested)
             {
                 List<ScenePresence> remaining = Residents(scene);
                 if (remaining.Count == 0)
@@ -119,6 +120,7 @@ namespace OpenSim.Region.Framework.Scenes
                 }
                 foreach (ScenePresence sp in remaining)
                 {
+                    if (cancellation.IsCancellationRequested) break;
                     if (sp.IsInTransit) continue;
                     int next = attempts.TryGetValue(sp.UUID, out int index) ? index : 0;
                     if (next >= options) continue;
@@ -170,23 +172,37 @@ namespace OpenSim.Region.Framework.Scenes
             if (scenes == null || scenes.Count == 0) return;
             var excluded = new HashSet<UUID>(
                 scenes.Where(s => s != null).Select(s => s.RegionInfo.RegionID));
-            // One bounded budget for the *whole* process (not N times 25s
-            // when there are N regions on this simulator).
-            long deadline = Environment.TickCount64 +
-                Math.Clamp(waitSeconds, 5, 90) * 1000L;
-            foreach (Scene scene in scenes)
+            Scene[] occupied = scenes.Where(s => s != null && HasHumanRootAgents(s)).ToArray();
+            if (occupied.Length == 0) return;
+            // Every region begins relocation before the shutdown deadline.
+            // One region with a denied teleport must not consume the entire
+            // budget and prevent all other regions from moving their users.
+            int budgetMs = Math.Clamp(waitSeconds, 5, 90) * 1000;
+            using CancellationTokenSource stop = new CancellationTokenSource();
+            Task<bool>[] transfers = occupied.Select(scene => Task.Run(() =>
+                Evacuate(scene, excluded, waitSeconds,
+                    "Simulator shutdown", stop.Token))).ToArray();
+            try
             {
-                if (scene == null || !HasHumanRootAgents(scene)) continue;
-                long remaining = deadline - Environment.TickCount64;
-                if (remaining <= 0)
-                {
-                    Log.WarnFormat("[NEX-EVAC]: Shutdown deadline reached. " +
-                        "Region {0} still has viewers; normal shutdown continues.", scene.Name);
-                    continue;
-                }
-                int seconds = (int)Math.Max(1, (remaining + 999) / 1000);
-                Evacuate(scene, excluded, seconds, "Simulator shutdown");
+                if (!Task.WaitAll(transfers, budgetMs))
+                    Log.Warn("[NEX-EVAC]: Simulator-wide evacuation deadline reached.");
             }
+            catch (AggregateException e)
+            {
+                Log.Warn("[NEX-EVAC]: One or more evacuation tasks failed.", e);
+            }
+            finally
+            {
+                stop.Cancel();
+                try { Task.WaitAll(transfers, 2000); }
+                catch (AggregateException e)
+                { Log.Warn("[NEX-EVAC]: Evacuation finished with errors.", e); }
+            }
+            int evacuated = transfers.Count(t =>
+                t.Status == TaskStatus.RanToCompletion && t.Result);
+            Log.InfoFormat("[NEX-EVAC]: Shutdown evacuation result: " +
+                "{0}/{1} regions clear of viewer avatars.", evacuated, occupied.Length);
         }
+
     }
 }
