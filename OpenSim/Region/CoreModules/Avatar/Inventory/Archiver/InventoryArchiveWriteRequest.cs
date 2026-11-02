@@ -143,30 +143,60 @@ namespace OpenSim.Region.CoreModules.Avatar.Inventory.Archiver
         {
             Exception reportedException = null;
             bool succeeded = true;
+            m_log.InfoFormat("[OGL-IAR]: Export {0}: Asset-Phase beendet ({1} gespeichert, {2} fehlend); TAR/GZip wird abgeschlossen.",
+                m_id, assetsFoundUuids.Count, assetsNotFoundUuids.Count);
+
+            // A failed progress notification must not leave the archive open.
+            try { m_module?.TriggerInventoryArchiveProgress(m_id, "finalizing", 0, 0); }
+            catch (Exception e)
+            { m_log.Warn("[OGL-IAR]: Fortschrittsmeldung beim Archivabschluss fehlgeschlagen.", e); }
 
             try
             {
-                m_module?.TriggerInventoryArchiveProgress(m_id, "finalizing", 0, 0);
                 m_archiveWriter.Close();
             }
             catch (Exception e)
             {
                 reportedException = e;
                 succeeded = false;
+                m_log.Error("[OGL-IAR]: TAR-Archivabschluss fehlgeschlagen fuer " + m_id + ".", e);
             }
             finally
             {
-                m_saveStream.Close();
+                // Closing the compression stream can fail independently of
+                // closing TAR; never let it suppress the terminal job event.
+                try { m_saveStream.Close(); }
+                catch (Exception e)
+                {
+                    reportedException ??= e;
+                    succeeded = false;
+                    m_log.Error("[OGL-IAR]: GZip/Datei-Abschluss fehlgeschlagen fuer " + m_id + ".", e);
+                }
             }
 
             if (timedOut)
             {
                 succeeded = false;
-                reportedException = new Exception("Zeitüberschreitung beim Laden der Assets");
+                reportedException ??= new Exception("Zeitüberschreitung beim Laden der Assets");
             }
 
-            m_module.TriggerInventoryArchiveSaved(
-                m_id, succeeded, m_userInfo, m_invPath, m_saveStream, reportedException, CountItems, CountFiltered);
+            if (succeeded)
+                m_log.InfoFormat("[OGL-IAR]: Export {0}: TAR/GZip abgeschlossen; uebergebe Archiv zur Integritaetspruefung.", m_id);
+            else
+                m_log.WarnFormat("[OGL-IAR]: Export {0}: Archivabschluss fehlgeschlagen: {1}",
+                    m_id, reportedException?.Message ?? "unbekannter Fehler");
+
+            // The manager must receive a terminal callback even on close errors.
+            try
+            {
+                m_module.TriggerInventoryArchiveSaved(
+                    m_id, succeeded, m_userInfo, m_invPath, m_saveStream, reportedException, CountItems, CountFiltered);
+            }
+            catch (Exception e)
+            {
+                m_log.Error("[OGL-IAR]: Export " + m_id + ": Rueckmeldung des Archivabschlusses fehlgeschlagen.", e);
+                throw;
+            }
         }
 
         protected void SaveInvItem(InventoryItemBase inventoryItem, string path, Dictionary<string, object> options, IUserAccountService userAccountService)

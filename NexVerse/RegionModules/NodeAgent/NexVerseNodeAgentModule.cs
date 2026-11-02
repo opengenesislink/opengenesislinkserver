@@ -2072,8 +2072,20 @@ namespace NexVerse.RegionModules.NodeAgent
                     {
                         if (operation.State == OglIarOperationState.Completed &&
                             string.Equals(action, "export", StringComparison.OrdinalIgnoreCase))
+                        {
+                            long size = new FileInfo(stage).Length;
+                            m_Log.InfoFormat("[OGL-IAR]: Export {0}: validiertes Archiv ({1} Bytes) wird per WebDAV auf das NAS uebertragen.",
+                                operationId, size);
                             m_IarWebDav.Upload(Guid.Parse(regionId.ToString()),
                                 Guid.Parse(operationId.ToString()), stage, m_IarWebDavMaximumBytes);
+                            m_Log.InfoFormat("[OGL-IAR]: Export {0}: WebDAV-Upload bestaetigt; Auftrag wird als completed gemeldet.",
+                                operationId);
+                        }
+                        else if (operation.State == OglIarOperationState.Failed)
+                        {
+                            m_Log.WarnFormat("[OGL-IAR]: Export/Import {0}: nativer Archivauftrag fehlgeschlagen: {1}",
+                                operationId, operation.Error);
+                        }
                     }
                     catch (Exception e)
                     {

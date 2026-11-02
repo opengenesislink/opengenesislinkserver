@@ -148,3 +148,6 @@ assert 'remoteUploadFailed ? "iar_webdav_transfer_failed" : operation.Error' in 
 assert 'state == "failed" ? "iar_webdav_transfer_failed" : operation.Error' not in node
 assert '"iar_webdav_not_configured"' in node
 assert 'Archive staging failed for operation ' in node
+assert 'WebDAV-Upload bestaetigt' in node
+assert 'validiertes Archiv' in node
+assert 'm_IarWebDav.Upload(' in node

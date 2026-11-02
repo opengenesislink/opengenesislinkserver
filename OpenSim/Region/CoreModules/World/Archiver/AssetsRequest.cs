@@ -196,7 +196,10 @@ namespace OpenSim.Region.CoreModules.World.Archiver
                 m_log.WarnFormat("[ARCHIVER]: {0} Assets gesichert; {1} angeforderte Einträge waren nicht auffindbar, beschädigt oder keine gültigen Assets (Archiv möglicherweise unvollständig).",
                             m_foundAssetUuids.Count, totalerrors);
 
-            GC.Collect();
+            // Hand off to the TAR/GZip finalizer without a forced, potentially
+            // long stop-the-world full GC after the last asset.
+            m_log.InfoFormat("[ARCHIVER]: Asset-Abruf abgeschlossen: {0} gespeichert, {1} fehlend/ungueltig, Zeitueberschreitung={2}; Archivabschluss wird gestartet.",
+                m_foundAssetUuids.Count, totalerrors, m_timeout);
             PerformAssetsRequestCallback(m_timeout);
         }
   

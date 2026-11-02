@@ -38,4 +38,12 @@ assert 'if (succeeded)' in module and '100% – Exportvorgang abgeschlossen' in 
 assert 'if (liveUpdate)' in module and 'if (!report)' in module
 assert 'm_pendingConsoleTasks.Contains(id)' in module
 assert 'OGLIarLiveProgress = true' in (root / 'bin/OpenSim.ini.example').read_text()
+# Terminal handoff must not disappear after the last asset-progress log.
+assert 'GC.Collect();\n            PerformAssetsRequestCallback(m_timeout);' not in src["assets"]
+assert "Archivabschluss wird gestartet" in src["assets"]
+assert "m_saveStream.Close();" in src["writer"] and "catch (Exception e)" in src["writer"]
+assert "Rueckmeldung des Archivabschlusses fehlgeschlagen" in src["writer"]
+assert "TAR/GZip abgeschlossen" in src["writer"]
+assert "Integritaetspruefung" in src["manager"]
+assert "iar_archive_validation_failed:" in src["manager"]
 print("OpenGenesisLINK console IAR progress and bounded preflight wiring: OK")

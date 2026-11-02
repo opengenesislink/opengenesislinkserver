@@ -5,6 +5,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
+using log4net;
 using OpenMetaverse;
 using OpenSim.Region.Framework.Interfaces;
 using OpenSim.Region.Framework.Scenes;
@@ -48,6 +49,7 @@ namespace NexVerse.RegionModules.Archives
 
     public sealed class OglIarOperationManager : IOglIarOperations, IDisposable
     {
+        private static readonly ILog m_Log = LogManager.GetLogger(typeof(OglIarOperationManager));
         private readonly IInventoryArchiverModule m_Archiver;
         private readonly IInventoryArchiverProgress m_ProgressSource;
         private readonly OglIarStoragePolicy m_Storage;
@@ -232,12 +234,46 @@ namespace NexVerse.RegionModules.Archives
 
         private void HandleSaved(UUID id, bool succeeded, UserAccount user, string invPath, Stream stream, Exception error, int saveCount, int filterCount)
         {
-            stream?.Dispose();
+            // Disposal and inspection used to throw out of the terminal event,
+            // leaving the World job running with no useful failure message.
+            Exception completionError = error;
+            try { stream?.Dispose(); }
+            catch (Exception e)
+            {
+                completionError ??= e;
+                m_Log.Error("[OGL-IAR]: Export " + id + ": Kompressionsstream konnte nicht geschlossen werden.", e);
+            }
+
             if (!m_Operations.TryGetValue(id, out OglIarOperation operation) || operation.Kind != OglIarOperationKind.Export) return;
             operation.ItemCount = saveCount; operation.FilteredCount = filterCount;
-            if (!succeeded || error != null) { Fail(operation, error?.Message ?? "IAR-Export fehlgeschlagen."); return; }
-            operation.Inspection = OglIarInspector.Inspect(operation.ArchivePath);
-            if (!operation.Inspection.Valid) { Fail(operation, operation.Inspection.Error); return; }
+            if (!succeeded || completionError != null)
+            {
+                string reason = completionError?.Message ?? "IAR-Export fehlgeschlagen.";
+                m_Log.WarnFormat("[OGL-IAR]: Export {0}: Archivabschluss fehlgeschlagen: {1}", id, reason);
+                Fail(operation, reason);
+                return;
+            }
+
+            try
+            {
+                m_Log.InfoFormat("[OGL-IAR]: Export {0}: Integritaetspruefung der fertigen IAR beginnt.", id);
+                operation.Inspection = OglIarInspector.Inspect(operation.ArchivePath);
+            }
+            catch (Exception e)
+            {
+                m_Log.Error("[OGL-IAR]: Export " + id + ": Archivpruefung hat eine Ausnahme ausgeloest.", e);
+                Fail(operation, "iar_archive_validation_failed: " + e.Message);
+                return;
+            }
+
+            if (!operation.Inspection.Valid)
+            {
+                m_Log.WarnFormat("[OGL-IAR]: Export {0}: Archivpruefung abgelehnt: {1}", id, operation.Inspection.Error);
+                Fail(operation, operation.Inspection.Error);
+                return;
+            }
+            m_Log.InfoFormat("[OGL-IAR]: Export {0}: Archiv geprueft ({1} Inventareintraege, {2} Assets, {3} Bytes).",
+                id, operation.Inspection.InventoryEntries, operation.Inspection.Assets, operation.Inspection.SizeBytes);
             Complete(operation);
         }
 
