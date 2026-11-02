@@ -132,3 +132,9 @@ for p in ("bin/OpenSim.ini", "bin/OpenSim.ini.example"):
     assert '[OpenGenesisLINKIAR]' in ini
     assert 'StorageBackend = "WebDAV"' in ini
     assert 'WebDavPasswordFile = ""' in ini
+
+# Never report native archiver failures as WebDAV transfer failures.
+assert 'remoteUploadFailed ? "iar_webdav_transfer_failed" : operation.Error' in node
+assert 'state == "failed" ? "iar_webdav_transfer_failed" : operation.Error' not in node
+assert '"iar_webdav_not_configured"' in node
+assert 'Archive staging failed for operation ' in node

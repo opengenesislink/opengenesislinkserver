@@ -2044,8 +2044,15 @@ namespace NexVerse.RegionModules.NodeAgent
                 catch (Exception ex) when (ex is IOException or ArgumentException or
                     UnauthorizedAccessException)
                 {
+                    // Distinguish missing simulator configuration from a
+                    // reachable WebDAV client failing during transfer or staging.
+                    string reason = webdav && m_IarWebDav == null
+                        ? "iar_webdav_not_configured" : "iar_nas_storage_unavailable";
+                    m_Log.Error("[OGL-IAR]: Archive staging failed for operation " +
+                        operationId + ", region " + regionId + ", action " + action +
+                        " (" + reason + ").", ex);
                     PublishIarState(nexEvent, operationId, regionId, action,
-                        "failed", "iar_nas_storage_unavailable", 0, 0);
+                        "failed", reason, 0, 0);
                     return;
                 }
             }
@@ -2059,6 +2066,8 @@ namespace NexVerse.RegionModules.NodeAgent
                 {
                     // The simulator's native archiver works on a temporary
                     // file. Report export success only after PUT to WebDAV.
+                    // A native archiver failure is NOT a WebDAV transfer error.
+                    bool remoteUploadFailed = false;
                     try
                     {
                         if (operation.State == OglIarOperationState.Completed &&
@@ -2068,16 +2077,18 @@ namespace NexVerse.RegionModules.NodeAgent
                     }
                     catch (Exception e)
                     {
+                        remoteUploadFailed = true;
                         state = "failed";
                         m_Log.Error("[OGL-IAR]: WebDAV export failed.", e);
                     }
                     finally
                     {
                         try { if (File.Exists(stage)) File.Delete(stage); }
-                        catch (IOException e) { m_Log.Warn("[OGL-IAR]: Could not delete temporary IAR.", e); }
+                        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+                        { m_Log.Warn("[OGL-IAR]: Could not delete temporary IAR.", e); }
                     }
                     PublishIarState(nexEvent, operationId, regionId, action, state,
-                        state == "failed" ? "iar_webdav_transfer_failed" : operation.Error,
+                        remoteUploadFailed ? "iar_webdav_transfer_failed" : operation.Error,
                         operation.ItemCount, operation.FilteredCount, operation.ProgressPercent, operation.ProgressPhase);
                     operations.OperationChanged -= Changed;
                     return;
