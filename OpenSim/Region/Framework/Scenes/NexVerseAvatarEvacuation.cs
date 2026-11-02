@@ -106,7 +106,7 @@ namespace OpenSim.Region.Framework.Scenes
             var attempts = new Dictionary<UUID, int>();
             var lastAttempt = new Dictionary<UUID, long>();
             int options = Math.Min(targets.Count, 6);
-            int timeoutMs = Math.Clamp(waitSeconds, 5, 90) * 1000;
+            int timeoutMs = Math.Clamp(waitSeconds, 1, 90) * 1000;
             long until = Environment.TickCount64 + timeoutMs;
             while (Environment.TickCount64 < until)
             {
@@ -170,9 +170,23 @@ namespace OpenSim.Region.Framework.Scenes
             if (scenes == null || scenes.Count == 0) return;
             var excluded = new HashSet<UUID>(
                 scenes.Where(s => s != null).Select(s => s.RegionInfo.RegionID));
+            // One bounded budget for the *whole* process (not N times 25s
+            // when there are N regions on this simulator).
+            long deadline = Environment.TickCount64 +
+                Math.Clamp(waitSeconds, 5, 90) * 1000L;
             foreach (Scene scene in scenes)
-                if (scene != null && HasHumanRootAgents(scene))
-                    Evacuate(scene, excluded, waitSeconds, "Simulator shutdown");
+            {
+                if (scene == null || !HasHumanRootAgents(scene)) continue;
+                long remaining = deadline - Environment.TickCount64;
+                if (remaining <= 0)
+                {
+                    Log.WarnFormat("[NEX-EVAC]: Shutdown deadline reached. " +
+                        "Region {0} still has viewers; normal shutdown continues.", scene.Name);
+                    continue;
+                }
+                int seconds = (int)Math.Max(1, (remaining + 999) / 1000);
+                Evacuate(scene, excluded, seconds, "Simulator shutdown");
+            }
         }
     }
 }
