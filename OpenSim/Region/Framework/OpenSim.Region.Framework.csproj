@@ -214,6 +214,7 @@
     <Compile Include="Scenes\GodController.cs">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="Scenes\NexVerseAvatarEvacuation.cs" />
     <Compile Include="Scenes\Scene.cs">
     <Compile Include="Scenes\OglFastMapStartupQueue.cs" />
       <SubType>Code</SubType>

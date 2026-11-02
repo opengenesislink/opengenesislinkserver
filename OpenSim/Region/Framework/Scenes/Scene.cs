@@ -1460,6 +1460,18 @@ namespace OpenSim.Region.Framework.Scenes
                 }
             }
 
+            // Relocate real viewer avatars BEFORE deregistering this region.
+            // If no live destination accepts them, keep the region running.
+            var evacConfig = m_config?.Configs["NexVerseAvatarEvacuation"];
+            if (evacConfig?.GetBoolean("Enabled", true) != false &&
+                !NexVerseAvatarEvacuation.Evacuate(this,
+                    new HashSet<UUID> { RegionInfo.RegionID },
+                    evacConfig?.GetInt("WaitSeconds", 25) ?? 25))
+            {
+                m_log.WarnFormat("[NEX-EVAC]: Cancelled restart of {0}; avatars remain.", Name);
+                return;
+            }
+
             m_log.Info($"[REGION]: Restarting region {Name}");
 
             Close();
