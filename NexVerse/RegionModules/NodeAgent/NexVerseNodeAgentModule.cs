@@ -2106,12 +2106,11 @@ namespace NexVerse.RegionModules.NodeAgent
             {
                 bool dryRun = nexEvent.Data.TryGetValue("dry_run", out string dryRaw) && bool.TryParse(dryRaw, out bool dry) && dry;
                 bool merge = nexEvent.Data.TryGetValue("merge", out string mergeRaw) && bool.TryParse(mergeRaw, out bool mergeParsed) && mergeParsed;
+                // Back up the authenticated avatar's complete inventory without a
+                // Copy/Transfer export filter. Inventory permission masks are
+                // serialized unchanged; this does not grant additional rights.
                 OglIarOperation operation = string.Equals(action, "export", StringComparison.OrdinalIgnoreCase)
-                    ? operations.StartExport(operationId, user, inventoryPath, fileName,
-                        nexEvent.Data.TryGetValue("self_service", out string selfServiceValue) &&
-                        string.Equals(selfServiceValue, "true", StringComparison.OrdinalIgnoreCase)
-                            ? new Dictionary<string, object> { ["checkPermissions"] = "CT" }
-                            : null)
+                    ? operations.StartExport(operationId, user, inventoryPath, fileName)
                     : string.Equals(action, "import", StringComparison.OrdinalIgnoreCase)
                         ? operations.StartImport(operationId, user, inventoryPath, fileName, merge, dryRun)
                         : throw new InvalidOperationException("unsupported_iar_action");
