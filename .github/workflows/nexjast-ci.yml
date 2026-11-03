@@ -61,6 +61,12 @@ jobs:
         shell: bash
         run: python3 tools/ci/verify_stable_release_gate.py
 
+      - name: Verify current-main Gen1 ZIP publisher and secret-safe packaging
+        shell: bash
+        run: |
+          python3 tools/ci/verify_gen1_snapshot_release.py
+          python3 tools/release/ogl_gen1_snapshot_zip.py --self-test
+
       - name: Test fail-closed OpenGenesisLINK 0.9.3.10 release evidence gate
         shell: bash
         run: |
