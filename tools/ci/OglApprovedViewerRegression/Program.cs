@@ -63,6 +63,23 @@ internal static class Program
         Check("WolfViewer-Release Copybot", "WolfViewer-Release", false);
         Check("WolfViewer-Release", "Hydrastorm", false);
 
+        // Frivolin Viewer is an approved Generation 1 viewer family.
+        // Accept numeric versions, exact names and channel suffixes only.
+        Check("Frivolin Viewer", "", true);
+        Check("Frivolin Viewer 1.0", "Frivolin Viewer", true);
+        Check("1.0.0", "Frivolin Viewer", true);
+        Check("v0.2.0", "Frivolin Viewer-Release", true);
+        Check("frivolin viewer 1.0", "FRIVOLIN VIEWER", true);
+        Check("Frivolin Viewer-Release", null, true);
+        Check("Frivolin ViewerFake", "", false);
+        Check("Frivolin ViewerCopybot", "Frivolin Viewer", false);
+        Check("Frivolin Viewer", "UnknownViewer", false);
+        Check("Frivolin Viewer", "Darkstorm", false);
+        Check("Darkstorm Frivolin Viewer", "Frivolin Viewer", false);
+        Check("Frivolin Viewer Copybot", "Frivolin Viewer", false);
+        Check("Frivolin Viewer", "Hydrastorm", false);
+        Check("Frivolin", "Frivolin", false);
+
         // Denials: explicit known Copybot labels and every other viewer family.
         Check("Darkstorm 2.0", "Darkstorm", false);
         Check("Hydrastorm 1.0", "Hydrastorm", false);
