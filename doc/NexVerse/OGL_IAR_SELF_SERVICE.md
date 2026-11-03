@@ -5,9 +5,16 @@ OpenGenesisLINK erweitert die bestehende **administrative** World API
 für angemeldete lokale Avatar-Konten. Keine Weitergabe von Passwort,
 fremdem Benutzerkennzeichen oder rohem Archivinhalt über NexBus.
 
-**Status:** Benutzergebundener Self-Service bleibt standardmäßig deaktiviert
-(`Enabled=false`). **WebDAV ist der bevorzugte und voreingestellte
-StorageBackend-Typ**, NFS kann explizit als Legacy-Backend gewählt werden.
+**Status:** Auf dem produktiven Stadt-NexVerse-G1-Profil
+(`bin/Robust.HG.ini` und `bin/OpenSim.ini`) ist der benutzergebundene
+Self-Service **aktiviert** (`Enabled=true`). Die produktiven
+WebDAV-Werte sind bewusst im GitHub-Quellstand hinterlegt, damit
+ein Repository-Update sie nicht auf leere Werte zurücksetzt.
+Die generischen `.ini.example`-Vorlagen bleiben sicher deaktiviert bzw.
+ohne WebDAV-Kontodaten. **Passwörter werden nicht versioniert**, sondern
+in `/etc/opengenesislink/iar-webdav.pass` mit Berechtigung `0600`
+bereitgestellt. **WebDAV ist das Standard-StorageBackend**; NFS ist
+nur optionales Legacy-Backend.
 Die Inventararchivierung selbst verwendet weiterhin native
 OpenSim-Datei-/Stream-Schnittstellen; bei WebDAV werden daher ausschließlich
 **temporäre Arbeitsdateien** auf ROBUST und dem Zielsimulator benötigt.
@@ -60,7 +67,7 @@ unberührt. Der 1blu-OpenVZ-Host benötigt für WebDAV kein NFS-Kernelmodul.
 Enabled = true
 StorageBackend = "WebDAV"
 NasHost = "10.78.0.4"
-WebDavBaseUrl = "https://NAS-ZERTIFIKATSNAME:5006/WEB_DAV_IAR_ORDNER"
+WebDavBaseUrl = "https://10.78.0.4:5006/Server/Benutzer/Weiss_Joerg/NexVerse/IAR-Backups/"
 WebDavUsername = "ogl-iar"
 WebDavPasswordFile = "/etc/opengenesislink/iar-webdav.pass"
 TemporaryStorageRoot = "/var/lib/opengenesislink/iar-staging"
@@ -68,7 +75,7 @@ RetentionDays = 30
 MaximumArchiveMiB = 2048
 ```
 
-Die URL ist **ein Muster**, kein garantierter UGOS-Pro-WebDAV-Pfad.
+Die URL ist der derzeit konfigurierte private WebDAV-Pfad der Stadt-NexVerse-G1-Installation und setzt einen funktionierenden WireGuard-Zugang sowie ein gueltiges HTTPS-Zertifikat voraus. **Achtung:** Die NAS-Verzeichnisstruktur und der NAS-Benutzername sind in einem oeffentlichen Repository sichtbar, das Passwort jedoch nicht.
 `TemporaryStorageRoot` ist kein Backup-Ort. Upload-Blöcke
 werden dort zunächst geschrieben, SHA-256-verifiziert und anschließend
 per HTTPS ins NAS übertragen; erst dann wird der native Import
@@ -81,7 +88,7 @@ im Simulator ausgelöst.
 Enabled = true
 StorageBackend = "WebDAV"
 NasHost = "10.78.0.4"
-WebDavBaseUrl = "https://NAS-ZERTIFIKATSNAME:5006/WEB_DAV_IAR_ORDNER"
+WebDavBaseUrl = "https://10.78.0.4:5006/Server/Benutzer/Weiss_Joerg/NexVerse/IAR-Backups/"
 WebDavUsername = "ogl-iar"
 WebDavPasswordFile = "/etc/opengenesislink/iar-webdav.pass"
 StorageRoot = "OGLInventoryArchives"
