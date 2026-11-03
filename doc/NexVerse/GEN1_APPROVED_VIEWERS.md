@@ -8,6 +8,7 @@
 - **OpenGenesisLINK Viewer** – `OpenGenesisLINK` und der projektinterne Name `OGL Viewer`
 - **Radegast-ng** – `Radegast-ng` und kompatibler Alias `Radegast`
 - **WolfViewer-Release** – exakt dieser Viewer-Familienpräfix (auch mit nachgestellter Versionsnummer), für lokalen Login, Hypergrid und Regionseintritt
+- **Frivolin Viewer** – als neue zugelassene Viewer-Familie, auch mit Versionsnummer und Channel-Zusatz wie `Frivolin Viewer-Release`
 
 Andere selbst gemeldete Viewernamen – einschließlich **Darkstorm**, **Hydrastorm**, Alchemy, Singularity, Cool VL und unbekannter Clients – sind nicht zugelassen.
 
@@ -29,7 +30,7 @@ OGLApprovedViewersOnly = true
 
 Das gilt sowohl für ROBUST (LoginService **und** GatekeeperService) als auch für jeden Simulator (`OpenSim.ini`). Nach einem Update müssen tatsächlich geladene Konfigurationen auf allen Nodes geprüft und die betroffenen Dienste neu gestartet werden. Für Tests kann die Option in einer isolierten Umgebung auf `false` gesetzt werden.
 
-Bisherige `AllowedClients`/`DeniedClients`-Regeln werden weiterhin angewandt; diese dürfen die drei zugelassenen Viewer nicht zusätzlich ungewollt ausschließen. Die bestehende OGL Viewer Advisor-Empfehlung ist unabhängig davon und bleibt deaktiviert.
+Bisherige `AllowedClients`/`DeniedClients`-Regeln werden weiterhin angewandt; diese dürfen die zugelassenen Viewer nicht zusätzlich ungewollt ausschließen. Die bestehende OGL Viewer Advisor-Empfehlung ist unabhängig davon und bleibt deaktiviert.
 
 ## Hypergrid und Marketplace bleiben offen
 
@@ -51,7 +52,7 @@ Ebenso ist ein öffentlicher Hypergrid-Asset-HTTP-Endpunkt nicht automatisch ein
 
 ## Tests vor Produktivbetrieb
 
-- Anmelden lokal: Firestorm, OpenGenesisLINK (auch interne Aliaskennung), Radegast-ng und WolfViewer-Release erfolgreich.
+- Anmelden lokal: Firestorm, OpenGenesisLINK (auch interne Aliaskennung), Radegast-ng, WolfViewer-Release und Frivolin Viewer erfolgreich.
 - Ablehnen lokal: Darkstorm, Hydrastorm, nicht freigegebene/fehlende Kennungen und bekannte Spoof-Kombinationen.
 - Gatekeeper: Firestorm-Gast darf hinein, Darkstorm/Hydrastorm sowie unbekannte Gäste werden vor Präsenzanlage abgelehnt.
 - Regionen: Zugelassene lokale/HG-Avatare können teleportieren und Regionen wechseln; sonstige werden abgewiesen.
