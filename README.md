@@ -27,7 +27,7 @@ Wichtigster offener P0-Punkt: **Ein sicherer Simulator-Eventadapter für Bugmeld
 
 **Aktuelle Produktgeneration: OpenGenesisLINK Generation 1 (in Entwicklung).** Die bisherigen Pläne `0.9.3.14` und `0.9.4.0` wurden zu **einer** flexiblen Entwicklungslinie zusammengeführt. `0.9.4.0` ist ausschließlich die interne technische Build-/Assembly-Kennung; öffentliche Produktbezeichnung ist **Generation 1**. Die letzte offiziell veröffentlichte Stable-Version bleibt **[0.9.3.13](https://github.com/opengenesislink/opengenesislinkserver/releases/tag/v0.9.3.13)**. Das Versionslabel bedeutet noch keine Gen-1-Stable-Freigabe.
 
-Die Plattform wird weiterhin aktiv entwickelt. Insbesondere der **OGL AssetService** mit Cache-, Migrations- und Verwaltungsfunktionen befindet sich in gesonderter Integrations- und Abnahmeprüfung. Ein exklusiver Produktivwechsel von FSAssets auf OGL AssetService darf nicht aus einem erfolgreichen Build abgeleitet werden.
+**Aktuelles Entwicklungs-ZIP:** [Generation 1 – Latest Main (Dev)](https://github.com/opengenesislink/opengenesislinkserver/releases/tag/gen1-main). Nach erfolgreicher CI auf main wird ein neuer ZIP-Build mit Commitkennung und SHA-256-Prüfsumme veröffentlicht. Die offizielle Stable-Version v0.9.3.13 wird nicht überschrieben. Produktionskonfigurationen und Daten vor Updates sichern.\n\nDie Plattform wird weiterhin aktiv entwickelt. Insbesondere der **OGL AssetService** mit Cache-, Migrations- und Verwaltungsfunktionen befindet sich in gesonderter Integrations- und Abnahmeprüfung. Ein exklusiver Produktivwechsel von FSAssets auf OGL AssetService darf nicht aus einem erfolgreichen Build abgeleitet werden.
 
 OGLVoice, die eigene Viewer-Generation sowie weitergehende Rendering-, Pathfinding- und Experience-Funktionen sind eigenständige Entwicklungsbereiche. Experimentelle oder pausierte Komponenten werden nicht als allgemein verfügbare Stable-Funktionen beworben.
 
@@ -69,7 +69,7 @@ OpenGenesisLINK (OGL) is an independently developed server platform for virtual 
 
 **OpenGenesisLINK is the server platform; Stadt NexVerse is a virtual world running on it.** The former platform name “NexVerse Server” has been retired. Compatibility-sensitive `NexVerse.*` namespaces and configuration keys may remain in existing integrations.
 
-### Capabilities
+**Current development ZIP:** [Generation 1 – Latest Main (Dev)](https://github.com/opengenesislink/opengenesislinkserver/releases/tag/gen1-main). A new ZIP with commit SHA and SHA-256 checksum is published after a successful main CI run. Stable v0.9.3.13 is not modified. Back up production configuration and data before updating.\n\n### Capabilities
 
 - **Simulator and ROBUST:** Multi-region hosting, region and estate administration, login, teleportation, and compatible viewer/Hypergrid interfaces.
 - **World API v1:** HTTP APIs for platform administration, identity, profiles, regions, statistics and other enabled services, with authentication and scoped authorization for protected operations.
