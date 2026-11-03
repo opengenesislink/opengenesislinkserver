@@ -133,6 +133,25 @@ Das URI-Präfix der Stadt-NexVerse-G1-Installation lautet
 keine Schreibberechtigung für MKCOL und PUT. TLS-Zertifikatsprüfung
 darf auch bei der Fehlersuche nicht abgeschaltet werden.
 
+### Große Inventare: NexBus-Laufzeit und fehlende Asset-Referenzen
+
+Der NexBus-HTTP-Endpunkt darf nicht durch eine komplette IAR-Inventararchivierung
+blockiert werden. Der Simulator nimmt authentifizierte IAR-Befehle jetzt
+entkoppelt an; die eigentliche native Export-/Import-Arbeit wird in einer
+begrenzt langen Warteschlange ausgeführt (höchstens acht ausstehende,
+höchstens ein aktiver IAR-Auftrag pro Simulator-Node). Bei Überlast meldet
+der Auftrag `iar_node_busy`; bei einem unerwarteten Workerfehler
+`iar_worker_failed`. Die Rückmeldung `queued` bedeutet nicht,
+dass ein Archiv fertig geschrieben oder per WebDAV bestätigt ist.
+
+Die Archiv-Konsolenmeldung `Assets gesichert; ... nicht auffindbar`
+ist nicht als vollständige Sicherung zu interpretieren. Der Zähler
+beinhaltet sowohl bereits bei der Inventarvorprüfung beschädigte Referenzen
+als auch später fehlende Antworten des AssetService. Das Simulatorlog
+protokolliert diese Teilmengen getrennt und zeigt höchstens zehn
+Beispiel-Asset-UUIDs zur gezielten AssetService-Diagnose. Das repariert
+keine fehlenden Assets und ersetzt keine Import-/Restore-Prüfung.
+
 ### Retention – maximal 30 Tage
 
 - Neue Self-Service-Archive erhalten eine eindeutige

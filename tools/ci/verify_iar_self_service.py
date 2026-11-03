@@ -194,3 +194,17 @@ preflight = dav.split("public void EnsureRegion(Guid region)", 1)[1].split(
     "public void CreateMarker(Guid region", 1)[0]
 assert "HttpStatusCode.Conflict" not in preflight, "MKCOL HTTP 409 must fail"
 assert "HttpStatusCode.MethodNotAllowed" in preflight
+# Native asset streaming must not block the signed NexBus HTTP POST.
+assets_request = text("OpenSim/Region/CoreModules/World/Archiver/AssetsRequest.cs")
+assert "private const int MaxPendingIarCommands = 8;" in node
+assert "private readonly SemaphoreSlim m_IarCommandSlot = new(1, 1);" in node
+assert "Interlocked.Increment(ref m_IarCommandsPending)" in node
+assert "m_IarCommandSlot.WaitAsync().ConfigureAwait(false)" in node
+assert "Task.Run(async () =>" in node
+assert "ProcessIarCommand(nexEvent, operationId, regionId, userId," in node
+assert "Interlocked.Decrement(ref m_IarCommandsPending);" in node
+assert '"iar_node_busy"' in node and '"iar_worker_failed"' in node
+assert "Fehlende Assets nach Ursache:" in assets_request
+assert "m_notFoundAssetUuids.Count, m_previousErrorsCount" in assets_request
+assert "Math.Min(10, m_notFoundAssetUuids.Count)" in assets_request
+print("IAR NexBus nonblocking bounded dispatch and missing-asset diagnostics PASS")

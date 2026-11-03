@@ -99,6 +99,13 @@ namespace NexVerse.RegionModules.NodeAgent
         private readonly ConcurrentDictionary<string, long> m_NodeUpdateReplay = new();
         private IDisposable m_OarControlSubscription;
         private IDisposable m_IarControlSubscription;
+        // IAR export/import is synchronous in the native OpenSim archiver.
+        // Never perform it on the authenticated NexBus HTTP request thread.
+        // One active archive per simulator node avoids competing large I/O jobs;
+        // reserve at most eight queued/running requests to bound memory.
+        private const int MaxPendingIarCommands = 8;
+        private readonly SemaphoreSlim m_IarCommandSlot = new(1, 1);
+        private int m_IarCommandsPending;
         private OglIarWebDavStorage m_IarWebDav;
         private long m_IarWebDavMaximumBytes = 2048L * 1024 * 1024;
         private IDisposable m_ObjectMessageSubscription;
@@ -1985,6 +1992,71 @@ namespace NexVerse.RegionModules.NodeAgent
                 || !TryCommandData(nexEvent, "inventory_path", out string inventoryPath))
                 return;
 
+            // The shared event bus dispatches handlers synchronously. Native
+            // ArchiveInventory/AssetService/Get and GZip + WebDAV can take
+            // minutes; executing them here would block the NexBus POST.
+            if (Volatile.Read(ref m_Stopping) != 0)
+                return;
+            if (Interlocked.Increment(ref m_IarCommandsPending) > MaxPendingIarCommands)
+            {
+                Interlocked.Decrement(ref m_IarCommandsPending);
+                m_Log.WarnFormat("[OGL-IAR]: IAR request {0} rejected: the node's bounded archive queue is full.",
+                    operationId);
+                PublishIarState(nexEvent, operationId, regionId, action,
+                    "failed", "iar_node_busy", 0, 0);
+                return;
+            }
+
+            try
+            {
+                _ = Task.Run(async () =>
+                {
+                    bool acquired = false;
+                    try
+                    {
+                        await m_IarCommandSlot.WaitAsync().ConfigureAwait(false);
+                        acquired = true;
+                        if (Volatile.Read(ref m_Stopping) != 0)
+                            return;
+                        ProcessIarCommand(nexEvent, operationId, regionId, userId,
+                            action, fileName, inventoryPath);
+                    }
+                    catch (Exception e)
+                    {
+                        m_Log.Error("[OGL-IAR]: Background IAR command failed for " + operationId + ".", e);
+                        if (Volatile.Read(ref m_Stopping) == 0)
+                        {
+                            try
+                            {
+                                PublishIarState(nexEvent, operationId, regionId, action,
+                                    "failed", "iar_worker_failed", 0, 0);
+                            }
+                            catch (Exception report)
+                            {
+                                m_Log.Error("[OGL-IAR]: Could not publish terminal IAR worker failure.", report);
+                            }
+                        }
+                    }
+                    finally
+                    {
+                        if (acquired)
+                            m_IarCommandSlot.Release();
+                        Interlocked.Decrement(ref m_IarCommandsPending);
+                    }
+                });
+            }
+            catch (Exception e)
+            {
+                Interlocked.Decrement(ref m_IarCommandsPending);
+                m_Log.Error("[OGL-IAR]: Could not schedule background IAR command.", e);
+                PublishIarState(nexEvent, operationId, regionId, action,
+                    "failed", "iar_worker_unavailable", 0, 0);
+            }
+        }
+
+        private void ProcessIarCommand(NexEvent nexEvent, UUID operationId, UUID regionId,
+            UUID userId, string action, string fileName, string inventoryPath)
+        {
             if (!m_Scenes.TryGetValue(regionId, out Scene scene))
             {
                 PublishIarState(nexEvent, operationId, regionId, action, "failed", "region_not_loaded", 0, 0);

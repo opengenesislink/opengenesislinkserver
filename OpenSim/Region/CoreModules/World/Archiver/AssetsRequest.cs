@@ -196,6 +196,23 @@ namespace OpenSim.Region.CoreModules.World.Archiver
                 m_log.WarnFormat("[ARCHIVER]: {0} Assets gesichert; {1} angeforderte Einträge waren nicht auffindbar, beschädigt oder keine gültigen Assets (Archiv möglicherweise unvollständig).",
                             m_foundAssetUuids.Count, totalerrors);
 
+            if (totalerrors > 0)
+            {
+                // The headline count combines errors detected while scanning
+                // inventory asset references with AssetService.Get misses.
+                // Keep the details in the restricted simulator log; do not
+                // disclose inventory identifiers via portal/NexBus responses.
+                m_log.WarnFormat("[ARCHIVER]: Fehlende Assets nach Ursache: {0} beim AssetService nicht auffindbar; {1} ungueltige/beschaedigte Referenzen aus der Inventarvorpruefung.",
+                    m_notFoundAssetUuids.Count, m_previousErrorsCount);
+                int sample = Math.Min(10, m_notFoundAssetUuids.Count);
+                for (int i = 0; i < sample; i++)
+                    m_log.WarnFormat("[ARCHIVER]: Fehlende Asset-UUID Beispiel {0}/{1}: {2}",
+                        i + 1, m_notFoundAssetUuids.Count, m_notFoundAssetUuids[i]);
+                if (m_notFoundAssetUuids.Count > sample)
+                    m_log.WarnFormat("[ARCHIVER]: Weitere {0} fehlende AssetService-UUIDs nicht einzeln protokolliert.",
+                        m_notFoundAssetUuids.Count - sample);
+            }
+
             // Hand off to the TAR/GZip finalizer without a forced, potentially
             // long stop-the-world full GC after the last asset.
             m_log.InfoFormat("[ARCHIVER]: Asset-Abruf abgeschlossen: {0} gespeichert, {1} fehlend/ungueltig, Zeitueberschreitung={2}; Archivabschluss wird gestartet.",
