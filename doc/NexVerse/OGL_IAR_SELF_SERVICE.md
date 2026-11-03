@@ -67,7 +67,7 @@ unberührt. Der 1blu-OpenVZ-Host benötigt für WebDAV kein NFS-Kernelmodul.
 Enabled = true
 StorageBackend = "WebDAV"
 NasHost = "10.78.0.4"
-WebDavBaseUrl = "https://10.78.0.4:5006/Server/Benutzer/Weiss_Joerg/NexVerse/IAR-Backups/"
+WebDavBaseUrl = "https://10.78.0.4:5006/server/Benutzer/Weiss_Joerg/NexVerse/IAR-Backups/"
 WebDavUsername = "ogl-iar"
 WebDavPasswordFile = "/etc/opengenesislink/iar-webdav.pass"
 TemporaryStorageRoot = "/var/lib/opengenesislink/iar-staging"
@@ -88,7 +88,7 @@ im Simulator ausgelöst.
 Enabled = true
 StorageBackend = "WebDAV"
 NasHost = "10.78.0.4"
-WebDavBaseUrl = "https://10.78.0.4:5006/Server/Benutzer/Weiss_Joerg/NexVerse/IAR-Backups/"
+WebDavBaseUrl = "https://10.78.0.4:5006/server/Benutzer/Weiss_Joerg/NexVerse/IAR-Backups/"
 WebDavUsername = "ogl-iar"
 WebDavPasswordFile = "/etc/opengenesislink/iar-webdav.pass"
 StorageRoot = "OGLInventoryArchives"
