@@ -1,0 +1,146 @@
+name: Publish Generation 1 current-main ZIP (Dev)
+
+# Mutable DEV snapshot tag only; official Stable tags remain immutable.
+on:
+  workflow_run:
+    workflows: ["NexVerse CI"]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ogl-gen1-rolling-release
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: >-
+      ${{ github.event.workflow_run.conclusion == 'success' &&
+          github.event.workflow_run.event == 'push' &&
+          github.event.workflow_run.head_branch == 'main' &&
+          github.event.workflow_run.head_repository.full_name == github.repository }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout verified CI revision
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          persist-credentials: false
+
+      - name: Confirm current main and development version
+        id: check
+        env:
+          RELEASE_SHA: ${{ github.event.workflow_run.head_sha }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$RELEASE_SHA"
+          if [ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq '.sha')" != "$RELEASE_SHA" ]; then
+            echo 'eligible=false' >> "$GITHUB_OUTPUT"
+            echo "::notice::Main has moved; obsolete snapshot skipped."
+            exit 0
+          fi
+          grep -Fq 'PublicGenerationName = "Generation 1"' OpenSim/Framework/VersionInfo.cs
+          grep -Fq 'VERSION_FLAVOUR = Flavour.Dev;' OpenSim/Framework/VersionInfo.cs
+          echo 'eligible=true' >> "$GITHUB_OUTPUT"
+
+      - name: Setup .NET 8
+        if: steps.check.outputs.eligible == 'true'
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Install native libraries
+        if: steps.check.outputs.eligible == 'true'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgdiplus libc6-dev
+
+      - name: Build full server and run archive self-test
+        if: steps.check.outputs.eligible == 'true'
+        run: |
+          set -euo pipefail
+          chmod +x runprebuild.sh
+          ./runprebuild.sh
+          dotnet build --configuration Release OpenSim.sln
+          for addon in OGLWeather NexTraffic NexTransit NexSmartLight OGLEnergy; do
+            test -s "bin/OpenGenesisLINK.Addons.${addon}.dll"
+          done
+          python3 tools/release/ogl_gen1_snapshot_zip.py --self-test
+
+      - name: Create development release ZIP and SHA256 file
+        if: steps.check.outputs.eligible == 'true'
+        env:
+          RELEASE_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          python3 tools/release/ogl_gen1_snapshot_zip.py --bin-dir bin \
+            --output dist/OpenGenesisLINK-Generation1-Linux-x64.zip --sha "$RELEASE_SHA"
+          (cd dist && sha256sum OpenGenesisLINK-Generation1-Linux-x64.zip > OpenGenesisLINK-Generation1-Linux-x64.zip.sha256)
+          python3 - <<'PY'
+          import json, os, zipfile
+          with zipfile.ZipFile("dist/OpenGenesisLINK-Generation1-Linux-x64.zip") as z:
+              manifest = json.loads(z.read("OpenGenesisLINK-Generation1/BUILD-MANIFEST.json"))
+              assert manifest["source_commit"] == os.environ["RELEASE_SHA"]
+              assert not manifest["stable_release"]
+          PY
+
+      - name: Publish rolling main prerelease without modifying Stable
+        if: steps.check.outputs.eligible == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_SHA: ${{ github.event.workflow_run.head_sha }}
+          CI_RUN: ${{ github.event.workflow_run.id }}
+        run: |
+          set -euo pipefail
+          tag="gen1-main"
+          zip="dist/OpenGenesisLINK-Generation1-Linux-x64.zip"
+          checksum="dist/OpenGenesisLINK-Generation1-Linux-x64.zip.sha256"
+          if [ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq '.sha')" != "$RELEASE_SHA" ]; then
+            echo "::notice::main changed; skip outdated ZIP"
+            exit 0
+          fi
+          {
+            echo "# OpenGenesisLINK Generation 1 - current main (Dev)"
+            echo
+            echo "**Rolling development prerelease, NOT a Stable version.**"
+            echo
+            echo "Commit: $RELEASE_SHA"
+            echo "CI validation: GitHub Actions NexVerse CI run $CI_RUN"
+            echo "Platform: Linux x86_64, .NET 8"
+            echo "Download the ZIP and corresponding SHA256 file."
+            echo
+            echo "Production INI files and secrets are excluded from the ZIP."
+            echo "Back up local configuration and data before deployment."
+            echo
+            echo "The official v0.9.3.13 Stable tag and release are unchanged."
+          } > dist/release-notes.md
+          if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            if [ "$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$tag" --jq '.prerelease')" != "true" ]; then
+              echo "::error::gen1-main exists but is not a prerelease"
+              exit 1
+            fi
+            if [ "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$tag" --jq '.object.type')" != "commit" ]; then
+              echo "::error::gen1-main is not a lightweight tag"
+              exit 1
+            fi
+            gh api -X PATCH "repos/$GITHUB_REPOSITORY/git/refs/tags/$tag" \
+              -f sha="$RELEASE_SHA" -F force=true >/dev/null
+            gh release edit "$tag" --repo "$GITHUB_REPOSITORY" \
+              --title "OpenGenesisLINK Generation 1 - Latest Main (Dev)" \
+              --notes-file dist/release-notes.md --prerelease
+            gh release upload "$tag" "$zip" "$checksum" --repo "$GITHUB_REPOSITORY" --clobber
+          else
+            if gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$tag" >/dev/null 2>&1; then
+              echo "::error::gen1-main tag exists without an expected prerelease"
+              exit 1
+            fi
+            gh release create "$tag" "$zip" "$checksum" \
+              --repo "$GITHUB_REPOSITORY" --target "$RELEASE_SHA" \
+              --title "OpenGenesisLINK Generation 1 - Latest Main (Dev)" \
+              --notes-file dist/release-notes.md --prerelease
+          fi
+          echo "Published Gen1 rolling ZIP for $RELEASE_SHA"
