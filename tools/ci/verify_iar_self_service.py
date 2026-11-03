@@ -7,21 +7,46 @@ api = text("NexVerse/Server/Api/OglIarSelfServiceApi.cs")
 core = text("NexVerse/Core/Archives/OglIarTransferPolicy.cs")
 connector = text("NexVerse/Server/Api/NexVerseWorldApiConnector.cs")
 node = text("NexVerse/RegionModules/NodeAgent/NexVerseNodeAgentModule.cs")
-cfgs = [text(p) for p in (
-    "bin/Robust.HG.ini", "bin/Robust.HG.ini.example",
-    "bin/Robust.ini.example")]
+live_robust = text("bin/Robust.HG.ini")
+live_sim = text("bin/OpenSim.ini")
+cfgs = [live_robust, text("bin/Robust.HG.ini.example"),
+        text("bin/Robust.ini.example")]
 for marker in (
     '"/api/v1/iar/me"', "apiGate.Wrap(iarSelfService.Handle)",
     "new OglIarSelfServiceApi(", "jobStore, eventBus, featureControl"
 ):
     assert marker in connector, marker
 assert connector.index('"/api/v1/iar/me"') < connector.index('"/api/v1/iar"')
+# Production G1 configuration is deliberately persisted in Git; example
+# templates remain safe, disabled defaults for other operators.
+def iar_section(ini, section):
+    marker = "[" + section + "]"
+    assert ini.count(marker) == 1, section
+    return ini.split(marker, 1)[1].split("\n[", 1)[0]
+
+ROBUST_IAR = iar_section(live_robust, "OglIarSelfService")
+SIM_IAR = iar_section(live_sim, "OpenGenesisLINKIAR")
+EXPECTED_LIVE = (
+    "Enabled = true",
+    'StorageBackend = "WebDAV"',
+    'NasHost = "10.78.0.4"',
+    'WebDavBaseUrl = "https://10.78.0.4:5006/Server/Benutzer/Weiss_Joerg/NexVerse/IAR-Backups/"',
+    'WebDavUsername = "ogl-iar"',
+    'WebDavPasswordFile = "/etc/opengenesislink/iar-webdav.pass"',
+)
+for block in (ROBUST_IAR, SIM_IAR):
+    for item in EXPECTED_LIVE:
+        assert item in block, "Live IAR Git configuration drifted: " + item
+
 for cfg in cfgs:
-    assert cfg.count("[OglIarSelfService]") == 1
-    assert "Enabled = false" in cfg.split("[OglIarSelfService]")[-1]
-    assert 'StorageBackend = "WebDAV"' in cfg.split("[OglIarSelfService]")[-1]
-    assert 'WebDavPasswordFile = ""' in cfg.split("[OglIarSelfService]")[-1]
-    assert 'SharedStorageRoot = ""' in cfg.split("[OglIarSelfService]")[-1]
+    block = iar_section(cfg, "OglIarSelfService")
+    assert 'StorageBackend = "WebDAV"' in block
+    assert 'SharedStorageRoot = ""' in block
+for example_path in ("bin/Robust.HG.ini.example", "bin/Robust.ini.example"):
+    block = iar_section(text(example_path), "OglIarSelfService")
+    assert "Enabled = false" in block
+    assert 'WebDavPasswordFile = ""' in block
+    assert 'WebDavBaseUrl = ""' in block
 
 for marker in (
     '"Enabled", false', '"SharedStorageRoot",',
@@ -139,9 +164,16 @@ for marker in ('m_IarWebDav.Download(', 'm_IarWebDav.Upload(',
     assert marker in node, marker
 for p in ("bin/OpenSim.ini", "bin/OpenSim.ini.example"):
     ini = text(p)
-    assert '[OpenGenesisLINKIAR]' in ini
-    assert 'StorageBackend = "WebDAV"' in ini
-    assert 'WebDavPasswordFile = ""' in ini
+    block = iar_section(ini, "OpenGenesisLINKIAR")
+    assert 'StorageBackend = "WebDAV"' in block
+example_sim = iar_section(text("bin/OpenSim.ini.example"), "OpenGenesisLINKIAR")
+assert 'WebDavPasswordFile = ""' in example_sim
+assert 'WebDavBaseUrl = ""' in example_sim
+assert 'WebDavUsername = ""' in example_sim
+# Never accidentally store password material or inline credential values in Git.
+for block in (ROBUST_IAR, SIM_IAR):
+    assert 'WebDavPassword = ' not in block
+    assert 'WebDavPasswordFile = "/etc/opengenesislink/iar-webdav.pass"' in block
 
 # Never report native archiver failures as WebDAV transfer failures.
 assert 'remoteUploadFailed ? "iar_webdav_transfer_failed" : operation.Error' in node
