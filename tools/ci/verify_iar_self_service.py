@@ -183,3 +183,14 @@ assert 'Archive staging failed for operation ' in node
 assert 'WebDAV-Upload bestaetigt' in node
 assert 'validiertes Archiv' in node
 assert 'm_IarWebDav.Upload(' in node
+# WebDAV export startup must identify the failing NAS operation without
+# exposing internal paths, credentials or exceptions to the resident portal.
+assert '"iar_webdav_region_unavailable"' in api
+assert '"iar_webdav_marker_unavailable"' in api
+assert "WebDAV MKCOL region directory preflight" in api
+assert "WebDAV PUT retention marker preflight" in api
+assert "Self-service archive I/O failed." in api
+preflight = dav.split("public void EnsureRegion(Guid region)", 1)[1].split(
+    "public void CreateMarker(Guid region", 1)[0]
+assert "HttpStatusCode.Conflict" not in preflight, "MKCOL HTTP 409 must fail"
+assert "HttpStatusCode.MethodNotAllowed" in preflight

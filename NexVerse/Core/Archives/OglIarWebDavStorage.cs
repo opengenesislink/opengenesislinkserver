@@ -94,10 +94,11 @@ namespace NexVerse.Core.Archives
             using HttpRequestMessage req = Request("MKCOL", region.ToString("D") + "/");
             using HttpResponseMessage reply = Send(req);
             if (reply.StatusCode != HttpStatusCode.Created &&
-                reply.StatusCode != HttpStatusCode.MethodNotAllowed &&
-                reply.StatusCode != HttpStatusCode.Conflict)
+                reply.StatusCode != HttpStatusCode.MethodNotAllowed)
                 Check(reply);
-            // A preexisting directory is acceptable; PUT/GET will validate access.
+            // 405 is commonly returned for an existing collection.
+            // WebDAV 409 indicates a missing parent collection: fail closed
+            // instead of continuing to a guaranteed-failing marker PUT.
         }
 
         public void CreateMarker(Guid region, Guid id)

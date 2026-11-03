@@ -15,6 +15,7 @@ using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Diagnostics;
+using log4net;
 using NexVerse.Core.Archives;
 using NexVerse.Core.ControlPlane;
 using NexVerse.Core.Jobs;
@@ -30,6 +31,7 @@ namespace NexVerse.Server.Api
 {
     internal sealed class OglIarSelfServiceApi
     {
+        private static readonly ILog m_Log = LogManager.GetLogger(typeof(OglIarSelfServiceApi));
         private readonly NexApiAuthenticator m_Auth;
         private readonly NexNodeRegistry m_Nodes;
         private readonly OglJobEventBridge m_Bridge;
@@ -164,8 +166,13 @@ namespace NexVerse.Server.Api
             }
             catch (JsonException)
             { Error(response, HttpStatusCode.BadRequest, "invalid_json"); }
-            catch (IOException)
-            { Error(response, HttpStatusCode.ServiceUnavailable, "archive_io_unavailable"); }
+            catch (IOException e)
+            {
+                // Return a stable generic code but retain the full failure
+                // in the restricted ROBUST log, never in the public API body.
+                m_Log.Error("[OGL-IAR]: Self-service archive I/O failed.", e);
+                Error(response, HttpStatusCode.ServiceUnavailable, "archive_io_unavailable");
+            }
             catch (UnauthorizedAccessException)
             { Error(response, HttpStatusCode.ServiceUnavailable, "archive_access_denied"); }
             catch (ArgumentException)
@@ -226,8 +233,34 @@ namespace NexVerse.Server.Api
             // until the upload to the NAS is complete.
             if (m_UseWebDav)
             {
-                m_WebDav.EnsureRegion(regionGuid);
-                m_WebDav.CreateMarker(regionGuid, id);
+                // These two remote operations happen BEFORE the IAR job
+                // exists; distinguish an unavailable region collection from
+                // an unwritable retention marker in the World API response.
+                try
+                {
+                    m_WebDav.EnsureRegion(regionGuid);
+                }
+                catch (IOException e)
+                {
+                    m_Log.Error("[OGL-IAR]: WebDAV MKCOL region directory preflight " +
+                        "failed for operation " + id + "; IAR job was not started.", e);
+                    Error(response, HttpStatusCode.ServiceUnavailable,
+                        "iar_webdav_region_unavailable");
+                    return;
+                }
+
+                try
+                {
+                    m_WebDav.CreateMarker(regionGuid, id);
+                }
+                catch (IOException e)
+                {
+                    m_Log.Error("[OGL-IAR]: WebDAV PUT retention marker preflight " +
+                        "failed for operation " + id + "; IAR job was not started.", e);
+                    Error(response, HttpStatusCode.ServiceUnavailable,
+                        "iar_webdav_marker_unavailable");
+                    return;
+                }
             }
             // Do not allow overwriting any existing archive, including symlinks.
             if (action == "import")

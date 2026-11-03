@@ -108,6 +108,31 @@ IAR-Archiver eingelesen. Auch diese Datei wird nach Jobabschluss
 entfernt. **Vor dem Aktivieren den benötigten lokalen
 temporären Speicher für maximale Archive berücksichtigen.**
 
+
+### HTTP 503 beim Exportstart: WebDAV-Preflight
+
+Vor Beginn des nativen Inventarexports führt ROBUST zuerst `MKCOL`
+(für `<regions-uuid>/`) und anschließend `PUT`
+(für die leere `.iar.ogl-retention`-Markierung) aus.
+
+- `iar_webdav_region_unavailable`: Ordneranlage per WebDAV-MKCOL
+  gescheitert; beispielsweise HTTP 404, 409, 403 oder fehlende Berechtigung.
+- `iar_webdav_marker_unavailable`: Regionsordner vorhanden bzw. akzeptiert,
+  aber das Schreiben der Retention-Markierung per PUT gescheitert.
+- `archive_io_unavailable`: sonstige Archiv-I/O-Ausnahme; Details stehen
+  in den zugriffsbeschränkten ROBUST-Logs unter `[OGL-IAR]`.
+
+Die zugehörigen ROBUST-Logs nennen jetzt den betroffenen Schritt und
+den zugrunde liegenden Fehler. Zugangsdaten bleiben außerhalb des
+World-API-Responses. Diese Fehlermeldungen bestätigen **keinen**
+erfolgreichen Export.
+
+Das URI-Präfix der Stadt-NexVerse-G1-Installation lautet
+`https://10.78.0.4:5006/server/Benutzer/Weiss_Joerg/NexVerse/IAR-Backups/`
+(kleines `server`). Ein erfolgreiches WebDAV-PROPFIND beweist noch
+keine Schreibberechtigung für MKCOL und PUT. TLS-Zertifikatsprüfung
+darf auch bei der Fehlersuche nicht abgeschaltet werden.
+
 ### Retention – maximal 30 Tage
 
 - Neue Self-Service-Archive erhalten eine eindeutige
