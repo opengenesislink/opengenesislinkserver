@@ -67,7 +67,7 @@ unberührt. Der 1blu-OpenVZ-Host benötigt für WebDAV kein NFS-Kernelmodul.
 Enabled = true
 StorageBackend = "WebDAV"
 NasHost = "10.78.0.4"
-WebDavBaseUrl = "https://10.78.0.4:5006/server/Benutzer/Weiss_Joerg/NexVerse/IAR-Backups/"
+WebDavBaseUrl = "https://10.78.0.4:5006/Server/Benutzer/Weiss_Joerg/NexVerse/IAR-Backups/"
 WebDavUsername = "ogl-iar"
 WebDavPasswordFile = "/etc/opengenesislink/iar-webdav.pass"
 TemporaryStorageRoot = "/var/lib/opengenesislink/iar-staging"
@@ -88,7 +88,7 @@ im Simulator ausgelöst.
 Enabled = true
 StorageBackend = "WebDAV"
 NasHost = "10.78.0.4"
-WebDavBaseUrl = "https://10.78.0.4:5006/server/Benutzer/Weiss_Joerg/NexVerse/IAR-Backups/"
+WebDavBaseUrl = "https://10.78.0.4:5006/Server/Benutzer/Weiss_Joerg/NexVerse/IAR-Backups/"
 WebDavUsername = "ogl-iar"
 WebDavPasswordFile = "/etc/opengenesislink/iar-webdav.pass"
 StorageRoot = "OGLInventoryArchives"
@@ -128,8 +128,8 @@ World-API-Responses. Diese Fehlermeldungen bestätigen **keinen**
 erfolgreichen Export.
 
 Das URI-Präfix der Stadt-NexVerse-G1-Installation lautet
-`https://10.78.0.4:5006/server/Benutzer/Weiss_Joerg/NexVerse/IAR-Backups/`
-(kleines `server`). Ein erfolgreiches WebDAV-PROPFIND beweist noch
+`https://10.78.0.4:5006/Server/Benutzer/Weiss_Joerg/NexVerse/IAR-Backups/`
+(großes `Server` – der NAS-Pfad ist case-sensitiv). Ein erfolgreiches WebDAV-PROPFIND beweist noch
 keine Schreibberechtigung für MKCOL und PUT. TLS-Zertifikatsprüfung
 darf auch bei der Fehlersuche nicht abgeschaltet werden.
 
