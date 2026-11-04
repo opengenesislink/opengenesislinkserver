@@ -3,6 +3,7 @@
  */
 using System;
 using System.Collections.Generic;
+using System.Buffers.Binary;
 using System.Drawing;
 using System.IO;
 using System.Reflection;
@@ -105,6 +106,78 @@ namespace OpenSim.Region.CoreModules.Agent.TextureSender
             return image != null;
         }
 
+        // JP2 is a container; CSJ2K receives the inner J2C codestream.
+        // Parse boxes with checked bounds; reject ambiguous or trailing
+        // containers rather than claiming fabricated byte-layer offsets.
+        private static bool TryGetCodestream(byte[] data, out byte[] codestream,
+            out int offset)
+        {
+            codestream = null;
+            offset = 0;
+            if (data == null || data.Length < 12)
+                return false;
+            if (data[0] == 0xff && data[1] == 0x4f &&
+                data[2] == 0xff && data[3] == 0x51)
+            {
+                codestream = data;
+                return true;
+            }
+            ReadOnlySpan<byte> span = data;
+            ReadOnlySpan<byte> signature = new byte[]
+            {
+                0, 0, 0, 12, (byte)'j', (byte)'P', (byte)' ', (byte)' ',
+                13, 10, 135, 10
+            };
+            if (!span.Slice(0, 12).SequenceEqual(signature))
+                return false;
+
+            long cursor = 0;
+            while (cursor + 8 <= data.Length)
+            {
+                int position = checked((int)cursor);
+                uint boxLength = BinaryPrimitives.ReadUInt32BigEndian(span.Slice(position, 4));
+                uint boxType = BinaryPrimitives.ReadUInt32BigEndian(span.Slice(position + 4, 4));
+                int header = 8;
+                long length = boxLength;
+                if (boxLength == 1)
+                {
+                    if (cursor + 16 > data.Length)
+                        return false;
+                    ulong largeLength = BinaryPrimitives.ReadUInt64BigEndian(span.Slice(position + 8, 8));
+                    if (largeLength > (ulong)data.Length)
+                        return false;
+                    length = checked((long)largeLength);
+                    header = 16;
+                }
+                else if (boxLength == 0)
+                {
+                    length = data.Length - cursor;
+                }
+
+                if (length < header || length > data.Length - cursor)
+                    return false;
+                long end = cursor + length;
+                if (boxType == 0x6a703263) // jp2c
+                {
+                    // OpenJPEG can validate richer JP2 files; this conservative
+                    // layer adapter supports only a final jp2c box.
+                    if (end != data.Length || length <= header + 4)
+                        return false;
+                    int start = position + header;
+                    int bytes = checked((int)(length - header));
+                    if (data[start] != 0xff || data[start + 1] != 0x4f ||
+                        data[start + 2] != 0xff || data[start + 3] != 0x51)
+                        return false;
+                    codestream = new byte[bytes];
+                    Buffer.BlockCopy(data, start, codestream, 0, bytes);
+                    offset = start;
+                    return true;
+                }
+                cursor = end;
+            }
+            return false;
+        }
+
         public bool TryDecodeLayerBoundaries(byte[] data,
             out OpenJPEG.J2KLayerInfo[] layers, out int components)
         {
@@ -113,8 +186,11 @@ namespace OpenSim.Region.CoreModules.Agent.TextureSender
             if (!TryInspect(data, out NativeInfo metadata))
                 return false;
 
+            if (!TryGetCodestream(data, out byte[] codestream, out int offset))
+                return false;
+
             List<int> starts;
-            using (MemoryStream stream = new MemoryStream(data, false))
+            using (MemoryStream stream = new MemoryStream(codestream, false))
                 starts = J2kImage.GetLayerBoundaries(stream);
             if (starts == null || starts.Count != metadata.Layers)
                 return false;
@@ -123,9 +199,9 @@ namespace OpenSim.Region.CoreModules.Agent.TextureSender
                 new OpenJPEG.J2KLayerInfo[metadata.Layers];
             for (int i = 0; i < starts.Count; ++i)
             {
-                candidate[i].Start = i == 0 ? 0 : starts[i];
+                candidate[i].Start = i == 0 ? 0 : offset + starts[i];
                 candidate[i].End = i == starts.Count - 1
-                    ? data.Length : starts[i + 1] - 1;
+                    ? data.Length : offset + starts[i + 1] - 1;
             }
             if (!OglImageCodecEngine.AreLayerBoundariesValid(candidate, data.Length))
                 return false;
