@@ -89,6 +89,9 @@ jobs:
           dotnet run -c Release --project tools/ci/OglImageCodecRegression/OglImageCodecRegression.csproj -- --hybrid "$RUNNER_TEMP/ogl-codec.j2k"
           dotnet run -c Release --project tools/ci/OglImageCodecRegression/OglImageCodecRegression.csproj -- --hybrid "$RUNNER_TEMP/ogl-codec.jp2"
 
+      - name: Native OpenJPEG2 malformed-input smoke (Linux x64)
+        run: python3 tools/ci/OglImageCodecRegression/fuzz_native.py "$RUNNER_TEMP/ogl-codec.j2k" "$RUNNER_TEMP/ogl-codec.jp2"
+
       - name: Regression test - OGL Image Codec Engine safe fallback and validation
         run: dotnet run -c Release --project tools/ci/OglImageCodecRegression/OglImageCodecRegression.csproj
 
