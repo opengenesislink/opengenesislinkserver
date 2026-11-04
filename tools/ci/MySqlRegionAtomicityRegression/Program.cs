@@ -103,7 +103,8 @@ try
         using var cmd = connection.CreateCommand();
         cmd.CommandText = "SELECT name FROM primitems WHERE primID = @id";
         cmd.Parameters.AddWithValue("@id", rootId.ToString());
-        return Convert.ToString(cmd.ExecuteScalar());
+        object value = cmd.ExecuteScalar();
+        return value == null || value is DBNull ? null : Convert.ToString(value);
     }
 
     if (ReadStoredItemName() != originalItem.Name)
