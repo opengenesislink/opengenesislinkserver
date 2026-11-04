@@ -49,6 +49,9 @@ namespace OpenSim.Services.InventoryService.Tests
             item.Folder = destination;
             Assert.That(inventory.MoveItems(owner, new List<InventoryItemBase> { item }), Is.True);
             Assert.That(inventory.GetItem(owner, itemID).Folder, Is.EqualTo(destination));
+
+            // Simulate a backend that reports zero affected rows for a no-op.
+            Assert.That(inventory.MoveItems(owner, new List<InventoryItemBase> { item }), Is.True);
         }
     }
 }
