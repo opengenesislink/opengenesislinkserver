@@ -27,14 +27,17 @@ namespace NexVerse.RegionModules.Archives
 
     public static class OglIarInspector
     {
-        // Bounded inspection happens BEFORE the archive is handed to the
-        // mutating inventory/FSAssets importer. Values are conservative and
-        // intentionally independent of the compressed-file storage quota.
-        public const long MaxCompressedBytes = 1024L * 1024 * 1024;
-        public const long MaxExpandedBytes = 2L * 1024 * 1024 * 1024;
+        // Inspect the compressed archive before any inventory import.
+        // G1 supports 10 GiB stored IAR files, while the separate expanded
+        // TAR limit remains finite to bound validation work.
+        public const long MaxCompressedBytes = 10L * 1024 * 1024 * 1024;
+        public const long MaxExpandedBytes = 40L * 1024 * 1024 * 1024;
         public const long MaxFileBytes = 64L * 1024 * 1024;
         public const int MaxEntries = 100000;
         private const int MaxControlBytes = 65536;
+
+        public static bool IsAllowedCompressedSize(long sizeBytes) =>
+            sizeBytes >= 128 && sizeBytes <= MaxCompressedBytes;
 
         public static OglIarInspection Inspect(string archivePath)
         {
@@ -49,7 +52,7 @@ namespace NexVerse.RegionModules.Archives
             {
                 FileInfo info = new(archivePath);
                 result.SizeBytes = info.Length;
-                if (info.Length < 128 || info.Length > MaxCompressedBytes)
+                if (!IsAllowedCompressedSize(info.Length))
                     throw new InvalidDataException("Komprimierte IAR-Datei ausserhalb der erlaubten Groesse.");
 
                 // SHA-256 is useful for audit, deduplication and later
