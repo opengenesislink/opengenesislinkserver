@@ -116,6 +116,18 @@ static class Program
             // verifies the native provider rather than a fake implementation.
             byte[] fixture = File.ReadAllBytes(args[0]);
             var native = new OglOpenJpegCodecProvider();
+            try
+            {
+                bool nativeResult = native.TryDecodeLayerBoundaries(fixture,
+                    out var nativeLayers, out int nativeComponents);
+                Assert(nativeResult && nativeLayers != null && nativeLayers.Length > 0,
+                    "OpenJPEG native provider returned no JPEG2000 quality-layer data");
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine("OpenJPEG native-provider diagnostic: " + ex);
+                throw;
+            }
             var nativeEngine = new OglImageCodecEngine(native, null);
             Assert(nativeEngine.TryDecodeLayers(fixture, out var realLayers, out int realComponents,
                     out var realFailure) && realLayers.Length > 0 &&
