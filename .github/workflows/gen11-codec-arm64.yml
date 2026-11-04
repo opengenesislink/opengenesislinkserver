@@ -66,6 +66,9 @@ jobs:
           dotnet run --no-build -c Release --project tools/ci/OglImageCodecRegression/OglImageCodecRegression.csproj -- --hybrid "$RUNNER_TEMP/ogl-codec.j2k"
           dotnet run --no-build -c Release --project tools/ci/OglImageCodecRegression/OglImageCodecRegression.csproj -- --hybrid "$RUNNER_TEMP/ogl-codec.jp2"
 
+      - name: Native OpenJPEG2 malformed-input smoke (Linux ARM64)
+        run: python3 tools/ci/OglImageCodecRegression/fuzz_native.py "$RUNNER_TEMP/ogl-codec.j2k" "$RUNNER_TEMP/ogl-codec.jp2"
+
       - name: Save native ARM64 codec test artifact
         uses: actions/upload-artifact@v4
         with:
