@@ -69,7 +69,13 @@ jobs:
           # The regression project carries OpenMetaverse.dll.config and the
           # native library in lib64/ so its existing resolver can find them.
           ldd bin/lib64/libopenjpeg-dotnet-x86_64.so
-          dotnet run -c Release --project tools/ci/OglImageCodecRegression/OglImageCodecRegression.csproj -- "$RUNNER_TEMP/ogl-codec.j2k"
+          dotnet build -c Release tools/ci/OglImageCodecRegression/OglImageCodecRegression.csproj
+          (
+            cd tools/ci/OglImageCodecRegression/bin/Release/net10.0
+            test -s OpenMetaverse.dll.config
+            test -s lib64/libopenjpeg-dotnet-x86_64.so
+            dotnet OglImageCodecRegression.dll "$RUNNER_TEMP/ogl-codec.j2k"
+          )
 
       - name: Regression test - IAR preflight on net10
         run: dotnet run -c Release --project tools/ci/OglIarPreflightRegression/OglIarPreflightRegression.csproj
