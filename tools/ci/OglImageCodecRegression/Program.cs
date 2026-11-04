@@ -48,7 +48,7 @@ static class Program
         if (!value) throw new InvalidOperationException(message);
     }
 
-    private static int Main()
+    private static int Main(string[] args)
     {
         byte[] valid = new byte[12];
         valid[0] = 0xFF;
@@ -109,6 +109,20 @@ static class Program
                    new OpenJPEG.J2KLayerInfo {Start=4, End=12}}, 12), "nonmonotonic layer starts");
         Assert(OglImageCodecEngine.AreLayerBoundariesValid(
             new[] {new OpenJPEG.J2KLayerInfo {Start=0, End=12}}, 12), "valid boundary");
+
+        if (args.Length > 0)
+        {
+            // An actual codestream produced by opj_compress (J2C or JP2):
+            // verifies the native provider rather than a fake implementation.
+            byte[] fixture = File.ReadAllBytes(args[0]);
+            var native = new OglOpenJpegCodecProvider();
+            var nativeEngine = new OglImageCodecEngine(native, null);
+            Assert(nativeEngine.TryDecodeLayers(fixture, out var realLayers, out int realComponents,
+                    out var realFailure) && realLayers.Length > 0 &&
+                   OglImageCodecEngine.AreLayerBoundariesValid(realLayers, fixture.Length),
+                "native OpenJPEG layer decode failed: " + realFailure);
+            Console.WriteLine($"OpenJPEG native codestream PASS: {realLayers.Length} layers, {realComponents} components");
+        }
 
         Console.WriteLine($"OGL Image Codec Engine regression PASS ({assertions} assertions)");
         return 0;
