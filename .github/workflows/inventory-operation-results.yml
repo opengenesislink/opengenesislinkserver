@@ -5,7 +5,7 @@ on:
     paths:
       - 'OpenSim/Services/InventoryService/XInventoryService.cs'
       - 'OpenSim/Tests/Common/Mock/TestXInventoryDataPlugin.cs'
-      - 'OpenSim/Services/InventoryService/Tests/XInventoryServiceTests.cs'
+      - 'OpenSim/Services/InventoryService/Tests/XInventoryOperationResultTests.cs'
       - 'tools/ci/verify_inventory_operation_results.py'
       - '.github/workflows/inventory-operation-results.yml'
   workflow_dispatch:
