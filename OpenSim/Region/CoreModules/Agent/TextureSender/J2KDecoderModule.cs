@@ -30,6 +30,7 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
 using System.Reflection;
+using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
 using log4net;
@@ -54,6 +55,56 @@ namespace OpenSim.Region.CoreModules.Agent.TextureSender
 
         /// <summary>Temporarily holds deserialized layer data information in memory</summary>
         private readonly ExpiringCache<UUID, OpenJPEG.J2KLayerInfo[]> m_decodedCache = new ExpiringCache<UUID,OpenJPEG.J2KLayerInfo[]>();
+
+        // Codec/asset-content-specific cache: never import guessed G1 legacy layer
+        // boundaries when the experimental engine is enabled.
+        private sealed class OglLayerCacheEntry
+        {
+            public OpenJPEG.J2KLayerInfo[] Layers;
+            public int Components;
+        }
+
+        private readonly ExpiringCache<string, OglLayerCacheEntry> m_oglLayerCache =
+            new ExpiringCache<string, OglLayerCacheEntry>();
+
+        private static string OglLayerCacheKey(UUID assetID, byte[] data)
+        {
+            if (data == null || data.Length == 0 ||
+                data.Length > OglImageCodecEngine.DefaultMaxAssetBytes)
+                return null;
+
+            // Include an input digest: UUID reuse or in-place asset replacement
+            // must not reuse layer boundaries from a different codestream.
+            return "oglcodec-v1:" + assetID + ":" + Convert.ToHexString(SHA256.HashData(data));
+        }
+
+        private bool TryLoadOglLayers(UUID assetID, byte[] data,
+            out OpenJPEG.J2KLayerInfo[] layers, out int components)
+        {
+            layers = null;
+            components = 0;
+            string key = OglLayerCacheKey(assetID, data);
+            if (key != null && m_oglLayerCache.TryGetValue(key, out OglLayerCacheEntry entry))
+            {
+                layers = entry.Layers;
+                components = entry.Components;
+                return true;
+            }
+            return false;
+        }
+
+        private void SaveOglLayers(UUID assetID, byte[] data,
+            OpenJPEG.J2KLayerInfo[] layers, int components)
+        {
+            string key = OglLayerCacheKey(assetID, data);
+            if (key != null && components >= 0 &&
+                OglImageCodecEngine.AreLayerBoundariesValid(layers, data.Length))
+            {
+                m_oglLayerCache.AddOrUpdate(key,
+                    new OglLayerCacheEntry { Layers = layers, Components = components },
+                    TimeSpan.FromMinutes(1));
+            }
+        }
         /// <summary>List of client methods to notify of results of decode</summary>
         private readonly Dictionary<UUID, List<DecodedCallback>> m_notifyList = new Dictionary<UUID, List<DecodedCallback>>();
         /// <summary>Cache that will store decoded JPEG2000 layer boundary data</summary>
@@ -143,7 +194,9 @@ namespace OpenSim.Region.CoreModules.Agent.TextureSender
             OpenJPEG.J2KLayerInfo[] result;
 
             // If it's cached, return the cached results
-            if (m_decodedCache.TryGetValue(assetID, out result))
+            if (m_useOglImageCodec
+                ? TryLoadOglLayers(assetID, j2kData, out result, out _)
+                : m_decodedCache.TryGetValue(assetID, out result))
             {
 //                m_log.DebugFormat(
 //                    "[J2KDecoderModule]: Returning existing cached {0} layers j2k decode for {1}",
@@ -276,7 +329,9 @@ namespace OpenSim.Region.CoreModules.Agent.TextureSender
             // We don't get this from CSJ2K.  Is it relevant?
             components = 0;
 
-            if (!TryLoadCacheForAsset(assetID, out layers))
+            if (!(m_useOglImageCodec
+                ? TryLoadOglLayers(assetID, j2kData, out layers, out components)
+                : TryLoadCacheForAsset(assetID, out layers)))
             {
                 if (m_useOglImageCodec)
                 {
@@ -357,9 +412,16 @@ namespace OpenSim.Region.CoreModules.Agent.TextureSender
                     }
                 }
 
-                // A failed decode is not a valid cache entry in the new engine.
-                if (!m_useOglImageCodec || decodedSuccessfully)
+                // Never populate or read the legacy UUID-only cache with G1.1 results.
+                if (m_useOglImageCodec)
+                {
+                    if (decodedSuccessfully)
+                        SaveOglLayers(assetID, j2kData, layers, components);
+                }
+                else
+                {
                     SaveFileCacheForAsset(assetID, layers);
+                }
             }
 
             // Notify Interested Parties
