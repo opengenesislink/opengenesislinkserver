@@ -166,6 +166,12 @@ jobs:
           dotnet run --no-build -c Release --project tools/ci/OglImageCodecRegression/OglImageCodecRegression.csproj -- --hybrid "codec-fixtures/ogl-codec.jp2"
           if ($LASTEXITCODE -ne 0) { throw "Windows native JP2 regression failed" }
 
+      - name: Native OpenJPEG2 malformed-input smoke (Windows x64)
+        shell: pwsh
+        run: |
+          python tools/ci/OglImageCodecRegression/fuzz_native.py "codec-fixtures/ogl-codec.j2k" "codec-fixtures/ogl-codec.jp2"
+          if ($LASTEXITCODE -ne 0) { throw "Windows native malformed-input smoke failed" }
+
       - name: Save native Windows x64 codec artifact
         uses: actions/upload-artifact@v4
         with:
