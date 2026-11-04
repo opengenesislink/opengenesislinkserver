@@ -72,7 +72,7 @@ WebDavUsername = "ogl-iar"
 WebDavPasswordFile = "/etc/opengenesislink/iar-webdav.pass"
 TemporaryStorageRoot = "/var/lib/opengenesislink/iar-staging"
 RetentionDays = 30
-MaximumArchiveMiB = 2048
+MaximumArchiveMiB = 10240
 ```
 
 Die URL ist der derzeit konfigurierte private WebDAV-Pfad der Stadt-NexVerse-G1-Installation und setzt einen funktionierenden WireGuard-Zugang sowie ein gueltiges HTTPS-Zertifikat voraus. **Achtung:** Die NAS-Verzeichnisstruktur und der NAS-Benutzername sind in einem oeffentlichen Repository sichtbar, das Passwort jedoch nicht.
@@ -92,7 +92,7 @@ WebDavBaseUrl = "https://10.78.0.4:5006/Server/Benutzer/Weiss_Joerg/NexVerse/IAR
 WebDavUsername = "ogl-iar"
 WebDavPasswordFile = "/etc/opengenesislink/iar-webdav.pass"
 StorageRoot = "OGLInventoryArchives"
-MaximumArchiveMiB = 2048
+MaximumArchiveMiB = 10240
 ```
 
 Auf jedem SIM muss die Region-Archivverwaltung mit WebDAV-Client und
@@ -188,7 +188,7 @@ StorageBackend = "NFS"
 SharedStorageRoot = "/mnt/ogl-iar"
 NasHost = "10.78.0.4"
 RetentionDays = 30
-MaximumArchiveMiB = 2048
+MaximumArchiveMiB = 10240
 ```
 
 Im Simulator dazu denselben **tatsächlich gemounteten**
@@ -257,7 +257,7 @@ sind gesondert zu beachten.
    [OpenGenesisLINKIAR]
        Enabled = true
        StorageRoot = "/mnt/ogl-iar"
-       MaximumArchiveMiB = 2048
+       MaximumArchiveMiB = 10240
    ```
 
 3. Auf **ROBUST/World API** in der tatsächlich geladenen
@@ -269,7 +269,7 @@ sind gesondert zu beachten.
        SharedStorageRoot = "/mnt/ogl-iar"
        NasHost = "10.78.0.4"
        RetentionDays = 30
-       MaximumArchiveMiB = 2048
+       MaximumArchiveMiB = 10240
    ```
 
 4. ROBUST und Simulatoren mit aktualisierten DLLs neu starten.
@@ -327,8 +327,12 @@ Dateinamen `{id}.iar` im Region-Verzeichnis abgelegt.
 ### Import (auch >100 MiB)
 
 Zuerst lokale Dateigröße und **SHA-256** ermitteln. Die Gesamtgröße
-darf standardmäßig bis zu 2 GiB betragen (konfigurierbar bis 10 GiB,
-sofern die bestehende Regions-Policy dieselbe Größe zulässt).
+darf standardmäßig bis zu **10 GiB (10.240 MiB)** betragen, sofern
+ROBUST und der zuständige Simulator denselben Grenzwert verwenden.
+Für WebDAV werden IAR-Dateien gestreamt (kein vollständiger RAM-Puffer).
+Auf dem Staging-Datenträger muss ausreichend freier Speicher für mindestens
+ein vollständiges Archiv vorhanden sein; zusätzlich benötigt das NAS
+genügend Platz. Große Transfers können länger als 15 Minuten dauern.
 
 ```http
 POST /api/v1/iar/me/import
