@@ -48,6 +48,10 @@ else
   "${psql[@]}" -c "INSERT INTO fsassets (id,type,hash,asset_flags,create_time,access_time) VALUES ('$id1',0,'$hash1',1,1720000000,1720000100),('$id2',1,'$hash2',2,1720000200,1720000300);"
   "${psql[@]}" -A -t -F "$(printf '\t')" -f "$root/addons/OGLAssetService.Migration/sql/postgresql-export.sql" > "$work/before.tsv"
   pg_dump --host=127.0.0.1 --port=5432 --username=postgres --dbname=postgres --table=public.fsassets --no-owner --no-privileges --format=plain > "$work/native-backup.sql"
+  # Ubuntu's rolling pg_dump client can be newer than the PostgreSQL 16 CI server.
+  # Its transaction_timeout session option is new in PG17 and is not database
+  # content. Remove only that one unsupported zero-timeout directive for PG16.
+  sed -i '/^SET transaction_timeout = 0;$/d' "$work/native-backup.sql"
   # Restore the isolated dump into its own disposable database rather than the live test table.
   "${psql[@]}" -c 'CREATE DATABASE ogl_assetservice_restored;'
   psql -X -v ON_ERROR_STOP=1 --host=127.0.0.1 --port=5432 --username=postgres --dbname=ogl_assetservice_restored -f "$work/native-backup.sql" >/dev/null
