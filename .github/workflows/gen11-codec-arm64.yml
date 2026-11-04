@@ -86,6 +86,19 @@ jobs:
       - name: Native OpenJPEG2 malformed-input smoke (Linux ARM64)
         run: python3 tools/ci/OglImageCodecRegression/fuzz_native.py "$RUNNER_TEMP/ogl-codec.j2k" "$RUNNER_TEMP/ogl-codec.jp2"
 
+      - name: Stage and boot isolated Linux ARM64 .NET 10 server bundle
+        run: |
+          python3 tools/gen11/stage_net10_runtime.py --rid linux-arm64 --output "$RUNNER_TEMP/ogl-g11-linux-arm64"
+          python3 tools/gen11/robust_runtime_smoke.py --bin "$RUNNER_TEMP/ogl-g11-linux-arm64/bin"
+
+      - name: Upload Linux ARM64 .NET 10 staging runtime bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: ogl-g11-net10-linux-arm64-staging
+          path: ${{ runner.temp }}/ogl-g11-linux-arm64
+          if-no-files-found: error
+          retention-days: 10
+
       - name: Save native ARM64 codec test artifact
         uses: actions/upload-artifact@v4
         with:
