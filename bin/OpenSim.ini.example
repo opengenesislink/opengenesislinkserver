@@ -325,3 +325,4 @@
     WebDavBaseUrl = ""
     WebDavUsername = ""
     WebDavPasswordFile = ""
+    MaximumArchiveMiB = 10240
