@@ -1733,7 +1733,7 @@ namespace OpenSim.Region.CoreModules.Asset
         private const int MaxAssetBytes = 512 * 1024 * 1024;
         private const int MaxHashBytes = 128;
 
-        internal sealed class LegacyCacheFormatException : InvalidDataException
+        internal sealed class LegacyCacheFormatException : IOException
         {
             internal LegacyCacheFormatException()
                 : base("Obsolete BinaryFormatter cache entry; re-fetch from asset service") { }
