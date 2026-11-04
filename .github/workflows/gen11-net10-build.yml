@@ -1,0 +1,35 @@
+name: OpenGenesisLINK Generation 1.1 - .NET 10 Build Gate
+
+on:
+  push:
+    branches:
+      - GEN1.1NET10
+  pull_request:
+    branches:
+      - GEN1.1NET10
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  net10-build:
+    name: .NET 10 generated-project and server build
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: Verify retargeting implementation
+        run: python3 tools/ci/gen11_retarget_generated_csproj.py --self-test
+      - name: Regenerate and normalize project files
+        run: |
+          chmod +x runprebuild.sh
+          ./runprebuild.sh
+          python3 tools/ci/gen11_retarget_generated_csproj.py --check
+      - name: Restore Generation 1.1 solution
+        run: dotnet restore OpenSim.sln
+      - name: Build Generation 1.1 server and addons
+        run: dotnet build OpenSim.sln --configuration Release --no-restore
