@@ -160,7 +160,7 @@ def main():
             'WebDavUsername': f'"{args.username}"',
             'WebDavPasswordFile': f'"{args.secret}"',
             'TemporaryStorageRoot': '"/var/lib/opengenesislink/iar-staging"',
-            'RetentionDays': '30', 'MaximumArchiveMiB': '2048',
+            'RetentionDays': '30', 'MaximumArchiveMiB': '10240',
         }))
     if not args.only_robust:
         chosen.append((args.sim, 'OpenGenesisLINKIAR', {
@@ -168,7 +168,7 @@ def main():
             'NasHost': '"10.78.0.4"', 'WebDavBaseUrl': f'"{args.url}"',
             'WebDavUsername': f'"{args.username}"',
             'WebDavPasswordFile': f'"{args.secret}"',
-            'MaximumArchiveMiB': '2048',
+            'MaximumArchiveMiB': '10240',
         }))
     if len({path.resolve() for path, _, _ in chosen}) != len(chosen):
         raise ValueError("ROBUST and simulator INI files cannot be the same file")

@@ -33,6 +33,7 @@ EXPECTED_LIVE = (
     'WebDavBaseUrl = "https://10.78.0.4:5006/Server/Benutzer/Weiss_Joerg/NexVerse/IAR-Backups/"',
     'WebDavUsername = "ogl-iar"',
     'WebDavPasswordFile = "/etc/opengenesislink/iar-webdav.pass"',
+    'MaximumArchiveMiB = 10240',
 )
 for block in (ROBUST_IAR, SIM_IAR):
     for item in EXPECTED_LIVE:
@@ -95,7 +96,7 @@ assert 'OwnJob(user, id)' in api, "Never expose another avatar's IAR jobs"
 
 for marker in (
     "MaximumChunkBytes = 4 * 1024 * 1024",
-    "DefaultMaximumArchiveBytes = 2L * 1024 * 1024 * 1024",
+    "DefaultMaximumArchiveBytes = 10L * 1024 * 1024 * 1024",
     "Path.GetFullPath(sharedRoot)", 'jobId.ToString("D") + ".iar"',
     "offset == currentBytes", "bytes <= MaximumChunkBytes",
     "now <= createdAt", "return null",
@@ -170,6 +171,14 @@ example_sim = iar_section(text("bin/OpenSim.ini.example"), "OpenGenesisLINKIAR")
 assert 'WebDavPasswordFile = ""' in example_sim
 assert 'WebDavBaseUrl = ""' in example_sim
 assert 'WebDavUsername = ""' in example_sim
+assert "MaximumArchiveMiB = 10240" in example_sim
+assert "MaximumArchiveMiB = 10240" in ROBUST_IAR
+assert "MaximumArchiveMiB = 10240" in SIM_IAR
+assert 'GetLong("MaximumArchiveMiB", 10240)' in api
+assert 'GetLong("MaximumArchiveMiB", 10240)' in node
+assert "TimeSpan.FromHours(2)" in dav
+deploy_config = text("tools/deploy/configure_iar_webdav.py")
+assert deploy_config.count("'MaximumArchiveMiB': '10240'") == 2
 # Never accidentally store password material or inline credential values in Git.
 for block in (ROBUST_IAR, SIM_IAR):
     assert 'WebDavPassword = ' not in block

@@ -10,7 +10,7 @@ namespace NexVerse.Core.Archives
     public static class OglIarTransferPolicy
     {
         public const int MaximumChunkBytes = 4 * 1024 * 1024;
-        public const long DefaultMaximumArchiveBytes = 2L * 1024 * 1024 * 1024;
+        public const long DefaultMaximumArchiveBytes = 10L * 1024 * 1024 * 1024;
 
         public static string Resolve(string sharedRoot, Guid regionId, Guid jobId)
         {

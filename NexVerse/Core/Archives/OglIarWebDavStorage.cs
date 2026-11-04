@@ -73,7 +73,9 @@ namespace NexVerse.Core.Archives
                     catch { socket.Dispose(); throw; }
                 }
             };
-            m_Http = new HttpClient(handler) { Timeout = TimeSpan.FromMinutes(15) };
+            // A 10 GiB streamed IAR transfer can require more than 15 minutes
+            // on a WireGuard/NAS connection. Keep a finite upper bound.
+            m_Http = new HttpClient(handler) { Timeout = TimeSpan.FromHours(2) };
         }
 
         public void Dispose() => m_Http.Dispose();

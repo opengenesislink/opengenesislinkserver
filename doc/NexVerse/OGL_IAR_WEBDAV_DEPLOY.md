@@ -37,7 +37,7 @@ simulator requires its own local protected NAS password file. Use
 a `0600` file for `root` is intentionally not readable by other accounts.
 
 The WebDAV backend supports authenticated resident IAR export/import with
-temporary local staging and remote NAS archive storage, 2 GiB default maximum,
+temporary local staging and remote NAS archive storage, 10 GiB default maximum,
 SHA-256 validation and bounded HTTP transfers. It does not replace the older
 administrative `/api/v1/iar/*` storage behavior. The NAS archive folder must
 already exist, must be accessible to `ogl-iar`, and should have separate backup
