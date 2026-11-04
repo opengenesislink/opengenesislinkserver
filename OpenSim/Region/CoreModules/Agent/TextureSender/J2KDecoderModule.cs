@@ -75,6 +75,11 @@ namespace OpenSim.Region.CoreModules.Agent.TextureSender
         #region ISharedRegionModule
 
         private bool m_useCSJ2K = true;
+        // G1.1 opt-in: the existing G1 decoder remains the default until
+        // real-world J2C/J2K/JP2 parity and interoperability tests pass.
+        private bool m_useOglImageCodec;
+        private readonly OglImageCodecEngine m_oglCodecEngine =
+            new OglImageCodecEngine(new OglOpenJpegCodecProvider(), new OglCsJ2KCodecProvider());
 
         public string Name { get { return "J2KDecoderModule"; } }
 
@@ -88,6 +93,9 @@ namespace OpenSim.Region.CoreModules.Agent.TextureSender
             if (startupConfig != null)
             {
                 m_useCSJ2K = startupConfig.GetBoolean("UseCSJ2K", m_useCSJ2K);
+                m_useOglImageCodec = startupConfig.GetBoolean("OglImageCodecEnabled", false);
+                if (m_useOglImageCodec)
+                    m_log.Info("[J2KDecoderModule]: OGL Image Codec Engine enabled (OpenJPEG primary, CSJ2K fallback)");
             }
         }
 
@@ -185,6 +193,16 @@ namespace OpenSim.Region.CoreModules.Agent.TextureSender
 
         public Image DecodeToImage(byte[] j2kData)
         {
+            if (m_useOglImageCodec)
+            {
+                if (m_oglCodecEngine.TryDecodeImage(j2kData, out Image decoded,
+                    out OglImageDecodeFailure failure))
+                    return decoded;
+
+                m_log.Warn("[J2KDecoderModule]: OGL image decode failed: " + failure);
+                return null;
+            }
+
             if (j2kData == null || j2kData.Length == 0)
                 return null;
 
@@ -260,7 +278,14 @@ namespace OpenSim.Region.CoreModules.Agent.TextureSender
 
             if (!TryLoadCacheForAsset(assetID, out layers))
             {
-                if (m_useCSJ2K)
+                if (m_useOglImageCodec)
+                {
+                    decodedSuccessfully = m_oglCodecEngine.TryDecodeLayers(j2kData,
+                        out layers, out components, out OglImageDecodeFailure failure);
+                    if (!decodedSuccessfully)
+                        m_log.Warn("[J2KDecoderModule]: OGL layer decode failed for " + assetID + ": " + failure);
+                }
+                else if (m_useCSJ2K)
                 {
                     try
                     {
@@ -319,14 +344,22 @@ namespace OpenSim.Region.CoreModules.Agent.TextureSender
 
                 if (layers == null || layers.Length == 0)
                 {
-                    m_log.Warn("[J2KDecoderModule]: Failed to decode layer data for texture " + assetID + ", guessing sane defaults");
-                    // Layer decoding completely failed. Guess at sane defaults for the layer boundaries
-                    layers = CreateDefaultLayers(j2kData.Length);
                     decodedSuccessfully = false;
+                    if (m_useOglImageCodec)
+                    {
+                        // Do not invent quality-layer boundaries or persist invalid results.
+                        layers = Array.Empty<OpenJPEG.J2KLayerInfo>();
+                    }
+                    else
+                    {
+                        m_log.Warn("[J2KDecoderModule]: Failed to decode layer data for texture " + assetID + ", guessing sane defaults");
+                        layers = CreateDefaultLayers(j2kData == null ? 0 : j2kData.Length);
+                    }
                 }
 
-                // Cache Decoded layers
-                SaveFileCacheForAsset(assetID, layers);
+                // A failed decode is not a valid cache entry in the new engine.
+                if (!m_useOglImageCodec || decodedSuccessfully)
+                    SaveFileCacheForAsset(assetID, layers);
             }
 
             // Notify Interested Parties
