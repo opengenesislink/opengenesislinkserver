@@ -110,6 +110,43 @@ static class Program
         Assert(OglImageCodecEngine.AreLayerBoundariesValid(
             new[] {new OpenJPEG.J2KLayerInfo {Start=0, End=12}}, 12), "valid boundary");
 
+        if (args.Length == 2 && args[0] == "--hybrid")
+        {
+            byte[] codestream = File.ReadAllBytes(args[1]);
+            var hybrid = new OglOpenJpeg2CodecProvider();
+            Assert(hybrid.NativeAvailable, "OpenJPEG2 native shim not loaded");
+
+            Assert(hybrid.TryDecodeLayerBoundaries(codestream, out var hybridLayers,
+                    out int hybridComponents),
+                "OpenJPEG2 decode + managed packet offsets must agree");
+            Assert(hybridComponents >= 1 && hybridComponents <= 5 &&
+                   hybridLayers.Length == 3,
+                "unexpected components or JPEG2000 layer count");
+            Assert(OglImageCodecEngine.AreLayerBoundariesValid(hybridLayers, codestream.Length),
+                "hybrid layer offsets must be strictly in bounds");
+
+            var hybridEngine = new OglImageCodecEngine(hybrid, new OglCsJ2KCodecProvider());
+            Assert(hybridEngine.TryDecodeLayers(codestream, out var pipelineLayers,
+                    out int pipelineComponents, out var hybridFailure),
+                "hybrid pipeline should decode JPEG2000 layers: " + hybridFailure);
+            Assert(pipelineComponents == hybridComponents &&
+                   pipelineLayers.Length == hybridLayers.Length,
+                "hybrid pipeline must preserve validated decoder metadata");
+
+            byte[] corrupt = (byte[])codestream.Clone();
+            Array.Clear(corrupt, 0, corrupt.Length);
+            Assert(!hybrid.TryDecodeLayerBoundaries(corrupt, out var corruptLayers, out _)
+                   && corruptLayers.Length == 0, "invalid JPEG2000 input must be rejected");
+
+            byte[] truncated = new byte[Math.Min(24, codestream.Length)];
+            Array.Copy(codestream, truncated, truncated.Length);
+            Assert(!hybrid.TryDecodeLayerBoundaries(truncated, out _, out _),
+                "incomplete codestream must not produce valid layers");
+            Console.WriteLine($"OpenJPEG 2.x validated hybrid PASS: {hybridLayers.Length} layers, " +
+                $"{hybridComponents} components, {assertions} assertions");
+            return 0;
+        }
+
         if (args.Length > 0)
         {
             // An actual codestream produced by opj_compress (J2C or JP2):
