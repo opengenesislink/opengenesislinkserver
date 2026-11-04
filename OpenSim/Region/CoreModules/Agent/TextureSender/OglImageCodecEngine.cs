@@ -146,7 +146,7 @@ namespace OpenSim.Region.CoreModules.Agent.TextureSender
             int previousStart = -1;
             foreach (OpenJPEG.J2KLayerInfo layer in layers)
             {
-                if (ReferenceEquals(layer, null) || layer.Start < 0 || layer.End < layer.Start ||
+                if (layer.Start < 0 || layer.End < layer.Start ||
                     layer.End > length || layer.Start < previousStart)
                     return false;
                 previousStart = layer.Start;
