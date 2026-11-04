@@ -58,6 +58,9 @@ jobs:
       - name: Build standalone AssetService addon under .NET 10
         run: bash addon-modules/OGLAssetService/build.sh Release
 
+      - name: Regression test - OGL Image Codec Engine provider fallback
+        run: dotnet run -c Release --project tools/ci/OglImageCodecRegression/OglImageCodecRegression.csproj
+
       - name: Regression test - IAR preflight on net10
         run: dotnet run -c Release --project tools/ci/OglIarPreflightRegression/OglIarPreflightRegression.csproj
 
