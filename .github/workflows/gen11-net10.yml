@@ -72,6 +72,16 @@ jobs:
           opj_dump -i "$RUNNER_TEMP/ogl-codec.j2k" >/dev/null
           opj_dump -i "$RUNNER_TEMP/ogl-codec.jp2" >/dev/null
 
+      - name: Share validated J2C and JP2 fixtures with Windows-native tests
+        uses: actions/upload-artifact@v4
+        with:
+          name: ogl-codec-native-fixtures
+          path: |
+            ${{ runner.temp }}/ogl-codec.j2k
+            ${{ runner.temp }}/ogl-codec.jp2
+          if-no-files-found: error
+          retention-days: 7
+
       - name: Regression test - OpenJPEG 2.x native hybrid on actual J2C
         env:
           OGL_IMAGE_CODEC_NATIVE_DIR: ${{ github.workspace }}/bin/lib64
@@ -111,3 +121,52 @@ jobs:
           python3 tools/ci/verify_ogl_energy.py
           python3 tools/ci/verify_gen1_nex_city_addons.py
           python3 tools/ci/verify_iar_progress.py
+
+  windows-native-codec:
+    name: G1.1 OpenJPEG2 native Windows x64 / .NET 10
+    needs: net10
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - uses: actions/download-artifact@v4
+        with:
+          name: ogl-codec-native-fixtures
+          path: codec-fixtures
+
+      - name: Compile native OpenJPEG2 with MSVC and vcpkg
+        shell: pwsh
+        run: |
+          ./addon-modules/OGLImageCodec/build-windows.ps1 -BuildDirectory "$env:RUNNER_TEMP/ogl-codec-win"
+          if (-not (Test-Path "bin/lib64/ogl-openjpeg2-x86_64.dll")) { throw "Codec DLL missing" }
+
+      - name: Build G1.1 codec test project
+        shell: pwsh
+        run: |
+          cmd /c runprebuild.bat
+          if ($LASTEXITCODE -ne 0) { throw "Prebuild failed" }
+          dotnet restore tools/ci/OglImageCodecRegression/OglImageCodecRegression.csproj
+          if ($LASTEXITCODE -ne 0) { throw "Restore failed" }
+          dotnet build -c Release --no-restore tools/ci/OglImageCodecRegression/OglImageCodecRegression.csproj
+          if ($LASTEXITCODE -ne 0) { throw "Codec test compilation failed" }
+
+      - name: Verify Windows-native OpenJPEG2 J2C and JP2 layers
+        shell: pwsh
+        env:
+          OGL_IMAGE_CODEC_NATIVE_DIR: ${{ github.workspace }}/bin/lib64
+        run: |
+          dotnet run --no-build -c Release --project tools/ci/OglImageCodecRegression/OglImageCodecRegression.csproj -- --hybrid "codec-fixtures/ogl-codec.j2k"
+          if ($LASTEXITCODE -ne 0) { throw "Windows native J2C regression failed" }
+          dotnet run --no-build -c Release --project tools/ci/OglImageCodecRegression/OglImageCodecRegression.csproj -- --hybrid "codec-fixtures/ogl-codec.jp2"
+          if ($LASTEXITCODE -ne 0) { throw "Windows native JP2 regression failed" }
+
+      - name: Save native Windows x64 codec artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ogl-openjpeg2-windows-x64
+          path: bin/lib64/ogl-openjpeg2-x86_64.dll
+          if-no-files-found: error
+          retention-days: 14
