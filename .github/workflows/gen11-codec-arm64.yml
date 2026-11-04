@@ -48,6 +48,14 @@ jobs:
           python3 tools/gen11/retarget_net10.py --check
           dotnet restore tools/ci/OglImageCodecRegression/OglImageCodecRegression.csproj
 
+      - name: Build full ROBUST and simulator solution on Linux ARM64
+        run: |
+          dotnet restore OpenSim.sln
+          dotnet build OpenSim.sln -c Release --no-restore
+
+      - name: Runtime smoke - boot real ROBUST .NET 10 on ARM64
+        run: python3 tools/gen11/robust_runtime_smoke.py
+
       - name: Compile codec regression and dependent modules on ARM64
         run: dotnet build -c Release --no-restore tools/ci/OglImageCodecRegression/OglImageCodecRegression.csproj
 
