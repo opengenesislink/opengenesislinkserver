@@ -10,6 +10,7 @@ on:
       - 'OpenSim/Region/CoreModules/Agent/TextureSender/J2KDecoderModule.cs'
       - 'OpenSim/Region/CoreModules/OpenSim.Region.CoreModules.csproj'
       - 'tools/ci/OglImageCodecRegression/**'
+      - 'tools/gen11/robust_runtime_smoke.py'
       - '.github/workflows/gen11-codec-arm64.yml'
       - 'runprebuild.sh'
       - 'prebuild.xml'
