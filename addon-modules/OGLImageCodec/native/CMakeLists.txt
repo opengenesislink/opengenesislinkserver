@@ -14,6 +14,10 @@ target_compile_features(ogl_openjpeg2 PRIVATE c_std_11)
 target_link_libraries(ogl_openjpeg2 PRIVATE openjp2)
 
 if(MSVC)
+  # x64-windows-static vcpkg builds OpenJPEG with /MT. Match its CRT
+  # to avoid LNK4098 and prevent mixed runtime allocators in the DLL.
+  set_property(TARGET ogl_openjpeg2 PROPERTY
+    MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
   target_compile_options(ogl_openjpeg2 PRIVATE /W4)
 else()
   target_compile_options(ogl_openjpeg2 PRIVATE -Wall -Wextra -Werror)
