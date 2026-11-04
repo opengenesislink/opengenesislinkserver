@@ -133,6 +133,24 @@ Das URI-Präfix der Stadt-NexVerse-G1-Installation lautet
 keine Schreibberechtigung für MKCOL und PUT. TLS-Zertifikatsprüfung
 darf auch bei der Fehlersuche nicht abgeschaltet werden.
 
+### IAR-Kontrolldatei: UTF-8/UTF-16-Kompatibilität
+
+Der native OpenSimulator-IAR-Schreiber erzeugte bisher `archive.xml`
+über einen `XmlTextWriter(StringWriter)`, der `encoding="utf-16"`
+deklarierte. Der TAR-Schreiber speicherte die zurückgegebene Zeichenkette
+jedoch als UTF-8 ohne BOM. Die strengere IAR-Vorabprüfung verweigerte
+deshalb das fertige Archiv mit `There is no Unicode byte order mark.
+Cannot switch to Unicode.`, bevor der WebDAV-Upload erfolgen konnte.
+
+Neue IAR-Kontrolldateien werden jetzt als tatsächliche UTF-8-XML-Daten
+mit passender Deklaration erzeugt. Bereits exportierte, historisch
+inkonsistent deklarierte OpenSim-IARs werden nur bei **exakt bekanntem
+Legacy-Prolog** und **strikt gültigem UTF-8** akzeptiert. DTD, XXE,
+Pfad-Traversal, TAR-Prüfsummen, Größen- und Entpackungsgrenzen bleiben
+unverändert geschützt. Ein Export ist erst nach erfolgreicher
+Integritätsprüfung **und** bestätigt abgeschlossenem WebDAV-Upload
+als gesichert anzusehen.
+
 ### Große Inventare: NexBus-Laufzeit und fehlende Asset-Referenzen
 
 Der NexBus-HTTP-Endpunkt darf nicht durch eine komplette IAR-Inventararchivierung
