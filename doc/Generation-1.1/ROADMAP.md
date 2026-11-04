@@ -1,6 +1,6 @@
 # OpenGenesisLINK Generation 1.1 — Umsetzung und Release-Gates
 
-**Status:** Geplant / Entwicklungslinie angelegt, kein produktiver Umbau.  
+**Status (04.11.2026):** G11-01 .NET-10-Fundament auf Linux x64, Linux ARM64 und Windows x64 **gebaut, als Staging-Paket geprüft und ROBUST-HTTP-Start erfolgreich**. Vollständige MariaDB-/Region-/Viewer-End-to-End-Abnahme, G11-03/04/05 und G11-06 weiterhin offen. Keine Produktivumstellung. Siehe [NET10_RUNTIME_STATUS.md](NET10_RUNTIME_STATUS.md).  
 **Technische Basis:** `doc/Generation-1.1/ARCHITECTURE.md`.  
 **Produktziel:** OpenGenesisLINK Generation 1.1, modernisierte kompatible G1-Linie, kein G2-/GridFabric-Ersatz.
 
@@ -17,6 +17,16 @@
 | G11-06 | Release Candidate / Migration | alle obigen Gates | staging-echte End-to-End-Tests, Viewer/HG-Kompatibilität, produktionsfähige Rollback-Artefakte |
 
 Phasen G11-02, G11-03 und G11-04 können in eigenen Featurebranches parallel umgesetzt werden; G11-01 und G11-00 legen die gemeinsamen Verträge fest. Die Zielversion einer eigenständigen G1.1-Release-Linie wird vom Branch-/Tag-Schema getrennt dokumentiert; G1 bleibt unverändert.
+
+## G11-01: Nachgewiesene .NET-10-Zwischenergebnisse
+
+- Die Server- und Hauptaddonprojekte kompilieren unter `net10.0` auf allen drei Plattformen.
+- Die echte `Robust.dll` startet unter .NET 10 und beantwortet mit isolierter Test-INI eine lokale HTTP-Anfrage.
+- Linux x64, Linux ARM64 und Windows x64 haben je ein getestetes **frameworkabhängiges Staging-Paket** mit Manifest und ohne Live-Daten.
+- Die Build-/Runtime-/Paketprüfungen stehen in eigenen G11-01-CI-Workflows und hängen **nicht** vom experimentellen JPEG2000-Decoder ab.
+- Noch offen: voller Simulator-Regionstart, MariaDB/Inventar, LSL, Login, Hypergrid, E2E-Staging, Release-/Rollbackabnahme.
+
+Verbindliche Nachweise und Startanleitung: [NET10_RUNTIME_STATUS.md](NET10_RUNTIME_STATUS.md).
 
 ## G11-00: Baseline
 
