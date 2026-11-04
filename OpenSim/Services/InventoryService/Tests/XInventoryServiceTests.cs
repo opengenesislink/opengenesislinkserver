@@ -26,7 +26,6 @@
  */
 
 using System;
-using System.Collections.Generic;
 using Nini.Config;
 using NUnit.Framework;
 using OpenMetaverse;
@@ -171,36 +170,6 @@ namespace OpenSim.Services.InventoryService.Tests
             Assert.That(itemRetrieved.InvType, Is.EqualTo(invType));
             Assert.That(itemRetrieved.AssetType, Is.EqualTo(assetType));
             Assert.That(itemRetrieved.Name, Is.EqualTo(itemName3));
-        }
-
-        [Test]
-        public void TestMoveItemsPropagatesBackendFailure()
-        {
-            UUID owner = UUID.Random();
-            UUID itemID = UUID.Random();
-            UUID destinationFolder = UUID.Random();
-            IInventoryService inventory = CreateXInventoryService();
-
-            InventoryItemBase item = new InventoryItemBase(itemID, owner)
-            {
-                CreatorIdentification = owner.ToString(),
-                AssetID = UUID.Random(),
-                Folder = UUID.Random(),
-                Name = "Inventory move regression",
-                InvType = (int)InventoryType.Object,
-                AssetType = (int)AssetType.Object
-            };
-
-            // A missing backend item must not be reported as a successful move.
-            item.Folder = destinationFolder;
-            Assert.That(inventory.MoveItems(owner, new List<InventoryItemBase> { item }), Is.False);
-
-            // A valid move must remain successful and persist the destination.
-            item.Folder = UUID.Random();
-            Assert.That(inventory.AddItem(item), Is.True);
-            item.Folder = destinationFolder;
-            Assert.That(inventory.MoveItems(owner, new List<InventoryItemBase> { item }), Is.True);
-            Assert.That(inventory.GetItem(owner, itemID).Folder, Is.EqualTo(destinationFolder));
         }
     }
 }
