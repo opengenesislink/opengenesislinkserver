@@ -591,8 +591,19 @@ namespace OpenSim.Services.InventoryService
             {
                 if (!m_Database.MoveItem(item.ID.ToString(), item.Folder.ToString()))
                 {
-                    m_log.Warn("[XINVENTORY]: Failed to move inventory item " + item.ID);
-                    allMoved = false;
+                    // MariaDB may report zero affected rows for a valid no-op
+                    // (the item is already in the requested destination).
+                    // Distinguish that case from missing items and write errors.
+                    XInventoryItem[] current = m_Database.GetItems(
+                        new string[] { "inventoryID" },
+                        new string[] { item.ID.ToString() });
+
+                    if (current == null || current.Length != 1 ||
+                        current[0].parentFolderID != item.Folder)
+                    {
+                        m_log.Warn("[XINVENTORY]: Failed to move inventory item " + item.ID);
+                        allMoved = false;
+                    }
                 }
             }
 
