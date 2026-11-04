@@ -130,7 +130,10 @@ namespace OpenSim.Tests.Common
         {
             UUID uid = new UUID(id);
             UUID upid = new UUID(newParent);
-            m_allItems[uid].parentFolderID = upid;
+            if (!m_allItems.TryGetValue(uid, out XInventoryItem item))
+                return false;
+
+            item.parentFolderID = upid;
             return true;
         }
 
