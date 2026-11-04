@@ -66,12 +66,10 @@ jobs:
 
       - name: Regression test - OGL Image Codec Engine provider fallback and native J2C
         run: |
-          # CoreCLR does not honor Mono's legacy OpenMetaverse.dll.config dllmap.
-          # Supply the platform-specific legacy codec under its DllImport name
-          # in this isolated CI process, without modifying tracked native files.
+          # Exercise the G1.1 CoreCLR resolver with an explicit staging directory.
+          # No system symlinks or LD_LIBRARY_PATH workaround should be necessary.
           ldd bin/lib64/libopenjpeg-dotnet-x86_64.so
-          ln -sf "$GITHUB_WORKSPACE/bin/lib64/libopenjpeg-dotnet-x86_64.so" "$RUNNER_TEMP/libopenjpeg-dotnet.so"
-          LD_LIBRARY_PATH="$RUNNER_TEMP:$GITHUB_WORKSPACE/bin/lib64:${LD_LIBRARY_PATH:-}" \
+          OGL_IMAGE_CODEC_NATIVE_DIR="$GITHUB_WORKSPACE/bin/lib64" \
             dotnet run -c Release --project tools/ci/OglImageCodecRegression/OglImageCodecRegression.csproj -- "$RUNNER_TEMP/ogl-codec.j2k"
 
       - name: Regression test - IAR preflight on net10
