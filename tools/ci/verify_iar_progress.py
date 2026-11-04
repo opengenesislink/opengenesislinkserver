@@ -38,6 +38,13 @@ assert 'if (succeeded)' in module and '100% – Exportvorgang abgeschlossen' in 
 assert 'if (liveUpdate)' in module and 'if (!report)' in module
 assert 'm_pendingConsoleTasks.Contains(id)' in module
 assert 'OGLIarLiveProgress = true' in (root / 'bin/OpenSim.ini.example').read_text()
+# Native IAR preflight must not enforce the former 1 GiB compressed limit.
+policy = (root / "NexVerse/RegionModules/Archives/OglIarManagement.cs").read_text()
+assert "MaxCompressedBytes = 10L * 1024 * 1024 * 1024" in policy
+assert "MaxExpandedBytes = 40L * 1024 * 1024 * 1024" in policy
+assert "if (!IsAllowedCompressedSize(info.Length))" in policy
+assert "MaxFileBytes = 64L * 1024 * 1024" in policy
+assert "MaxEntries = 100000" in policy
 # Terminal handoff must not disappear after the last asset-progress log.
 assert 'GC.Collect();\n            PerformAssetsRequestCallback(m_timeout);' not in src["assets"]
 assert "Archivabschluss wird gestartet" in src["assets"]
