@@ -1,0 +1,20 @@
+name: FSAssets Read Resilience
+
+on:
+  pull_request:
+    paths:
+      - 'OpenSim/Services/FSAssetService/FSAssetService.cs'
+      - 'tools/ci/verify_fsassets_no_process_exit.py'
+      - '.github/workflows/fsassets-read-resilience.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  no-fatal-asset-read:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify failed asset reads cannot exit ROBUST
+        run: python3 tools/ci/verify_fsassets_no_process_exit.py
