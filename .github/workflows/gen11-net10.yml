@@ -212,6 +212,22 @@ jobs:
           python tools/ci/OglImageCodecRegression/fuzz_native.py "codec-fixtures/ogl-codec.j2k" "codec-fixtures/ogl-codec.jp2"
           if ($LASTEXITCODE -ne 0) { throw "Windows native malformed-input smoke failed" }
 
+      - name: Stage and boot isolated Windows x64 .NET 10 server bundle
+        shell: pwsh
+        run: |
+          python tools/gen11/stage_net10_runtime.py --rid win-x64 --output "$env:RUNNER_TEMP/ogl-g11-win-x64"
+          if ($LASTEXITCODE -ne 0) { throw "Windows runtime staging failed" }
+          python tools/gen11/robust_runtime_smoke.py --bin "$env:RUNNER_TEMP/ogl-g11-win-x64/bin"
+          if ($LASTEXITCODE -ne 0) { throw "Windows staged runtime failed to boot" }
+
+      - name: Upload Windows x64 .NET 10 staging runtime bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: ogl-g11-net10-windows-x64-staging
+          path: ${{ runner.temp }}/ogl-g11-win-x64
+          if-no-files-found: error
+          retention-days: 10
+
       - name: Save native Windows x64 codec artifact
         uses: actions/upload-artifact@v4
         with:
