@@ -20,3 +20,5 @@ assert "gh release create" in flow and "gh release upload" in flow
 for marker in ("--self-test", "BUILD-MANIFEST.json", "SKIP_SUFFIXES", "source_commit", "testzip()", "stable_release"):
     assert marker in script, marker
 print("Generation 1 current-main ZIP publisher contracts PASS")
+
+assert "vars.OGL_GEN1_NET10_RELEASE_APPROVED == 'true'" in flow, "NET10 release freeze must remain fail-closed"
