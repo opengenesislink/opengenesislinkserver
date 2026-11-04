@@ -33,3 +33,19 @@ jobs:
         run: dotnet restore OpenSim.sln
       - name: Build Generation 1.1 server and addons
         run: dotnet build OpenSim.sln --configuration Release --no-restore
+
+  net10-windows:
+    name: .NET 10 Windows x64 build
+    runs-on: windows-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: Regenerate Windows solution and verify .NET 10 TFMs
+        shell: cmd
+        run: call runprebuild.bat
+      - name: Build Windows server and addons
+        shell: cmd
+        run: dotnet build OpenSim.sln --configuration Release
