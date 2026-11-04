@@ -815,7 +815,9 @@ namespace OpenSim.Services.InventoryService
                 if (parent.Length < 1)
                     return false;
 
-                if (parent[0].type == (int)FolderType.Trash || folder[0].type == (int)FolderType.LostAndFound)
+                // The current ancestor, not the original child, determines if this
+                // folder belongs to Trash or Lost And Found.
+                if (parent[0].type == (int)FolderType.Trash || parent[0].type == (int)FolderType.LostAndFound)
                     return true;
                 if (parent[0].type == (int)FolderType.Root)
                     return false;
