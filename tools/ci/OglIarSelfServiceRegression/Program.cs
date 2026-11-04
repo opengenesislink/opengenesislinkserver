@@ -50,7 +50,19 @@ internal static class Program
             throw new Exception("Root accepted"); }
         catch (ArgumentException) { count++; }
         long max = OglIarTransferPolicy.DefaultMaximumArchiveBytes;
-        Check(max > 100L * 1024 * 1024, "uploads support >100 MiB");
+        Check(max == 10L * 1024 * 1024 * 1024, "default IAR quota is 10 GiB");
+        Check(max > int.MaxValue, "IAR quota exceeds signed 32-bit byte range");
+        Check(OglIarTransferPolicy.AcceptChunk(3L * 1024 * 1024 * 1024,
+            3L * 1024 * 1024 * 1024, OglIarTransferPolicy.MaximumChunkBytes,
+            max, max), "sequential 4MiB import chunk beyond 2GiB");
+        Check(OglIarTransferPolicy.AcceptChunk(max - OglIarTransferPolicy.MaximumChunkBytes,
+            max - OglIarTransferPolicy.MaximumChunkBytes,
+            OglIarTransferPolicy.MaximumChunkBytes, max, max),
+            "final chunk exactly at 10GiB quota");
+        Check(!OglIarTransferPolicy.AcceptChunk(max - OglIarTransferPolicy.MaximumChunkBytes,
+            max - OglIarTransferPolicy.MaximumChunkBytes,
+            OglIarTransferPolicy.MaximumChunkBytes + 1, max + 1, max),
+            "archive greater than 10GiB is rejected");
         Check(OglIarTransferPolicy.AcceptChunk(0, 0, 4194304, 200000000, max),
             "first 4MiB chunk");
         Check(OglIarTransferPolicy.AcceptChunk(4194304, 4194304, 4194304,
