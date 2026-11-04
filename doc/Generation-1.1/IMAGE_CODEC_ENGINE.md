@@ -30,6 +30,15 @@ Das Interface wird zunächst vom `J2KDecoderModule` verwendet. Unmittelbare `Ope
 
 Die vorhandene native OpenJPEG/CSJ2K-Bibliothek bleibt in dieser Phase unverändert. Native ABI-Sicherheit, ARM64-Paketierung, Speicher- und CPU-Limits für **dekomprimierte** Pixel, Hang-/Timeout-Abbruch sowie Fuzzing benötigen noch eigene Implementierung und Nachweise. Die 32-MiB-Grenze ist kein Schutz gegen alle Dekompressionsbomben.
 
+## Bekannter Native-Interop-Blocker (04.11.2026)
+
+Die separate .NET-10-CI erzeugt mit `opj_compress` einen synthetischen, über `opj_dump` validierten J2C-Codestream. Die mitgelieferte OpenMetaverse-/`openjpeg-dotnet`-Implementierung von `DecodeLayerBoundaries` liefert dafür derzeit `false`. Die native Shared Library wird geladen und die passende `OpenMetaverse.dll.config` ist vorhanden; ein zweiter, konkurrierender `SetDllImportResolver` wurde ausdrücklich **nicht** beibehalten, da OpenMetaverse bereits seinen eigenen `DllmapConfigHelper` registriert.
+
+- Der sichere **Provider-/Fallback-Unit-Test** ist ein verbindliches CI-Gate.
+- Der echte native **J2C-Kompatibilitätstest** ist vorläufig ein sichtbares `continue-on-error`-Diagnosegate, bis die native Codec-/Layer-Implementierung korrigiert und gegen echte Assets nachgewiesen wurde. Ein grüner Gesamtbuild bedeutet daher **nicht**, dass dieser Native-Test bestanden ist.
+- Nächster Schritt: Version/ABI der nativen Codec-Bibliothek verifizieren und durch einen modernen, getesteten OpenJPEG-2.x-Adapter ersetzen; erst anschließend den Native-Test verbindlich machen.
+- `OglImageCodecEnabled` bleibt standardmäßig `false` und darf noch **nicht** als produktiv freigegebene Migration gelten.
+
 ## Abnahme vor produktiver Umschaltung
 
 1. Echte valide J2C/JP2, historische Grenzfälle und kaputte Assets: Decode-Erfolg und Pixel-/Layer-Parität gegen die bisherige Produktionsbaseline.
@@ -38,4 +47,4 @@ Die vorhandene native OpenJPEG/CSJ2K-Bibliothek bleibt in dieser Phase unveränd
 4. Belastungs- und Fuzzing-Tests mit parallelen Texturanfragen; überprüfbare Datenintegrität.
 5. Kein Codec-Rollout in G1-`main`; separater Staging-Test, Feature-Flag und Rollback.
 
-Automatischer funktionaler Unit-/Regressionstest: `dotnet run -c Release --project tools/ci/OglImageCodecRegression/OglImageCodecRegression.csproj`. Der Test prüft Input-Grenzen, Primär-/Fallback-Orchestrierung und abgelehnte Layergrenzen mit Test-Providern. In der Linux-CI wird zusätzlich eine 64×64-PGM-Testdatei mit `opj_compress` zu einem echten J2C-Codestream codiert und von der nativen OpenJPEG-Anbindung auf Layergrenzen geprüft. Das ersetzt weder einen vollständigen Korpus realer NexVerse-Assets noch Native-Interop-Fuzzing, Pixelparität oder Viewer-Tests.
+Automatischer funktionaler Unit-/Regressionstest: `dotnet run -c Release --project tools/ci/OglImageCodecRegression/OglImageCodecRegression.csproj`. Der Test prüft Input-Grenzen, Primär-/Fallback-Orchestrierung und abgelehnte Layergrenzen mit Test-Providern. In der Linux-CI wird zusätzlich eine 64×64-PGM-Testdatei mit `opj_compress` zu einem echten J2C-Codestream codiert; der native Decodierpfad wird dabei als separates, derzeit nicht bestandendes Diagnosegate auf Layergrenzen geprüft. Das ersetzt weder einen vollständigen Korpus realer NexVerse-Assets noch Native-Interop-Fuzzing, Pixelparität oder Viewer-Tests.
