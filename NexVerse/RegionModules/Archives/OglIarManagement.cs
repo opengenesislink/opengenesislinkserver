@@ -160,15 +160,37 @@ namespace NexVerse.RegionModules.Archives
 
         private static void ValidateControlFile(byte[] payload)
         {
-            using MemoryStream stream = new(payload, writable: false);
-            using XmlReader reader = XmlReader.Create(stream, new XmlReaderSettings
+            XmlReaderSettings settings = new()
             {
                 DtdProcessing = DtdProcessing.Prohibit,
                 XmlResolver = null,
                 MaxCharactersInDocument = MaxControlBytes,
                 MaxCharactersFromEntities = 0
-            });
-            XDocument document = XDocument.Load(reader);
+            };
+
+            XDocument document;
+            // Legacy OpenSim generated this exact UTF-16 declaration through
+            // XmlTextWriter(StringWriter), but TarArchiveWriter persisted UTF-8
+            // bytes without a UTF-16 BOM. Preserve compatibility with those
+            // already-produced control files, without disabling XML security.
+            // The special case requires a byte-exact legacy declaration and
+            // strictly valid UTF-8; other files use the normal XML byte parser.
+            const string legacyDeclaration = "<?xml version=\"1.0\" encoding=\"utf-16\"?>";
+            byte[] legacyPrefix = Encoding.ASCII.GetBytes(legacyDeclaration);
+            bool legacyUtf8 = payload.AsSpan().StartsWith(legacyPrefix);
+            if (legacyUtf8)
+            {
+                using StringReader decoded = new(new UTF8Encoding(false, true).GetString(payload));
+                using XmlReader reader = XmlReader.Create(decoded, settings);
+                document = XDocument.Load(reader);
+            }
+            else
+            {
+                using MemoryStream stream = new(payload, writable: false);
+                using XmlReader reader = XmlReader.Create(stream, settings);
+                document = XDocument.Load(reader);
+            }
+
             XElement archive = document.Element("archive");
             if (archive == null ||
                 !int.TryParse((string)archive.Attribute("major_version"), out int major) ||
