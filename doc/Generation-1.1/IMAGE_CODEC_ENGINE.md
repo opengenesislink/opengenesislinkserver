@@ -1,50 +1,66 @@
-# Generation 1.1 — OGL Image Codec Engine (G11-02, Phase 1)
+# OpenGenesisLINK Generation 1.1 – OGL Image Codec Engine (G11-02)
 
-**Stand:** Experimenteller, opt-in Codec-Pfad im Simulator; kein produktives Rollout und noch kein Austausch der nativen OpenJPEG-Bibliothek. Branch: `GEN1.1NET10`.
+**Status (04.11.2026):** Opt-in Hybrid-Decoder mit OpenJPEG 2.5.4 wurde auf Linux x64 für **synthetische J2C- und JP2-Codestreams** erfolgreich getestet. Kein produktiver Rollout; kein vollständiger nativer JPEG2000-Decoder-Ersatz. Entwicklungsbranch: `GEN1.1NET10`.
 
-## Ziel und Kompatibilität
+## Architektur und Verantwortlichkeiten
 
-Das Wire-/Asset-Format bleibt JPEG2000 (J2C/J2K bzw. kompatibles JP2). Vorhandene Asset-UUIDs, Inventare, Map-/Sculpt-/Mesh-Daten, Viewer- und Hypergrid-Protokolle werden nicht umgewandelt. Eine alternative Decoding-Engine darf nicht behaupten, korrupte Codestreams verlustfrei wiederherstellen zu können. Insbesondere bleibt HTJ2K vorerst **kein** Standardformat.
+- `OglImageCodecEngine.cs`: begrenzte Eingaben (max. 32 MiB), typisierte Fehler, unabhängiger primärer/fallback Codec, strikte Prüfung von Layergrenzen, keine erdachten Layerwerte.
+- `OglOpenJpeg2CodecProvider.cs`: Hybrid aus **OpenJPEG 2.x** (vollständige native Codestream-Decodierung und Metadatenvalidierung) und **CSJ2K** (Ermittlung wirklicher JPEG2000-Layerpositionen). Bei Abweichung der Layerzahl oder ungültigen Byte-Offsets verwirft der Provider den Decode. JP2-Boxen werden mit Längenprüfung gelesen und der darin enthaltene J2C-Codestream an den Layerparser übergeben. Vorläufig nur JP2-Dateien mit letzter `jp2c`-Box.
+- `addon-modules/OGLImageCodec/native/ogl_openjpeg2.c`: kleiner Native-ABI-Adapter über die OpenJPEG-2.x-C-API. Keine Zeiger auf native Speicherobjekte werden an .NET zurückgegeben; der Decoder akzeptiert nur einen einzelnen LRCP-Tile mit höchstens 1024 Layern, 5 Komponenten, 8192 Pixeln pro Achse und 32 Mio. Pixeln. Beschädigte oder nicht unterstützte Codestreams liefern einen Fehler.
+- `J2KDecoderModule.cs`: schaltet den experimentellen Pfad mittels Konfiguration hinzu; bei fehlender nativer Bibliothek wird eine Warnung protokolliert und der CSJ2K-Kompatibilitätspfad bleibt erreichbar.
+- `OglCsJ2KCodecProvider`: Kompatibilitäts-Fallback; der bisherige produktive G1-Pfad bleibt unverändert.
 
-Die Implementierung befindet sich in:
+Wichtig: Die öffentliche OpenJPEG-2.x-Codestream-Index-API stellt beim Decodieren keine nutzbaren Paketpositionen bereit. **OpenJPEG validiert deshalb, CSJ2K berechnet die Layergrenzen.** Die Implementierung gibt nicht vor, dass der native Codec die Offsets eigenständig ermittelt. Die Bildausgabe (Pixel/Alpha/Farbprofile) bleibt bis zur separaten plattformübergreifenden ABI-Validierung im bestehenden verwalteten Pfad.
 
-- `OpenSim/Region/CoreModules/Agent/TextureSender/OglImageCodecEngine.cs` — `IOglImageCodecProvider`, OpenJPEG- und CSJ2K-Adapter, Begrenzungen, Fehlerkategorien, strikte Layerprüfungen.
-- `OpenSim/Region/CoreModules/Agent/TextureSender/J2KDecoderModule.cs` — opt-in-Anbindung an das bestehende `IJ2KDecoder`-Interface.
+Bestehende UUIDs, JPEG2000-Texturen, Inventare, Map-/Mesh-/Sculpt-Daten, Viewer-Pakete und Hypergrid-Protokolle werden nicht konvertiert. HTJ2K wird nicht eingeführt. Erfolgreiche Layerdecodes können nur in den gesonderten zeitlich begrenzten Cache mit SHA-256-Inhaltsfingerabdruck übernommen werden; die alten UUID-basierten Layercaches werden vom neuen Pfad weder gelesen noch beschrieben.
 
-### Aktivierung nur in einer G1.1-Testumgebung
+## Native Bibliothek bauen (nur Linux-Staging)
+
+```bash
+# Ubuntu/Debian, Version mit OpenJPEG >= 2.5 verwenden
+sudo apt-get install -y build-essential pkg-config libopenjp2-7-dev
+bash addon-modules/OGLImageCodec/build.sh
+
+# Ausgabe je nach Architektur:
+# bin/lib64/libogl-openjpeg2-x86_64.so
+# bin/lib64/libogl-openjpeg2-arm64.so
+```
+
+Die native Bibliothek wird **nicht** vom normalen G1-Serverbuild erstellt und nicht mit dem Produktionsserver verteilt. OpenJPEG-2.x-Runtime (`libopenjp2.so.7`) ist auf dem Zielsystem erforderlich. Ein Austausch von `OpenMetaverse.dll`, globale `LD_LIBRARY_PATH`-Workarounds oder System-Symlinks sind nicht erforderlich. Die dynamische Native-Bibliothek wird nur unter Linux x64/ARM64 gesucht; Windows nutzt vorerst den vorhandenen Kompatibilitäts-Fallback.
+
+Die Datei kann für Tests alternativ über `OGL_IMAGE_CODEC_NATIVE_DIR` in einem absoluten Verzeichnis bereitgestellt werden. Nach Installation ist ein Neustart notwendig, weil die native Verfügbarkeit beim ersten Zugriff einmalig ermittelt wird.
+
+## Nur im Staging aktivieren
 
 ```ini
 [Startup]
 OglImageCodecEnabled = true
 ```
 
-`false` ist der vorläufige Standard. `UseCSJ2K` steuert weiterhin den bisherigen G1-Pfad, solange die neue Engine deaktiviert ist.
+**Standard: `false`.** `UseCSJ2K` steuert den ursprünglichen Decoder, solange `OglImageCodecEnabled=false` ist. Ein aktiver neuer Codec ohne native Bibliothek ist **kein** Nachweis einer erfolgreichen OpenJPEG2-Migration: Logmeldung zur Native-Verfügbarkeit kontrollieren. `main` und produktive INI-Dateien nicht automatisch ändern.
 
-Bei aktiver Engine wird **OpenJPEG zuerst** angesprochen. Schlägt das Decoding fehl, versucht die Engine den vorhandenen CSJ2K-Provider. Eingabedaten über 32 MiB werden in diesem Pfad vor dem nativen Decode abgewiesen. Die Engine erfindet bei einem Fehler keine Layergrenzen; fehlgeschlagene Layer-Decodes erhalten einen leeren Satz. Erfolgreiche Decode-Ergebnisse landen nur im separaten, kurzlebigen G1.1-Cache mit Asset-UUID, SHA-256-Fingerabdruck und Codec-Version als Schlüssel, niemals im alten UUID-basierten Cache. Erfolgssignale werden nicht aus Fallback-Schätzungen abgeleitet.
+## CI und nachgewiesene Tests
 
-Dieses Verhalten gilt **nur** für den neuen Pfad. Die ältere Decoderimplementierung und ihre bestehenden Fallbacks bleiben für G1-Kompatibilität zunächst unangetastet.
+`.github/workflows/gen11-net10.yml` generiert eine deterministische 64×64-PGM-Datei und kodiert sie mit `opj_compress` als J2C und JP2. `opj_dump` verifiziert die Dateien. Beide Formate durchlaufen den verbindlichen Hybrid-Regressionstest:
 
-## Derzeit nicht abgedeckt
+```bash
+dotnet run -c Release --project tools/ci/OglImageCodecRegression/OglImageCodecRegression.csproj
+# Mit gebautem Native-Adapter und vorhandenem Testasset:
+OGL_IMAGE_CODEC_NATIVE_DIR="$PWD/bin/lib64" dotnet run -c Release \
+  --project tools/ci/OglImageCodecRegression/OglImageCodecRegression.csproj -- \
+  --hybrid /pfad/zu/test.j2k
+```
 
-Das Interface wird zunächst vom `J2KDecoderModule` verwendet. Unmittelbare `OpenJPEG.DecodeToImage`-Aufrufe bestehen unter anderem in WorldMap, Warp3D/LegacyMap, DynamicTexture, Sculpt/Meshing, GetTexture und der World API. Diese müssen nach einer vollständigen Daten- und Testinventarisierung kontrolliert migriert werden.
+Geprüft werden Provider-Fallback, dekodierte Layerzahl und -Bytepositionen, Input-Limits, Null-/Korrupt-/Trunkierungsfälle, Rückgabeverträge sowie die Kompilierung unter .NET 10. Das Testmaterial ist synthetisch und deckt **keine** echten Legacy-NexVerse-Assets oder alle JPEG2000-Progressionen ab.
 
-Die vorhandene native OpenJPEG/CSJ2K-Bibliothek bleibt in dieser Phase unverändert. Native ABI-Sicherheit, ARM64-Paketierung, Speicher- und CPU-Limits für **dekomprimierte** Pixel, Hang-/Timeout-Abbruch sowie Fuzzing benötigen noch eigene Implementierung und Nachweise. Die 32-MiB-Grenze ist kein Schutz gegen alle Dekompressionsbomben.
+Die alte `OpenMetaverse.Imaging.OpenJPEG.DecodeLayerBoundaries`-Implementierung schlägt bei diesem gültigen J2C-Test weiterhin fehl und wird separat unter `continue-on-error` dokumentiert; diese Diagnose ist **kein** bestandenes Release-Gate. Der neue OpenJPEG2-Hybridtest ist dagegen verbindlich.
 
-## Bekannter Native-Interop-Blocker (04.11.2026)
+## Verbleibende Freigabegates
 
-Die separate .NET-10-CI erzeugt mit `opj_compress` einen synthetischen, über `opj_dump` validierten J2C-Codestream. Die mitgelieferte OpenMetaverse-/`openjpeg-dotnet`-Implementierung von `DecodeLayerBoundaries` liefert dafür derzeit `false`. Die native Shared Library wird geladen und die passende `OpenMetaverse.dll.config` ist vorhanden; ein zweiter, konkurrierender `SetDllImportResolver` wurde ausdrücklich **nicht** beibehalten, da OpenMetaverse bereits seinen eigenen `DllmapConfigHelper` registriert.
+1. Reale, anonymisierte NexVerse-J2C/JP2-Assets einschließlich beschädigter Bestände; Layer-/Pixelparität zu Firestorm und TrixieStorm nachweisen.
+2. Native-ABI, Build und Runtime auf Linux ARM64 sowie Windows x64 verifizieren; neue native Pixeldecodierung und Farb-/Alpha-Pfade erst dann freigeben.
+3. Fuzzing, Speicher-/CPU-Profil, P95-Latenzen, Parallelität, Timeout- und Ressourcenbegrenzungen über die derzeitigen Eingabe-/Bildgrößenlimits hinaus.
+4. Unmittelbare `OpenJPEG.DecodeToImage`-Aufrufe in WorldMap, GetTexture, DynamicTexture, Warp3D/LegacyMap, Meshing und World API separat migrieren.
+5. Migrations- und Rollbacktests inklusive Login, Teleport, Karten, Texturen, Sculpt/Mesh, Inventar, Hypergrid, Datenbank und AssetService.
 
-- Der sichere **Provider-/Fallback-Unit-Test** ist ein verbindliches CI-Gate.
-- Der echte native **J2C-Kompatibilitätstest** ist vorläufig ein sichtbares `continue-on-error`-Diagnosegate, bis die native Codec-/Layer-Implementierung korrigiert und gegen echte Assets nachgewiesen wurde. Ein grüner Gesamtbuild bedeutet daher **nicht**, dass dieser Native-Test bestanden ist.
-- Nächster Schritt: Version/ABI der nativen Codec-Bibliothek verifizieren und durch einen modernen, getesteten OpenJPEG-2.x-Adapter ersetzen; erst anschließend den Native-Test verbindlich machen.
-- `OglImageCodecEnabled` bleibt standardmäßig `false` und darf noch **nicht** als produktiv freigegebene Migration gelten.
-
-## Abnahme vor produktiver Umschaltung
-
-1. Echte valide J2C/JP2, historische Grenzfälle und kaputte Assets: Decode-Erfolg und Pixel-/Layer-Parität gegen die bisherige Produktionsbaseline.
-2. Firestorm/TrixieStorm: Texturen, Quality-Layer/Mip-Streaming, Sculpties, Mesh, Terrain, Karten und Profilbilder.
-3. Linux x64, Linux ARM64, Windows x64: native Ladefähigkeit, keine Crashes, kontrollierte Fehlermeldungen und begrenzter Speichereinsatz.
-4. Belastungs- und Fuzzing-Tests mit parallelen Texturanfragen; überprüfbare Datenintegrität.
-5. Kein Codec-Rollout in G1-`main`; separater Staging-Test, Feature-Flag und Rollback.
-
-Automatischer funktionaler Unit-/Regressionstest: `dotnet run -c Release --project tools/ci/OglImageCodecRegression/OglImageCodecRegression.csproj`. Der Test prüft Input-Grenzen, Primär-/Fallback-Orchestrierung und abgelehnte Layergrenzen mit Test-Providern. In der Linux-CI wird zusätzlich eine 64×64-PGM-Testdatei mit `opj_compress` zu einem echten J2C-Codestream codiert; der native Decodierpfad wird dabei als separates, derzeit nicht bestandendes Diagnosegate auf Layergrenzen geprüft. Das ersetzt weder einen vollständigen Korpus realer NexVerse-Assets noch Native-Interop-Fuzzing, Pixelparität oder Viewer-Tests.
+Tracking: [GitHub Issue #377](https://github.com/opengenesislink/opengenesislinkserver/issues/377). Kein automatischer Merge nach `main`, keine Änderung produktiver Dienste.
