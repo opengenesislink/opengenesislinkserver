@@ -74,6 +74,34 @@ internal static class Program
         var inventory = new Entry("inventory/Test/item.xml", Encoding.UTF8.GetBytes("<InventoryItem/>"));
         var asset = new Entry("assets/01234567-89ab-cdef-0123-456789abcdef_texture.jp2", new byte[] { 1, 2, 3 });
         Evaluate(true, "valid IAR", new[] { xml, inventory, asset });
+
+        // Legacy OpenSim wrote UTF-8 bytes under an XML declaration that
+        // incorrectly said UTF-16 (StringWriter + TarArchiveWriter).
+        string legacyXml = "<?xml version=\"1.0\" encoding=\"utf-16\"?><archive major_version=\"0\" minor_version=\"3\"><assets_included>True</assets_included></archive>";
+        var legacyControl = new Entry("archive.xml", Encoding.UTF8.GetBytes(legacyXml));
+        Evaluate(true, "legacy UTF-8 data with UTF-16 declaration", new[] { legacyControl, inventory, asset });
+
+        string correctedXml = "<?xml version=\"1.0\" encoding=\"utf-8\"?><archive major_version=\"0\" minor_version=\"3\"/>";
+        Evaluate(true, "correct UTF-8 XML declaration",
+            new[] { new Entry("archive.xml", Encoding.UTF8.GetBytes(correctedXml)), inventory, asset });
+
+        // Genuine UTF-16 with BOM still uses the normal byte-stream parser.
+        byte[] utf16Body = Encoding.Unicode.GetBytes(legacyXml);
+        byte[] utf16WithBom = new byte[utf16Body.Length + 2];
+        utf16WithBom[0] = 0xff; utf16WithBom[1] = 0xfe;
+        Buffer.BlockCopy(utf16Body, 0, utf16WithBom, 2, utf16Body.Length);
+        Evaluate(true, "genuine UTF-16 with BOM",
+            new[] { new Entry("archive.xml", utf16WithBom), inventory });
+
+        string legacyDtd = "<?xml version=\"1.0\" encoding=\"utf-16\"?><!DOCTYPE archive [<!ENTITY payload SYSTEM \"file:///etc/passwd\">]><archive major_version=\"0\" minor_version=\"3\"/>";
+        Evaluate(false, "legacy declaration must not permit DTD",
+            new[] { new Entry("archive.xml", Encoding.UTF8.GetBytes(legacyDtd)), inventory });
+
+        // Strict UTF-8 decoder must reject illegal bytes; no replacement chars.
+        byte[] malformedUtf8 = Encoding.UTF8.GetBytes(legacyXml);
+        malformedUtf8[malformedUtf8.Length - 12] = 0xff;
+        Evaluate(false, "legacy declaration rejects malformed UTF-8",
+            new[] { new Entry("archive.xml", malformedUtf8), inventory });
         Evaluate(false, "traversal", new[] { xml, new Entry("inventory/../evil.xml", new byte[] { 1 }) });
         Evaluate(false, "absolute path", new[] { xml, new Entry("/inventory/evil.xml", new byte[] { 1 }) });
         Evaluate(false, "duplicate inventory path", new[] { xml, inventory, inventory });
@@ -101,7 +129,7 @@ internal static class Program
             "10 GiB compressed archive permitted");
         Assert(!OglIarInspector.IsAllowedCompressedSize(tenGiB + 1),
             "compressed IAR beyond 10 GiB rejected");
-        Console.WriteLine("OGL IAR bounded preflight: PASS (11 fixtures + size boundaries)");
+        Console.WriteLine("OGL IAR bounded preflight: PASS (16 fixtures + size boundaries)");
         return 0;
     }
 }
