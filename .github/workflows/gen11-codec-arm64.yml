@@ -1,0 +1,75 @@
+name: G1.1 OpenJPEG2 native ARM64 compatibility
+
+on:
+  push:
+    branches:
+      - GEN1.1NET10
+    paths:
+      - 'addon-modules/OGLImageCodec/**'
+      - 'OpenSim/Region/CoreModules/Agent/TextureSender/Ogl*Codec*.cs'
+      - 'OpenSim/Region/CoreModules/Agent/TextureSender/J2KDecoderModule.cs'
+      - 'OpenSim/Region/CoreModules/OpenSim.Region.CoreModules.csproj'
+      - 'tools/ci/OglImageCodecRegression/**'
+      - '.github/workflows/gen11-codec-arm64.yml'
+      - 'runprebuild.sh'
+      - 'prebuild.xml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  arm64-codec:
+    name: Native OpenJPEG2 + .NET 10 / ARM64
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Install native codec and image dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential pkg-config libopenjp2-7-dev libopenjp2-tools libgdiplus
+
+      - name: Verify ARM64 platform and build native OpenJPEG2 shim
+        run: |
+          test "$(uname -m)" = "aarch64"
+          bash addon-modules/OGLImageCodec/build.sh
+          test -s bin/lib64/libogl-openjpeg2-arm64.so
+          file bin/lib64/libogl-openjpeg2-arm64.so
+          ldd bin/lib64/libogl-openjpeg2-arm64.so
+
+      - name: Regenerate and restore .NET 10 projects
+        run: |
+          bash runprebuild.sh
+          python3 tools/gen11/retarget_net10.py --check
+          dotnet restore tools/ci/OglImageCodecRegression/OglImageCodecRegression.csproj
+
+      - name: Compile codec regression and dependent modules on ARM64
+        run: dotnet build -c Release --no-restore tools/ci/OglImageCodecRegression/OglImageCodecRegression.csproj
+
+      - name: Generate J2C and JP2 fixture on ARM64
+        run: |
+          python3 tools/ci/OglImageCodecRegression/make_fixture.py "$RUNNER_TEMP/ogl-codec.pgm"
+          opj_compress -i "$RUNNER_TEMP/ogl-codec.pgm" -o "$RUNNER_TEMP/ogl-codec.j2k" -r 20,10,1
+          opj_compress -i "$RUNNER_TEMP/ogl-codec.pgm" -o "$RUNNER_TEMP/ogl-codec.jp2" -r 20,10,1
+          opj_dump -i "$RUNNER_TEMP/ogl-codec.j2k" >/dev/null
+          opj_dump -i "$RUNNER_TEMP/ogl-codec.jp2" >/dev/null
+
+      - name: Verify native ARM64 J2C and JP2 quality layers
+        env:
+          OGL_IMAGE_CODEC_NATIVE_DIR: ${{ github.workspace }}/bin/lib64
+        run: |
+          dotnet run --no-build -c Release --project tools/ci/OglImageCodecRegression/OglImageCodecRegression.csproj -- --hybrid "$RUNNER_TEMP/ogl-codec.j2k"
+          dotnet run --no-build -c Release --project tools/ci/OglImageCodecRegression/OglImageCodecRegression.csproj -- --hybrid "$RUNNER_TEMP/ogl-codec.jp2"
+
+      - name: Save native ARM64 codec test artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ogl-openjpeg2-linux-arm64
+          path: bin/lib64/libogl-openjpeg2-arm64.so
+          if-no-files-found: error
+          retention-days: 14
