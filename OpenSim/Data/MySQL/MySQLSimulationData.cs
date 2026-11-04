@@ -127,9 +127,13 @@ namespace OpenSim.Data.MySQL
                     dbcon.Open();
 
                     using (MySqlCommand cmd = dbcon.CreateCommand())
+                    using (MySqlTransaction transaction = dbcon.BeginTransaction())
                     {
-                        foreach (SceneObjectPart prim in obj.Parts)
+                        cmd.Transaction = transaction;
+                        try
                         {
+                            foreach (SceneObjectPart prim in obj.Parts)
+                            {
                             cmd.Parameters.Clear();
 
                             cmd.CommandText = "replace into prims (" +
@@ -241,6 +245,19 @@ namespace OpenSim.Data.MySQL
                             FillShapeCommand(cmd, prim);
 
                             ExecuteNonQuery(cmd);
+                            }
+                            transaction.Commit();
+                        }
+                        catch (Exception ex)
+                        {
+                            try { transaction.Rollback(); }
+                            catch (Exception rollbackError)
+                            {
+                                m_log.Error("[REGION DB]: StoreObject rollback failed: " + rollbackError);
+                            }
+
+                            m_log.Error("[REGION DB]: StoreObject failed; transaction rolled back: " + ex);
+                            throw;
                         }
                     }
                     dbcon.Close();
