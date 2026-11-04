@@ -173,7 +173,8 @@ namespace OpenSim.Services.InventoryService
                 parentFolderID = parentID
             };
 
-            m_Database.StoreFolder(newFolder);
+            if (!m_Database.StoreFolder(newFolder))
+                throw new InvalidOperationException("[XINVENTORY]: Failed to persist new inventory folder " + newFolder.folderID);
 
             return newFolder;
         }
@@ -583,14 +584,19 @@ namespace OpenSim.Services.InventoryService
 
         public virtual bool MoveItems(UUID principalID, List<InventoryItemBase> items)
         {
-            // Principal is b0rked. *sigh*
-            //
-            foreach (InventoryItemBase i in items)
+            // Preserve current multi-item behavior but do not report success
+            // when the backend rejects one or more moves.
+            bool allMoved = true;
+            foreach (InventoryItemBase item in items)
             {
-                m_Database.MoveItem(i.ID.ToString(), i.Folder.ToString());
+                if (!m_Database.MoveItem(item.ID.ToString(), item.Folder.ToString()))
+                {
+                    m_log.Warn("[XINVENTORY]: Failed to move inventory item " + item.ID);
+                    allMoved = false;
+                }
             }
 
-            return true;
+            return allMoved;
         }
 
         public virtual bool DeleteItems(UUID principalID, List<UUID> itemIDs)
