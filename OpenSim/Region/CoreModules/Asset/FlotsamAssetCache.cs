@@ -29,7 +29,7 @@ using System;
 using System.IO;
 using System.Collections.Generic;
 using System.Reflection;
-using System.Runtime.Serialization.Formatters.Binary;
+using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
 using System.Timers;
@@ -522,12 +522,7 @@ namespace OpenSim.Region.CoreModules.Asset
             {
                 using FileStream stream = File.Open(filename, FileMode.Open, FileAccess.Read, FileShare.Read);
 
-                if (stream.Length == 0) // Empty file will trigger exception below
-                    return null;
-
-                BinaryFormatter bformatter = new();
-                asset = (AssetBase)bformatter.Deserialize(stream);
-
+                asset = FlotsamAssetCacheBinaryFormat.Read(stream, id);
                 m_DiskHits++;
             }
             catch (FileNotFoundException)
@@ -536,15 +531,21 @@ namespace OpenSim.Region.CoreModules.Asset
             catch (DirectoryNotFoundException)
             {
             }
-            catch (System.Runtime.Serialization.SerializationException e)
+            catch (FlotsamAssetCacheBinaryFormat.LegacyCacheFormatException)
             {
-                m_log.Warn($"[FLOTSAM ASSET CACHE]: Failed to get file {filename} for asset {id}: {e.Message}");
-
-                // If there was a problem deserializing the asset, the asset may
-                // either be corrupted OR was serialized under an old format
-                // {different version of AssetBase} -- we should attempt to
-                // delete it and re-cache
-                File.Delete(filename);
+                // Files written by .NET 8 BinaryFormatter cannot be read on .NET 10.
+                // This is only a disposable simulator cache, NOT the asset store.
+                // Silently drop the obsolete entry and fetch it again upstream.
+                try { File.Delete(filename); }
+                catch (IOException e) { m_log.Warn($"[FLOTSAM ASSET CACHE]: Cannot remove obsolete cache entry {filename}: {e.Message}"); }
+                catch (UnauthorizedAccessException e) { m_log.Warn($"[FLOTSAM ASSET CACHE]: Cannot remove obsolete cache entry {filename}: {e.Message}"); }
+            }
+            catch (Exception e) when (e is InvalidDataException || e is EndOfStreamException || e is DecoderFallbackException)
+            {
+                m_log.Warn($"[FLOTSAM ASSET CACHE]: Discarding invalid cache entry {filename} for {id}: {e.Message}");
+                try { File.Delete(filename); }
+                catch (IOException) { }
+                catch (UnauthorizedAccessException) { }
             }
             catch (Exception e)
             {
@@ -1009,23 +1010,21 @@ namespace OpenSim.Region.CoreModules.Asset
                         Directory.CreateDirectory(directory);
                     }
 
-                    using (Stream stream = File.Open(tempname, FileMode.Create))
+                    using (Stream stream = File.Open(tempname, FileMode.CreateNew, FileAccess.Write, FileShare.None))
                     {
-                        BinaryFormatter bformatter = new();
-                        bformatter.Serialize(stream, asset);
+                        FlotsamAssetCacheBinaryFormat.Write(stream, asset);
                         stream.Flush();
                     }
                     m_lastFileAccessTimeChange?.Add(filename, 900000);
                 }
-                catch (IOException e)
+                catch (Exception e)
                 {
                     m_log.Warn(
                         $"[FLOTSAM ASSET CACHE]: Failed to write asset {asset.ID} to temporary location {tempname} (final {filename}) on cache in {directory}: {e.Message}");
-
+                    try { File.Delete(tempname); }
+                    catch (IOException) { }
+                    catch (UnauthorizedAccessException) { }
                     return;
-                }
-                catch (UnauthorizedAccessException)
-                {
                 }
 
                 try
@@ -1720,4 +1719,152 @@ namespace OpenSim.Region.CoreModules.Asset
         }
         #endregion
     }
+    /// <summary>
+    /// Versioned, bounded, integrity-checked local simulator cache encoding.
+    /// This format never invokes BinaryFormatter or deserializes executable types.
+    /// The file cache is disposable: old BinaryFormatter entries are discarded
+    /// and re-fetched through the configured authoritative asset service.
+    /// </summary>
+    internal static class FlotsamAssetCacheBinaryFormat
+    {
+        private const uint Magic = 0x31434C46; // FLC1 in little-endian
+        private const int Version = 1;
+        private const int MaxStringBytes = 1024 * 1024;
+        private const int MaxAssetBytes = 512 * 1024 * 1024;
+        private const int MaxHashBytes = 128;
+
+        internal sealed class LegacyCacheFormatException : InvalidDataException
+        {
+            internal LegacyCacheFormatException()
+                : base("Obsolete BinaryFormatter cache entry; re-fetch from asset service") { }
+        }
+
+        private static void WriteBytes(BinaryWriter writer, byte[] bytes, int limit)
+        {
+            if (bytes is null)
+            {
+                writer.Write(-1);
+                return;
+            }
+
+            if (bytes.Length > limit)
+                throw new InvalidDataException("Cache field exceeds configured size limit");
+
+            writer.Write(bytes.Length);
+            writer.Write(bytes);
+        }
+
+        private static byte[] ReadBytes(BinaryReader reader, int limit)
+        {
+            int length = reader.ReadInt32();
+            if (length == -1)
+                return null;
+            if (length < 0 || length > limit || length > reader.BaseStream.Length - reader.BaseStream.Position)
+                throw new InvalidDataException("Invalid cache field length");
+
+            byte[] bytes = reader.ReadBytes(length);
+            if (bytes.Length != length)
+                throw new EndOfStreamException("Truncated cache field");
+            return bytes;
+        }
+
+        private static void WriteString(BinaryWriter writer, string value)
+        {
+            WriteBytes(writer, value is null ? null : Encoding.UTF8.GetBytes(value), MaxStringBytes);
+        }
+
+        private static string ReadString(BinaryReader reader)
+        {
+            byte[] data = ReadBytes(reader, MaxStringBytes);
+            return data is null ? null : new UTF8Encoding(false, true).GetString(data);
+        }
+
+        internal static void Write(Stream stream, AssetBase asset)
+        {
+            if (asset is null || asset.Metadata is null)
+                throw new InvalidDataException("Missing asset or metadata");
+
+            using BinaryWriter writer = new(stream, Encoding.UTF8, leaveOpen: true);
+            writer.Write(Magic);
+            writer.Write(Version);
+
+            AssetMetadata metadata = asset.Metadata;
+            WriteString(writer, metadata.FullID.ToString());
+            WriteString(writer, metadata.ID);
+            WriteString(writer, metadata.Name);
+            WriteString(writer, metadata.Description);
+            WriteString(writer, metadata.CreatorID);
+            WriteString(writer, metadata.ContentType);
+            writer.Write(metadata.Type);
+            writer.Write((int)metadata.Flags);
+            writer.Write(metadata.Local);
+            writer.Write(metadata.Temporary);
+            writer.Write(metadata.CreationDate.ToBinary());
+            WriteBytes(writer, metadata.SHA1, MaxHashBytes);
+            writer.Write(asset.UploadAttempts);
+            WriteBytes(writer, asset.Data, MaxAssetBytes);
+            writer.Write(SHA256.HashData(asset.Data ?? Array.Empty<byte>()));
+            writer.Flush();
+        }
+
+        internal static AssetBase Read(Stream stream, string expectedId)
+        {
+            if (!stream.CanSeek)
+                throw new InvalidDataException("File cache stream must be seekable");
+
+            using BinaryReader reader = new(stream, new UTF8Encoding(false, true), leaveOpen: true);
+            if (reader.ReadUInt32() != Magic)
+                throw new LegacyCacheFormatException();
+            if (reader.ReadInt32() != Version)
+                throw new InvalidDataException("Unsupported Flotsam cache version");
+
+            string fullId = ReadString(reader);
+            string id = ReadString(reader);
+            if (!string.Equals(id, expectedId, StringComparison.Ordinal))
+                throw new InvalidDataException("Asset ID does not match cache key");
+
+            string name = ReadString(reader);
+            string description = ReadString(reader);
+            string creatorId = ReadString(reader);
+            string contentType = ReadString(reader);
+            sbyte type = reader.ReadSByte();
+            AssetFlags flags = (AssetFlags)reader.ReadInt32();
+            bool local = reader.ReadBoolean();
+            bool temporary = reader.ReadBoolean();
+            DateTime created = DateTime.FromBinary(reader.ReadInt64());
+            byte[] sha1 = ReadBytes(reader, MaxHashBytes);
+            int uploadAttempts = reader.ReadInt32();
+            byte[] payload = ReadBytes(reader, MaxAssetBytes);
+            byte[] checksum = reader.ReadBytes(32);
+
+            if (checksum.Length != 32 ||
+                !CryptographicOperations.FixedTimeEquals(checksum, SHA256.HashData(payload ?? Array.Empty<byte>())) ||
+                reader.BaseStream.Position != reader.BaseStream.Length)
+                throw new InvalidDataException("Cache payload checksum or length mismatch");
+
+            AssetMetadata metadata = new();
+            if (UUID.TryParse(fullId, out UUID uuid))
+                metadata.FullID = uuid;
+            metadata.ID = id;
+            metadata.Name = name;
+            metadata.Description = description;
+            metadata.CreatorID = creatorId;
+            if (contentType is not null)
+                metadata.ContentType = contentType;
+            metadata.Type = type; // Preserve original type after ContentType setter.
+            metadata.Flags = flags;
+            metadata.Local = local;
+            metadata.Temporary = temporary;
+            metadata.CreationDate = created;
+            metadata.SHA1 = sha1;
+
+            return new AssetBase
+            {
+                Metadata = metadata,
+                Data = payload,
+                UploadAttempts = uploadAttempts
+            };
+        }
+    }
+
 }
