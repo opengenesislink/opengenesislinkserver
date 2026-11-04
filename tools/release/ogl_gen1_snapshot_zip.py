@@ -55,7 +55,7 @@ def create_zip(bin_dir, out, sha, repo):
         z.writestr(f"{PREFIX}/BUILD-MANIFEST.json", json.dumps({
             "product": "OpenGenesisLINK Generation 1",
             "channel": "development-main-snapshot", "stable_release": False,
-            "source_commit": sha, "runtime": ".NET 8",
+            "source_commit": sha, "runtime": ".NET 10",
             "platform": "linux-x64", "built_files": count
         }, indent=2) + "\n")
         z.writestr(f"{PREFIX}/INSTALL.txt",

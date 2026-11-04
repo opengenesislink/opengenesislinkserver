@@ -15,7 +15,8 @@ jobs:
   publish:
     name: Publish immutable 0.9.3.10 stable release
     if: >-
-      ${{ github.event.workflow_run.conclusion == 'success' &&
+      ${{ vars.OGL_GEN1_NET10_RELEASE_APPROVED == 'true' &&
+          github.event.workflow_run.conclusion == 'success' &&
           github.event.workflow_run.event == 'push' &&
           github.event.workflow_run.head_branch == 'main' &&
           github.event.workflow_run.head_repository.full_name == github.repository }}

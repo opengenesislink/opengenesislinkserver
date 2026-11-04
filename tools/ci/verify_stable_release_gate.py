@@ -76,3 +76,7 @@ assert "v0.9.3.8" in decision
 assert "einmalige" in decision
 assert Path("doc/NexVerse/FUTURE_VIEWER_NAVIGATION.md").is_file()
 print("0.9.3.8 immutable; 0.9.3.10 stabilization gates, XP disabled, Viewer 2.0 deferred.")
+
+# Migrations in main must not start an automatic release or alter immutable tags.
+for publisher in Path('.github/workflows').glob('publish-*.yml'):
+    assert "vars.OGL_GEN1_NET10_RELEASE_APPROVED == 'true'" in publisher.read_text(), f"NET10 approval missing: {publisher}"

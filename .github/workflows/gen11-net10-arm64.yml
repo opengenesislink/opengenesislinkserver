@@ -1,0 +1,60 @@
+name: Generation 1.1 .NET 10 ARM64 Server Runtime
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gen11-net10-arm64-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  linux-arm64-runtime:
+    name: ROBUST and Simulator .NET 10 ARM64 build + boot
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Install runtime image and build prerequisites
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgdiplus libc6-dev python3
+
+      - name: Regenerate full server and addon projects with .NET 10
+        run: |
+          test "$(uname -m)" = "aarch64"
+          bash runprebuild.sh
+          python3 tools/gen11/verify_net10.py
+          python3 tools/gen11/retarget_net10.py --check
+
+      - name: Restore full ROBUST + simulator + addon solution
+        run: dotnet restore OpenSim.sln
+
+      - name: Compile complete .NET 10 server on ARM64
+        run: dotnet build OpenSim.sln -c Release --no-restore
+
+      - name: Prove actual .NET 10 ROBUST boot and isolated HTTP listener
+        run: python3 tools/gen11/robust_runtime_smoke.py
+
+      - name: Stage and boot framework-dependent .NET 10 server package
+        run: |
+          python3 tools/gen11/stage_net10_runtime.py --rid linux-arm64 --output "$RUNNER_TEMP/ogl-gen11-core-arm64"
+          python3 tools/gen11/robust_runtime_smoke.py --bin "$RUNNER_TEMP/ogl-gen11-core-arm64/bin"
+
+      - name: Upload ARM64 ROBUST + simulator staging runtime
+        uses: actions/upload-artifact@v4
+        with:
+          name: ogl-g11-net10-core-linux-arm64
+          path: ${{ runner.temp }}/ogl-gen11-core-arm64
+          if-no-files-found: error
+          retention-days: 10

@@ -121,7 +121,8 @@ namespace Prebuild.Core.Nodes
         net6_0,
         net7_0,
         net8_0,
-        net9_0
+        net9_0,
+        net10_0
     }
 
     /// <summary>
@@ -179,7 +180,10 @@ namespace Prebuild.Core.Nodes
            {FrameworkVersion.netstandard2_0, "NETSTANDARD2_0" },
            {FrameworkVersion.net5_0, "NET5_0" },
            {FrameworkVersion.net6_0, "NET6_0" },
-           {FrameworkVersion.net7_0, "NET7_0" }
+           {FrameworkVersion.net7_0, "NET7_0" },
+           {FrameworkVersion.net8_0, "NET8_0" },
+           {FrameworkVersion.net9_0, "NET9_0" },
+           {FrameworkVersion.net10_0, "NET10_0" }
         };
         #endregion
 

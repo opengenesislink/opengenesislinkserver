@@ -11,7 +11,7 @@ esac
 
 # The addon uses OutputPath=../../bin in its csproj because ROBUST loads
 # plugins directly from the shared OpenGenesisLINK bin/ directory.
-# Do not expect the old addons/OGLAssetService/bin/<config>/net8.0 path
+# Do not expect the old addons/OGLAssetService/bin/<config>/net10.0 path
 # or copy assemblies over those already built into shared bin/.
 dotnet build addons/OGLAssetService/OGLAssetService.csproj -c "$CONFIG"
 
