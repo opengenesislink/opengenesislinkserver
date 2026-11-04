@@ -398,7 +398,6 @@ namespace OpenSim.Region.DataSnapshot
         #region External data services
         private void NotifyDataServices(string servicesStr, string serviceName)
         {
-            Stream reply = null;
             string delimStr = ";";
             char [] delimiter = delimStr.ToCharArray();
 
@@ -416,10 +415,11 @@ namespace OpenSim.Region.DataSnapshot
                     cli.RequestMethod = "GET";
                     try
                     {
-                        using(reply = cli.Request(null))
+                        // The notification response body is not used. Disposing the
+                        // response stream is sufficient; do not require a fixed
+                        // response length from third-party services.
+                        using (Stream reply = cli.Request(null))
                         {
-                            byte[] response = new byte[1024];
-                            reply.Read(response, 0, 1024);
                         }
                     }
                     catch (HttpRequestException)
@@ -433,7 +433,7 @@ namespace OpenSim.Region.DataSnapshot
 
                     // This is not quite working, so...
                     // string responseStr = Util.UTF8.GetString(response);
-                    m_log.Info("[DATASNAPSHOT]: data service " + url + " notified. Secret: " + m_Secret);
+                    m_log.Info("[DATASNAPSHOT]: data service " + url + " notified.");
                 }
             }
         }

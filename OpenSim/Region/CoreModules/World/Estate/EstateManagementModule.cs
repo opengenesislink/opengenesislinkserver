@@ -1426,7 +1426,7 @@ namespace OpenSim.Region.CoreModules.World.Estate
                 using(FileStream input = new FileStream(Util.dataDir() + "/terrain.raw",FileMode.Open))
                 {
                     bdata = new byte[input.Length];
-                    input.Read(bdata, 0, (int)input.Length);
+                    input.ReadExactly(bdata);
                 }
                 if(bdata == null || bdata.Length == 0)
                 {

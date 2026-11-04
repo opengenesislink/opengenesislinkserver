@@ -235,7 +235,17 @@ namespace OSHttpServer
             }
 
             var buffer = new byte[m_body.Length];
-            m_body.Read(buffer, 0, (int)m_body.Length);
+            // Preserve the original request stream position while cloning its full body.
+            long originalPosition = m_body.Position;
+            try
+            {
+                m_body.Position = 0;
+                m_body.ReadExactly(buffer);
+            }
+            finally
+            {
+                m_body.Position = originalPosition;
+            }
             request.Body = new MemoryStream();
             request.Body.Write(buffer, 0, buffer.Length);
             request.Body.Seek(0, SeekOrigin.Begin);

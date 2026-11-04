@@ -88,11 +88,11 @@ namespace OpenSim.Server.Handlers.Authentication
                     return DoPlainMethods(body);
 
                 case "crypt":
-                    byte[] buffer = new byte[request.Length];
-                    long length = request.Length;
-                    if (length > 16384)
-                        length = 16384;
-                    request.Read(buffer, 0, (int)length);
+                    // Encrypted requests have a strict 16 KiB processing limit.
+                    // Allocate only the bytes that are actually consumed.
+                    int length = checked((int)Math.Min(request.Length, 16384L));
+                    byte[] buffer = new byte[length];
+                    request.ReadExactly(buffer);
 
                     return DoEncryptedMethods(buffer);
                 }

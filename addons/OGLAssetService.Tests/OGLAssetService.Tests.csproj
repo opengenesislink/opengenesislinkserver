@@ -6,7 +6,7 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="StackExchange.Redis" Version="2.8.24" />
-    <PackageReference Include="Microsoft.Data.Sqlite" Version="8.0.11" />
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.14" />
     <Compile Include="../OGLAssetService/IOGLAssetLocationDirectory.cs" Link="IOGLAssetLocationDirectory.cs" />
     <Compile Include="../OGLAssetService/OGLAssetLocationDirectory.cs" Link="OGLAssetLocationDirectory.cs" />
     <Compile Include="../OGLAssetService/OGLSqliteAssetLocationDirectory.cs" Link="OGLSqliteAssetLocationDirectory.cs" />
