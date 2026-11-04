@@ -695,7 +695,7 @@ jobs:
         run: |
           dotnet restore addons/OGLAssetService.Migration/OGLAssetService.Migration.csproj
           dotnet restore addons/OGLAssetService.Tests/OGLAssetService.Tests.csproj
-          python3 tools/ci/verify_sqlite_native_dependency.py
+          python3 tools/ci/verify_sqlite_native_dependency.py --require-addon
 
       - name: Smoke-test real .NET 10 ROBUST with isolated loopback HTTP
         shell: bash

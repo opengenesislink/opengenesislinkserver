@@ -51,10 +51,8 @@ jobs:
         run: dotnet build addons/OGLAssetService.Tests/OGLAssetService.Tests.csproj --configuration Release
       - name: Build standalone migration CLI
         run: dotnet build addons/OGLAssetService.Migration/OGLAssetService.Migration.csproj --configuration Release
-      - name: Verify patched native SQLite dependency
-        run: |
-          dotnet restore addons/OGLAssetService/OGLAssetService.csproj
-          python3 tools/ci/verify_sqlite_native_dependency.py
+      - name: Verify patched native SQLite dependency for isolated tools
+        run: python3 tools/ci/verify_sqlite_native_dependency.py
       - name: CLI dry-run and verified copy
         shell: bash
         run: |

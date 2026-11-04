@@ -10,10 +10,15 @@ import sys
 
 root = Path(__file__).resolve().parents[2]
 projects = [
-    root / "addons/OGLAssetService/OGLAssetService.csproj",
     root / "addons/OGLAssetService.Migration/OGLAssetService.Migration.csproj",
     root / "addons/OGLAssetService.Tests/OGLAssetService.Tests.csproj",
 ]
+# The standalone CLI/cache test does not prebuild the full OpenSim solution.
+# In full-server CI the addon is also built and MUST be audited explicitly.
+if sys.argv[1:] == ["--require-addon"]:
+    projects.insert(0, root / "addons/OGLAssetService/OGLAssetService.csproj")
+elif sys.argv[1:]:
+    raise SystemExit("Usage: verify_sqlite_native_dependency.py [--require-addon]")
 
 def version_tuple(v):
     nums = v.split(".")[:3]
@@ -41,5 +46,5 @@ for project in projects:
 
 if len(set(versions.values())) != 1:
     raise SystemExit(f"FAIL: inconsistent native SQLite versions: {versions}")
-print("PASS: all OGL AssetService projects use non-vulnerable SQLitePCLRaw native dependency " +
+print("PASS: audited OGL AssetService projects use non-vulnerable SQLitePCLRaw native dependency " +
       next(iter(versions.values())))
