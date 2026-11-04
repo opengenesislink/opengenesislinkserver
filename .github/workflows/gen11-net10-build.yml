@@ -34,6 +34,20 @@ jobs:
       - name: Build Generation 1.1 server and addons
         run: dotnet build OpenSim.sln --configuration Release --no-restore
 
+      - name: Verify isolated .NET 10 ROBUST runtime on Linux x64
+        run: |
+          python3 tools/gen11/robust_runtime_smoke.py
+          python3 tools/gen11/stage_net10_runtime.py --rid linux-x64 --output "$RUNNER_TEMP/ogl-gen11-core-linux-x64"
+          python3 tools/gen11/robust_runtime_smoke.py --bin "$RUNNER_TEMP/ogl-gen11-core-linux-x64/bin"
+
+      - name: Publish Linux x64 .NET 10 core staging runtime
+        uses: actions/upload-artifact@v4
+        with:
+          name: ogl-g11-net10-core-linux-x64
+          path: ${{ runner.temp }}/ogl-gen11-core-linux-x64
+          if-no-files-found: error
+          retention-days: 10
+
   net10-windows:
     name: .NET 10 Windows x64 build
     runs-on: windows-latest
@@ -55,3 +69,20 @@ jobs:
         run: |
           python tools/gen11/robust_runtime_smoke.py
           if ($LASTEXITCODE -ne 0) { throw "ROBUST Windows runtime smoke failed" }
+
+      - name: Stage and boot isolated .NET 10 Windows x64 runtime
+        shell: pwsh
+        run: |
+          python tools/gen11/stage_net10_runtime.py --rid win-x64 --output "$env:RUNNER_TEMP/ogl-gen11-core-win-x64"
+          if ($LASTEXITCODE -ne 0) { throw "Windows .NET10 server staging failed" }
+          python tools/gen11/robust_runtime_smoke.py --bin "$env:RUNNER_TEMP/ogl-gen11-core-win-x64/bin"
+          if ($LASTEXITCODE -ne 0) { throw "Windows .NET10 staged ROBUST runtime failed" }
+
+      - name: Publish Windows x64 .NET 10 core staging runtime
+        uses: actions/upload-artifact@v4
+        with:
+          name: ogl-g11-net10-core-windows-x64
+          path: ${{ runner.temp }}/ogl-gen11-core-win-x64
+          if-no-files-found: error
+          retention-days: 10
+
