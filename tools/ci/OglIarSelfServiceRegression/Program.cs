@@ -59,9 +59,7 @@ internal static class Program
             max - OglIarTransferPolicy.MaximumChunkBytes,
             OglIarTransferPolicy.MaximumChunkBytes, max, max),
             "final chunk exactly at 10GiB quota");
-        Check(!OglIarTransferPolicy.AcceptChunk(max - OglIarTransferPolicy.MaximumChunkBytes,
-            max - OglIarTransferPolicy.MaximumChunkBytes,
-            OglIarTransferPolicy.MaximumChunkBytes + 1, max + 1, max),
+        Check(!OglIarTransferPolicy.AcceptChunk(max, max, 1, max + 1, max),
             "archive greater than 10GiB is rejected");
         Check(OglIarTransferPolicy.AcceptChunk(0, 0, 4194304, 200000000, max),
             "first 4MiB chunk");
