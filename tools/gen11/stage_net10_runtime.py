@@ -84,7 +84,7 @@ def copy(source: Path, dest: Path) -> None:
     shutil.copy2(source, dest)
 
 
-def build(rid: str, output: Path, source: Path) -> None:
+def build(rid: str, output: Path, source: Path, require_native_codec: bool = False) -> None:
     source = source.resolve()
     output = output.absolute()
     if source == output or source in output.parents or ROOT in output.parents:
@@ -148,8 +148,9 @@ def build(rid: str, output: Path, source: Path) -> None:
             "linux-arm64": "libogl-openjpeg2-arm64.so",
             "win-x64": "ogl-openjpeg2-x86_64.dll",
         }[rid]
-        if not (stage / "lib64" / codec_name).is_file():
-            raise ValueError(f"Missing native OpenJPEG2 staging binary: {codec_name}")
+        has_native_codec = (stage / "lib64" / codec_name).is_file()
+        if require_native_codec and not has_native_codec:
+            raise ValueError(f"Missing requested optional native OpenJPEG2 binary: {codec_name}")
 
         files = {}
         for item in sorted(stage.rglob("*")):
@@ -169,6 +170,7 @@ def build(rid: str, output: Path, source: Path) -> None:
             "status": "staging-only-not-production-certified",
             "runtime": "Microsoft.NETCore.App 10.x (framework-dependent)",
             "rid": rid,
+            "optional_openjpeg2_shim_included": has_native_codec,
             "commit": os.environ.get("GITHUB_SHA", "local"),
             "file_count": len(files),
             "files_sha256": files,
@@ -199,8 +201,10 @@ def main() -> int:
     parser.add_argument("--rid", required=True, choices=RID_OPTIONS)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--source", type=Path, default=BIN)
+    parser.add_argument("--require-native-codec", action="store_true",
+                        help="require the optional G11-02 OpenJPEG2 shim; not needed for G11-01 core runtime")
     args = parser.parse_args()
-    build(args.rid, args.output, args.source)
+    build(args.rid, args.output, args.source, args.require_native_codec)
     return 0
 
 
