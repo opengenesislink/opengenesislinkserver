@@ -1,0 +1,74 @@
+name: Generation 1.1 .NET 10 Foundation CI
+
+on:
+  push:
+    branches:
+      - GEN1.1NET10
+  pull_request:
+    branches:
+      - develop/generation-1.1
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gen11-net10-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  net10:
+    name: G1.1 .NET 10 Linux x64
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - name: Checkout G1.1 branch
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Print SDK and runtime diagnostics
+        run: |
+          dotnet --info
+          python3 --version
+
+      - name: Verify Generation 1.1 project targets and runtime configs
+        run: python3 tools/gen11/verify_net10.py
+
+      - name: Install native build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgdiplus libc6-dev
+
+      - name: Regenerate Prebuild solution and retarget to net10.0
+        run: |
+          bash runprebuild.sh
+          python3 tools/gen11/retarget_net10.py --check
+          python3 tools/gen11/verify_net10.py
+
+      - name: Restore solution
+        run: dotnet restore OpenSim.sln
+
+      - name: Build ROBUST, simulators and linked addons under .NET 10
+        run: dotnet build OpenSim.sln --configuration Release --no-restore
+
+      - name: Build standalone AssetService addon under .NET 10
+        run: bash addon-modules/OGLAssetService/build.sh Release
+
+      - name: Regression test - IAR preflight on net10
+        run: dotnet run -c Release --project tools/ci/OglIarPreflightRegression/OglIarPreflightRegression.csproj
+
+      - name: Regression test - IAR self-service on net10
+        run: dotnet run -c Release --project tools/ci/OglIarSelfServiceRegression/OglIarSelfServiceRegression.csproj
+
+      - name: Regression test - NexBus on net10
+        run: dotnet run -c Release --project tools/ci/NexBusRegression/NexBusRegression.csproj
+
+      - name: Verify addon and generated project contracts
+        run: |
+          python3 tools/ci/verify_ogl_energy.py
+          python3 tools/ci/verify_gen1_nex_city_addons.py
+          python3 tools/ci/verify_iar_progress.py
