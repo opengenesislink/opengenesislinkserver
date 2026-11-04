@@ -107,7 +107,7 @@ namespace NexVerse.RegionModules.NodeAgent
         private readonly SemaphoreSlim m_IarCommandSlot = new(1, 1);
         private int m_IarCommandsPending;
         private OglIarWebDavStorage m_IarWebDav;
-        private long m_IarWebDavMaximumBytes = 2048L * 1024 * 1024;
+        private long m_IarWebDavMaximumBytes = 10240L * 1024 * 1024;
         private IDisposable m_ObjectMessageSubscription;
         private IDisposable m_EstateScriptMessageSubscription;
         private IDisposable m_GridScriptMessageSubscription;
@@ -222,7 +222,7 @@ namespace NexVerse.RegionModules.NodeAgent
                         iarConfig.GetString("NasHost", "10.78.0.4"),
                         iarConfig.GetString("WebDavUsername", ""),
                         iarConfig.GetString("WebDavPasswordFile", ""));
-                    long mib = iarConfig.GetLong("MaximumArchiveMiB", 2048);
+                    long mib = iarConfig.GetLong("MaximumArchiveMiB", 10240);
                     if (mib < 101 || mib > 10240)
                         throw new ArgumentException("Invalid WebDAV IAR archive size cap.");
                     m_IarWebDavMaximumBytes = mib * 1024L * 1024;
