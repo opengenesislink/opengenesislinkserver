@@ -329,6 +329,12 @@ Dateinamen `{id}.iar` im Region-Verzeichnis abgelegt.
 Zuerst lokale Dateigröße und **SHA-256** ermitteln. Die Gesamtgröße
 darf standardmäßig bis zu **10 GiB (10.240 MiB)** betragen, sofern
 ROBUST und der zuständige Simulator denselben Grenzwert verwenden.
+Die native IAR-Vorabprüfung akzeptiert ebenfalls maximal **10 GiB
+komprimierte Archivdaten**. Die entpackte TAR-Gesamtgröße bleibt aus
+Sicherheitsgründen auf **40 GiB** begrenzt; die Einzeldateigrenze
+von 64 MiB, die Obergrenze von 100.000 TAR-Einträgen sowie die
+Pfad-, Prüfsummen- und Kompressionsverhältnisprüfungen bleiben aktiv.
+Dies gilt für Exportabschluss, Import und die Legacy-Konsolenprüfung.
 Für WebDAV werden IAR-Dateien gestreamt (kein vollständiger RAM-Puffer).
 Auf dem Staging-Datenträger muss ausreichend freier Speicher für mindestens
 ein vollständiges Archiv vorhanden sein; zusätzlich benötigt das NAS
