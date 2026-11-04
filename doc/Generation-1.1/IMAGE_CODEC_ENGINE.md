@@ -20,7 +20,7 @@ OglImageCodecEnabled = true
 
 `false` ist der vorläufige Standard. `UseCSJ2K` steuert weiterhin den bisherigen G1-Pfad, solange die neue Engine deaktiviert ist.
 
-Bei aktiver Engine wird **OpenJPEG zuerst** angesprochen. Schlägt das Decoding fehl, versucht die Engine den vorhandenen CSJ2K-Provider. Eingabedaten über 32 MiB werden in diesem Pfad vor dem nativen Decode abgewiesen. Die Engine erfindet bei einem Fehler keine Layergrenzen; fehlgeschlagene Layer-Decodes erhalten einen leeren Satz und werden nicht in den bestehenden Decode-Cache geschrieben. Erfolgssignale werden nicht aus Fallback-Schätzungen abgeleitet.
+Bei aktiver Engine wird **OpenJPEG zuerst** angesprochen. Schlägt das Decoding fehl, versucht die Engine den vorhandenen CSJ2K-Provider. Eingabedaten über 32 MiB werden in diesem Pfad vor dem nativen Decode abgewiesen. Die Engine erfindet bei einem Fehler keine Layergrenzen; fehlgeschlagene Layer-Decodes erhalten einen leeren Satz. Erfolgreiche Decode-Ergebnisse landen nur im separaten, kurzlebigen G1.1-Cache mit Asset-UUID, SHA-256-Fingerabdruck und Codec-Version als Schlüssel, niemals im alten UUID-basierten Cache. Erfolgssignale werden nicht aus Fallback-Schätzungen abgeleitet.
 
 Dieses Verhalten gilt **nur** für den neuen Pfad. Die ältere Decoderimplementierung und ihre bestehenden Fallbacks bleiben für G1-Kompatibilität zunächst unangetastet.
 
@@ -38,4 +38,4 @@ Die vorhandene native OpenJPEG/CSJ2K-Bibliothek bleibt in dieser Phase unveränd
 4. Belastungs- und Fuzzing-Tests mit parallelen Texturanfragen; überprüfbare Datenintegrität.
 5. Kein Codec-Rollout in G1-`main`; separater Staging-Test, Feature-Flag und Rollback.
 
-Automatischer funktionaler Unit-/Regressionstest: `dotnet run -c Release --project tools/ci/OglImageCodecRegression/OglImageCodecRegression.csproj`. Der Test prüft Input-Grenzen, Primär-/Fallback-Orchestrierung und abgelehnte Layergrenzen mit Test-Providern. Er ersetzt noch **keinen** Real-Asset-, Native-Interop- oder Viewer-Test.
+Automatischer funktionaler Unit-/Regressionstest: `dotnet run -c Release --project tools/ci/OglImageCodecRegression/OglImageCodecRegression.csproj`. Der Test prüft Input-Grenzen, Primär-/Fallback-Orchestrierung und abgelehnte Layergrenzen mit Test-Providern. In der Linux-CI wird zusätzlich eine 64×64-PGM-Testdatei mit `opj_compress` zu einem echten J2C-Codestream codiert und von der nativen OpenJPEG-Anbindung auf Layergrenzen geprüft. Das ersetzt weder einen vollständigen Korpus realer NexVerse-Assets noch Native-Interop-Fuzzing, Pixelparität oder Viewer-Tests.
