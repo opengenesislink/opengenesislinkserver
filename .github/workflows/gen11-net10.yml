@@ -41,7 +41,7 @@ jobs:
       - name: Install native build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libgdiplus libc6-dev
+          sudo apt-get install -y libgdiplus libc6-dev libopenjp2-tools
 
       - name: Regenerate Prebuild solution and retarget to net10.0
         run: |
@@ -58,8 +58,14 @@ jobs:
       - name: Build standalone AssetService addon under .NET 10
         run: bash addon-modules/OGLAssetService/build.sh Release
 
-      - name: Regression test - OGL Image Codec Engine provider fallback
-        run: dotnet run -c Release --project tools/ci/OglImageCodecRegression/OglImageCodecRegression.csproj
+      - name: Create native JPEG2000 J2C fixture with OpenJPEG tools
+        run: |
+          python3 tools/ci/OglImageCodecRegression/make_fixture.py "$RUNNER_TEMP/ogl-codec.pgm"
+          opj_compress -i "$RUNNER_TEMP/ogl-codec.pgm" -o "$RUNNER_TEMP/ogl-codec.j2k" -r 20,10,1
+          opj_dump -i "$RUNNER_TEMP/ogl-codec.j2k" >/dev/null
+
+      - name: Regression test - OGL Image Codec Engine provider fallback and native J2C
+        run: dotnet run -c Release --project tools/ci/OglImageCodecRegression/OglImageCodecRegression.csproj -- "$RUNNER_TEMP/ogl-codec.j2k"
 
       - name: Regression test - IAR preflight on net10
         run: dotnet run -c Release --project tools/ci/OglIarPreflightRegression/OglIarPreflightRegression.csproj
