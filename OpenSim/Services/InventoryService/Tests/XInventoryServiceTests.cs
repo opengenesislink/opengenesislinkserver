@@ -171,5 +171,68 @@ namespace OpenSim.Services.InventoryService.Tests
             Assert.That(itemRetrieved.AssetType, Is.EqualTo(assetType));
             Assert.That(itemRetrieved.Name, Is.EqualTo(itemName3));
         }
+
+        [Test]
+        public void TestPurgeNestedLostAndFoundDescendant()
+        {
+            UUID owner = UUID.Random();
+            IInventoryService inventory = CreateXInventoryService();
+            Assert.That(inventory.CreateUserInventory(owner), Is.True);
+
+            InventoryFolderBase lostAndFound = inventory.GetFolderForType(owner, FolderType.LostAndFound);
+            Assert.That(lostAndFound, Is.Not.Null);
+
+            InventoryFolderBase child = new InventoryFolderBase
+            {
+                ID = UUID.Random(),
+                ParentID = lostAndFound.ID,
+                Owner = owner,
+                Name = "Recovered",
+                Type = (short)FolderType.None,
+                Version = 1
+            };
+            Assert.That(inventory.AddFolder(child), Is.True);
+
+            InventoryFolderBase grandchild = new InventoryFolderBase
+            {
+                ID = UUID.Random(),
+                ParentID = child.ID,
+                Owner = owner,
+                Name = "Recovered nested",
+                Type = (short)FolderType.None,
+                Version = 1
+            };
+            Assert.That(inventory.AddFolder(grandchild), Is.True);
+
+            UUID itemId = UUID.Random();
+            InventoryItemBase item = new InventoryItemBase(itemId, owner)
+            {
+                CreatorIdentification = owner.ToString(),
+                AssetID = UUID.Random(),
+                Name = "Recovered inventory item",
+                Folder = grandchild.ID,
+                InvType = (int)InventoryType.Object,
+                AssetType = (int)AssetType.Object
+            };
+            Assert.That(inventory.AddItem(item), Is.True);
+            Assert.That(inventory.GetItem(owner, itemId), Is.Not.Null);
+
+            // The descendants must be treated as belonging to Lost And Found.
+            Assert.That(inventory.PurgeFolder(grandchild), Is.True);
+            Assert.That(inventory.GetItem(owner, itemId), Is.Null);
+
+            // A regular folder outside Trash and Lost And Found remains protected.
+            InventoryFolderBase regular = new InventoryFolderBase
+            {
+                ID = UUID.Random(),
+                ParentID = lostAndFound.ParentID,
+                Owner = owner,
+                Name = "Protected",
+                Type = (short)FolderType.None,
+                Version = 1
+            };
+            Assert.That(inventory.AddFolder(regular), Is.True);
+            Assert.That(inventory.PurgeFolder(regular), Is.False);
+        }
     }
 }
