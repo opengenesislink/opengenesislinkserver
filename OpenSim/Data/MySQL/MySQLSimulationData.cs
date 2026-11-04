@@ -1938,46 +1938,58 @@ namespace OpenSim.Data.MySQL
                 {
                     dbcon.Open();
 
+                    using (MySqlTransaction transaction = dbcon.BeginTransaction())
                     using (MySqlCommand cmd = dbcon.CreateCommand())
                     {
-                        cmd.CommandText = "delete from primitems where primID = ?PrimID";
-                        cmd.Parameters.AddWithValue("primID", primID.ToString());
-
-                        ExecuteNonQuery(cmd);
-
-                        if (items.Count == 0)
+                        cmd.Transaction = transaction;
+                        try
                         {
-                            dbcon.Close();
-                            return;
-                        }
-
-                        cmd.Parameters.Clear();
-                        cmd.CommandText = "insert into primitems (" +
-                                "invType, assetType, name, " +
-                                "description, creationDate, nextPermissions, " +
-                                "currentPermissions, basePermissions, " +
-                                "everyonePermissions, groupPermissions, " +
-                                "flags, itemID, primID, assetID, " +
-                                "parentFolderID, creatorID, ownerID, " +
-                                "groupID, lastOwnerID) values (?invType, " +
-                                "?assetType, ?name, ?description, " +
-                                "?creationDate, ?nextPermissions, " +
-                                "?currentPermissions, ?basePermissions, " +
-                                "?everyonePermissions, ?groupPermissions, " +
-                                "?flags, ?itemID, ?primID, ?assetID, " +
-                                "?parentFolderID, ?creatorID, ?ownerID, " +
-                                "?groupID, ?lastOwnerID)";
-
-                        foreach (TaskInventoryItem item in items)
-                        {
-                            cmd.Parameters.Clear();
-
-                            FillItemCommand(cmd, item);
-
+                            cmd.CommandText = "delete from primitems where primID = ?PrimID";
+                            cmd.Parameters.AddWithValue("primID", primID.ToString());
                             ExecuteNonQuery(cmd);
+
+                            // Empty collections still commit the intentional inventory removal.
+                            if (items.Count != 0)
+                            {
+                                cmd.Parameters.Clear();
+                                cmd.CommandText = "insert into primitems (" +
+                                        "invType, assetType, name, " +
+                                        "description, creationDate, nextPermissions, " +
+                                        "currentPermissions, basePermissions, " +
+                                        "everyonePermissions, groupPermissions, " +
+                                        "flags, itemID, primID, assetID, " +
+                                        "parentFolderID, creatorID, ownerID, " +
+                                        "groupID, lastOwnerID) values (?invType, " +
+                                        "?assetType, ?name, ?description, " +
+                                        "?creationDate, ?nextPermissions, " +
+                                        "?currentPermissions, ?basePermissions, " +
+                                        "?everyonePermissions, ?groupPermissions, " +
+                                        "?flags, ?itemID, ?primID, ?assetID, " +
+                                        "?parentFolderID, ?creatorID, ?ownerID, " +
+                                        "?groupID, ?lastOwnerID)";
+
+                                foreach (TaskInventoryItem item in items)
+                                {
+                                    cmd.Parameters.Clear();
+                                    FillItemCommand(cmd, item);
+                                    ExecuteNonQuery(cmd);
+                                }
+                            }
+
+                            transaction.Commit();
+                        }
+                        catch (Exception ex)
+                        {
+                            try { transaction.Rollback(); }
+                            catch (Exception rollbackError)
+                            {
+                                m_log.Error("[REGION DB]: StorePrimInventory rollback failed: " + rollbackError);
+                            }
+
+                            m_log.Error("[REGION DB]: StorePrimInventory failed: " + ex);
+                            throw;
                         }
                     }
-                    dbcon.Close();
                 }
             }
         }
