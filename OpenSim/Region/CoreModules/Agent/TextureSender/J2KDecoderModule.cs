@@ -130,7 +130,7 @@ namespace OpenSim.Region.CoreModules.Agent.TextureSender
         // real-world J2C/J2K/JP2 parity and interoperability tests pass.
         private bool m_useOglImageCodec;
         private readonly OglImageCodecEngine m_oglCodecEngine =
-            new OglImageCodecEngine(new OglOpenJpegCodecProvider(), new OglCsJ2KCodecProvider());
+            new OglImageCodecEngine(new OglOpenJpeg2CodecProvider(), new OglCsJ2KCodecProvider());
 
         public string Name { get { return "J2KDecoderModule"; } }
 
@@ -146,7 +146,7 @@ namespace OpenSim.Region.CoreModules.Agent.TextureSender
                 m_useCSJ2K = startupConfig.GetBoolean("UseCSJ2K", m_useCSJ2K);
                 m_useOglImageCodec = startupConfig.GetBoolean("OglImageCodecEnabled", false);
                 if (m_useOglImageCodec)
-                    m_log.Info("[J2KDecoderModule]: OGL Image Codec Engine enabled (OpenJPEG primary, CSJ2K fallback)");
+                    m_log.Info("[J2KDecoderModule]: OGL Image Codec Engine enabled (OpenJPEG2 validated-hybrid primary when available, CSJ2K fallback)");
             }
         }
 
