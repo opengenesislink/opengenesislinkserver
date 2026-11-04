@@ -133,6 +133,10 @@ namespace OpenSim.Tests.Common
             if (!m_allItems.TryGetValue(uid, out XInventoryItem item))
                 return false;
 
+            // MySQL reports zero changed rows for an already-moved item.
+            if (item.parentFolderID == upid)
+                return false;
+
             item.parentFolderID = upid;
             return true;
         }
