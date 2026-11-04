@@ -469,20 +469,29 @@ namespace OpenSim.Services.InventoryService
             if (!m_AllowDelete)
                 return false;
 
-            // Ignore principal ID, it's bogus at connector level
-            //
+            // The service API intentionally does not trust principalID here.
+            // Never delete the folder itself if purging its contents failed.
+            bool allDeleted = true;
             foreach (UUID id in folderIDs)
             {
-                //if (onlyIfTrash && !ParentIsTrash(id))
                 if (onlyIfTrash && !ParentIsTrashOrLost(id))
+                {
+                    allDeleted = false;
                     continue;
-                //m_log.InfoFormat("[XINVENTORY SERVICE]: Delete folder {0}", id);
-                InventoryFolderBase f = new() { ID = id };
-                PurgeFolder(f, onlyIfTrash);
-                m_Database.DeleteFolders("folderID", id.ToString());
+                }
+
+                InventoryFolderBase folder = new() { ID = id };
+                if (!PurgeFolder(folder, onlyIfTrash))
+                {
+                    allDeleted = false;
+                    continue;
+                }
+
+                if (!DeleteFolderOrAlreadyAbsent(id))
+                    allDeleted = false;
             }
 
-            return true;
+            return allDeleted;
         }
 
         public virtual bool PurgeFolder(InventoryFolderBase folder)
@@ -495,23 +504,43 @@ namespace OpenSim.Services.InventoryService
             if (!m_AllowDelete)
                 return false;
 
-            //if (onlyIfTrash && !ParentIsTrash(folder.ID))
             if (onlyIfTrash && !ParentIsTrashOrLost(folder.ID))
                 return false;
 
             XInventoryFolder[] subFolders = m_Database.GetFolders(
-                    new string[] { "parentFolderID" },
-                    new string[] { folder.ID.ToString() });
+                new string[] { "parentFolderID" },
+                new string[] { folder.ID.ToString() });
 
-            foreach (XInventoryFolder x in subFolders)
+            // A failed child purge must stop traversal before parent deletion.
+            foreach (XInventoryFolder child in subFolders)
             {
-                PurgeFolder(ConvertToOpenSim(x), onlyIfTrash);
-                m_Database.DeleteFolders("folderID", x.folderID.ToString());
+                if (!PurgeFolder(ConvertToOpenSim(child), onlyIfTrash) ||
+                    !DeleteFolderOrAlreadyAbsent(child.folderID))
+                    return false;
             }
 
-            m_Database.DeleteItems("parentFolderID", folder.ID.ToString());
+            // A zero affected-row result can mean an already empty folder.
+            // Check the persisted state before reporting failure.
+            if (!m_Database.DeleteItems("parentFolderID", folder.ID.ToString()))
+            {
+                XInventoryItem[] remaining = m_Database.GetItems(
+                    new string[] { "parentFolderID" },
+                    new string[] { folder.ID.ToString() });
+                if (remaining == null || remaining.Length != 0)
+                    return false;
+            }
 
             return true;
+        }
+
+        private bool DeleteFolderOrAlreadyAbsent(UUID id)
+        {
+            if (m_Database.DeleteFolders("folderID", id.ToString()))
+                return true;
+
+            XInventoryFolder[] remaining = m_Database.GetFolders(
+                new string[] { "folderID" }, new string[] { id.ToString() });
+            return remaining != null && remaining.Length == 0;
         }
 
         public virtual bool AddItem(InventoryItemBase item)
@@ -595,33 +624,38 @@ namespace OpenSim.Services.InventoryService
 
         public virtual bool DeleteItems(UUID principalID, List<UUID> itemIDs)
         {
-            if (!m_AllowDelete)
+            bool allDeleted = true;
+
+            foreach (UUID id in itemIDs)
             {
-                // We must still allow links and links to folders to be deleted, otherwise they will build up
-                // in the player's inventory until they can no longer log in.  Deletions of links due to code bugs or
-                // similar is inconvenient but on a par with accidental movement of items.  The original item is never
-                // touched.
-                foreach (UUID id in itemIDs)
+                string key = id.ToString();
+                if (!m_AllowDelete)
                 {
-                    if (!m_Database.DeleteItems(
+                    // Preserve the existing exception for inventory links.
+                    bool removed = m_Database.DeleteItems(
                         new string[] { "inventoryID", "assetType" },
-                        new string[] { id.ToString(), ((sbyte)AssetType.Link).ToString() }))
-                    {
-                        m_Database.DeleteItems(
+                        new string[] { key, ((sbyte)AssetType.Link).ToString() });
+                    if (!removed)
+                        removed = m_Database.DeleteItems(
                             new string[] { "inventoryID", "assetType" },
-                            new string[] { id.ToString(), ((sbyte)AssetType.LinkFolder).ToString() });
-                    }
+                            new string[] { key, ((sbyte)AssetType.LinkFolder).ToString() });
+                    if (removed)
+                        continue;
                 }
-            }
-            else
-            {
-                // Just use the ID... *facepalms*
-                //
-                foreach (UUID id in itemIDs)
-                    m_Database.DeleteItems("inventoryID", id.ToString());
+                else if (m_Database.DeleteItems("inventoryID", key))
+                {
+                    continue;
+                }
+
+                // A second delete of an absent UUID is an idempotent success.
+                // A surviving UUID means a denied or failed deletion.
+                XInventoryItem[] remaining = m_Database.GetItems(
+                    new string[] { "inventoryID" }, new string[] { key });
+                if (remaining == null || remaining.Length != 0)
+                    allDeleted = false;
             }
 
-            return true;
+            return allDeleted;
         }
 
         public virtual InventoryItemBase GetItem(UUID principalID, UUID itemID)
