@@ -50,6 +50,9 @@ static class Program
 
     private static int Main(string[] args)
     {
+        if (args.Length == 2 && args[0] == "--corpus")
+            return RealAssetCorpus.Run(args[1]);
+
         byte[] valid = new byte[12];
         valid[0] = 0xFF;
         valid[1] = 0x4F;
