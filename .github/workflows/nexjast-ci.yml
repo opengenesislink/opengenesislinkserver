@@ -630,16 +630,22 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libgdiplus libc6-dev
 
-      - name: Setup .NET 8
+      - name: Setup .NET 10
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '8.0.x'
+          dotnet-version: '10.0.x'
 
       - name: Generate project files
         shell: bash
         run: |
           chmod +x runprebuild.sh
           ./runprebuild.sh
+
+      - name: Verify complete .NET 10 server framework targets and scope
+        shell: bash
+        run: |
+          python3 tools/gen11/verify_net10.py
+          python3 tools/ci/verify_gen1_main_net10_scope.py
 
       - name: Verify duplicate UseCircuitCode and stale-circuit login guards
         shell: bash
@@ -684,6 +690,10 @@ jobs:
         run: dotnet build --configuration Release OpenSim.sln
 
 
+      - name: Smoke-test real .NET 10 ROBUST with isolated loopback HTTP
+        shell: bash
+        run: python3 tools/gen11/robust_runtime_smoke.py
+
       - name: Verify server build includes all five simulator addon DLLs
         shell: bash
         run: |
@@ -694,7 +704,7 @@ jobs:
               echo "::error::Release build is missing ${addon} DLL in simulator bin"
               exit 1
             }
-            test -s "addons/${addon}/bin/Release/net8.0/OpenGenesisLINK.Addons.${addon}.dll" || {
+            test -s "addons/${addon}/bin/Release/net10.0/OpenGenesisLINK.Addons.${addon}.dll" || {
               echo "::error::Release build is missing ${addon} project output"
               exit 1
             }
@@ -1547,10 +1557,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup .NET 8
+      - name: Setup .NET 10
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '8.0.x'
+          dotnet-version: '10.0.x'
 
       - name: Verify bundled database providers
         shell: bash

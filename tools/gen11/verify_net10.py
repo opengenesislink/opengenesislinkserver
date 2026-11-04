@@ -53,7 +53,7 @@ for path, token in {
     "addon-modules/build-nex-city-addon.sh": "net10.0/",
     "Prebuild/src/Core/Nodes/ProjectNode.cs": "net10_0",
     "Prebuild/src/Core/Targets/VS2022Target.cs": "FrameworkVersion.net10_0",
-    ".github/workflows/gen11-net10.yml": "dotnet-version: '10.0.x'",
+    ".github/workflows/gen11-net10-build.yml": "dotnet-version: '10.0.x'",
 }.items():
     if token not in (ROOT / path).read_text(encoding="utf-8-sig"):
         issues.append(f"{path}: missing {token!r}")

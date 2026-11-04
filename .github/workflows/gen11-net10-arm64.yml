@@ -2,7 +2,9 @@ name: Generation 1.1 .NET 10 ARM64 Server Runtime
 
 on:
   push:
-    branches: [GEN1.1NET10]
+    branches: [main]
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 
 permissions:

@@ -1,12 +1,12 @@
-name: OpenGenesisLINK Generation 1.1 - .NET 10 Build Gate
+name: OpenGenesisLINK main - .NET 10 Build Gate
 
 on:
   push:
     branches:
-      - GEN1.1NET10
+      - main
   pull_request:
     branches:
-      - GEN1.1NET10
+      - main
   workflow_dispatch:
 
 permissions:

@@ -1,6 +1,6 @@
 # OpenGenesisLINK Generation 1.1 – .NET 10 Build
 
-> **G1.1 ist ein Entwicklungszweig.** Der produktive G1-Server und der Branch `main` werden durch die Befehle nicht automatisch aktualisiert. Für G1.1 den Branch `GEN1.1NET10` verwenden. Die älteren OpenSimulator-Bauanweisungen für .NET 8 gelten **nicht** für diesen Zweig.
+> **Der offizielle Generation-1-`main`-Quellcode wird auf .NET 10 modernisiert.** Lokale Builds ändern keine laufende Grid-Installation und ersetzen keine produktiven Daten oder INI-Dateien. Ältere OpenSimulator-Bauanweisungen für .NET 8 gelten nicht mehr.
 
 ## Voraussetzungen / Requirements
 
@@ -21,7 +21,7 @@ Es muss eine `Microsoft.NETCore.App 10.x`-Runtime vorhanden sein. Sicherheits- u
 ## Linux x64 / ARM64
 
 ```bash
-git clone --branch GEN1.1NET10 https://github.com/opengenesislink/opengenesislinkserver.git
+git clone --branch main https://github.com/opengenesislink/opengenesislinkserver.git
 cd opengenesislinkserver
 bash runprebuild.sh
 python3 tools/gen11/verify_net10.py
@@ -47,7 +47,7 @@ Die Example-INI-Dateien sind **Vorlagen** und müssen für die Testumgebung ange
 ## Windows x64 (PowerShell)
 
 ```powershell
-git clone --branch GEN1.1NET10 https://github.com/opengenesislink/opengenesislinkserver.git
+git clone --branch main https://github.com/opengenesislink/opengenesislinkserver.git
 cd opengenesislinkserver
 cmd /c runprebuild.bat
 dotnet restore OpenSim.sln
@@ -60,9 +60,9 @@ Start im vorbereiteten Staging: `dotnet bin/Robust.dll` bzw. `dotnet bin/OpenSim
 
 - `tools/gen11/verify_net10.py`: alle generierten Hauptprojekt-/Addon-TFMs und runtimeconfig-Dateien auf .NET 10 prüfen.
 - `tools/gen11/robust_runtime_smoke.py`: echte `Robust.dll` unter .NET 10 mit **isoliertem temporärem INI ohne Service-Connectoren** starten und nur den Loopback-HTTP-Listener prüfen; keine Verbindung zur Live-Datenbank.
-- `.github/workflows/gen11-net10.yml`: Linux-x64-Full-Solution-Build, ROBUST-Runtime-Test und Addon-/IAR-/NexBus-/Codecregressionen.
+- `.github/workflows/gen11-net10-build.yml`: Linux-x64-Full-Solution-Build, ROBUST-Runtime-Test und Paketlaufzeitprüfung.
 - `.github/workflows/gen11-net10-build.yml`: Windows-x64-Full-Solution-Build und ROBUST-Runtime-Test.
-- `.github/workflows/gen11-codec-arm64.yml`: Linux-ARM64-Full-Solution-Build, ROBUST-Runtime-Test und native Codec-/ARM64-Tests.
+- `.github/workflows/gen11-net10-arm64.yml`: Linux-ARM64-Full-Solution-Build, ROBUST-Runtime-Test und Paketlaufzeitprüfung.
 
 Der ROBUST-HTTP-Smoke ist ein **Start- und Laufzeitnachweis**, nicht die Abnahme eines produktiven Login-/Inventory-/Asset-/Hypergrid-Szenarios. Diese benötigt in G11-06 eine isolierte MariaDB/FSAssets-Staging-Kopie und echte Viewer-/Simulator-End-to-End-Tests.
 
@@ -71,7 +71,7 @@ Der ROBUST-HTTP-Smoke ist ein **Start- und Laufzeitnachweis**, nicht die Abnahme
 1. Integrationsbetrieb mit MariaDB, FSAssets/WebDAV, Inventar, Login, Simulator, ScriptEngine (LSL/OSSL), Addons und Fremd-Hypergrid.
 2. Konsistentes Backup, Restore und vollständig getesteter Rückweg auf die bisherige G1-Version.
 3. Migration aller Deployment-/systemd-/Docker-/Paketpfade auf die `dotnet`-10-Runtime; keine unkontrollierten alten `net8.0`-Binaries im Release.
-4. TLS-/World-API-/Codec-Staging-Abnahme gemäß `doc/Generation-1.1/ROADMAP.md`.
+4. TLS-/World-API-/Codec-Staging-Abnahme gemäß `doc/GEN1_NET10_MAIN_MIGRATION.md`.
 
 ---
 
