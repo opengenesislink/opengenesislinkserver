@@ -116,24 +116,28 @@ static class Program
             // verifies the native provider rather than a fake implementation.
             byte[] fixture = File.ReadAllBytes(args[0]);
             var native = new OglOpenJpegCodecProvider();
+            bool nativeSucceeded = false;
             try
             {
-                bool nativeResult = native.TryDecodeLayerBoundaries(fixture,
-                    out var nativeLayers, out int nativeComponents);
-                Assert(nativeResult && nativeLayers != null && nativeLayers.Length > 0,
-                    "OpenJPEG native provider returned no JPEG2000 quality-layer data");
+                nativeSucceeded = native.TryDecodeLayerBoundaries(fixture,
+                    out var nativeLayers, out int nativeComponents)
+                    && nativeLayers != null && nativeLayers.Length > 0;
             }
             catch (Exception ex)
             {
                 Console.Error.WriteLine("OpenJPEG native-provider diagnostic: " + ex);
-                throw;
             }
-            var nativeEngine = new OglImageCodecEngine(native, null);
-            Assert(nativeEngine.TryDecodeLayers(fixture, out var realLayers, out int realComponents,
-                    out var realFailure) && realLayers.Length > 0 &&
-                   OglImageCodecEngine.AreLayerBoundariesValid(realLayers, fixture.Length),
-                "native OpenJPEG layer decode failed: " + realFailure);
-            Console.WriteLine($"OpenJPEG native codestream PASS: {realLayers.Length} layers, {realComponents} components");
+
+            var fallbackEngine = new OglImageCodecEngine(native, new OglCsJ2KCodecProvider());
+            bool fallbackSucceeded = fallbackEngine.TryDecodeLayers(fixture, out var realLayers,
+                out int realComponents, out var realFailure);
+            Console.WriteLine($"Native OpenJPEG success={nativeSucceeded}, codec pipeline success={fallbackSucceeded}, " +
+                $"layers={realLayers.Length}, components={realComponents}, failure={realFailure}");
+            Assert(fallbackSucceeded && realLayers.Length > 0 &&
+                OglImageCodecEngine.AreLayerBoundariesValid(realLayers, fixture.Length),
+                "OpenJPEG/CSJ2K pipeline failed to decode generated J2C layers");
+            Assert(nativeSucceeded,
+                "legacy native OpenJPEG cannot parse valid generated JPEG2000 quality layers; needs replacement");
         }
 
         Console.WriteLine($"OGL Image Codec Engine regression PASS ({assertions} assertions)");
