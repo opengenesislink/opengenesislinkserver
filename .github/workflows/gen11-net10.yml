@@ -41,7 +41,7 @@ jobs:
       - name: Install native build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libgdiplus libc6-dev libopenjp2-tools libopenjp2-dev pkg-config
+          sudo apt-get install -y libgdiplus libc6-dev libopenjp2-tools libopenjp2-7-dev pkg-config
 
       - name: Regenerate Prebuild solution and retarget to net10.0
         run: |
