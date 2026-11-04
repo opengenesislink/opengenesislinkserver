@@ -8,9 +8,11 @@
   <ItemGroup>
     <PackageReference Include="System.Security.Permissions" Version="8.0.0" />
     <PackageReference Include="System.Configuration.ConfigurationManager" Version="8.0.0" />
+    <!-- Npgsql requires the 8.x strong-named logging abstraction, not the bundled newer DLL. -->
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.2" />
     <Reference Include="MySql.Data"><HintPath>../../../bin/MySql.Data.dll</HintPath><Private>True</Private></Reference>
     <Reference Include="Npgsql"><HintPath>../../../bin/Npgsql.dll</HintPath><Private>True</Private></Reference>
-    <Reference Include="Microsoft.Extensions.Logging.Abstractions"><HintPath>../../../bin/Microsoft.Extensions.Logging.Abstractions.dll</HintPath><Private>True</Private></Reference>
+
     <Reference Include="OpenMetaverse"><HintPath>../../../bin/OpenMetaverse.dll</HintPath><Private>True</Private></Reference>
     <Reference Include="OpenMetaverseTypes"><HintPath>../../../bin/OpenMetaverseTypes.dll</HintPath><Private>True</Private></Reference>
     <Reference Include="log4net"><HintPath>../../../bin/log4net.dll</HintPath><Private>True</Private></Reference>
