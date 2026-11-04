@@ -13,5 +13,12 @@
     <Reference Include="OpenMetaverse">
       <HintPath>../../../bin/OpenMetaverse.dll</HintPath>
     </Reference>
+    <!-- OpenMetaverse's own DllmapConfigHelper requires the paired native
+         mapping file and architecture-specific library next to the test app. -->
+    <None Include="../../../bin/OpenMetaverse.dll.config" Link="OpenMetaverse.dll.config"
+          CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../../bin/lib64/libopenjpeg-dotnet-x86_64.so"
+          Link="lib64/libopenjpeg-dotnet-x86_64.so"
+          CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>
