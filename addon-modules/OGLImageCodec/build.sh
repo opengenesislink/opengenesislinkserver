@@ -3,7 +3,7 @@ set -euo pipefail
 
 # G1.1 opt-in native hybrid: build on the target Linux architecture.
 # Does not replace or modify the existing OpenMetaverse/libopenjpeg-dotnet binary.
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT"
 
 [[ "$(uname -s)" == "Linux" ]] || { echo "Linux native build only" >&2; exit 2; }
