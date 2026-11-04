@@ -199,32 +199,36 @@ namespace OpenSim.Data.PGSQL
 
         public virtual T[] Get(string field, string[] keys)
         {
-
-            int flen = keys.Length;
-            if(flen == 0)
+            if (keys.Length == 0)
                 return new T[0];
 
-            int flast = flen - 1;
+            // Treat field as an identifier, never as raw SQL. Values must be
+            // bound parameters; they may contain quotes or other SQL characters.
+            string quotedField = field.Replace("\"", "\"\"");
             StringBuilder sb = new StringBuilder(1024);
-            sb.AppendFormat("select * from {0} where {1} IN ('", m_Realm, field);
+            sb.AppendFormat("select * from {0} where \"{1}\" IN (", m_Realm, quotedField);
 
             using (NpgsqlConnection conn = new NpgsqlConnection(m_ConnectionString))
             using (NpgsqlCommand cmd = new NpgsqlCommand())
             {
-
-                for (int i = 0 ; i < flen ; i++)
+                bool hasColumnType = m_FieldTypes.TryGetValue(field, out string fieldType);
+                for (int i = 0; i < keys.Length; i++)
                 {
-                    sb.Append(keys[i]);
-                    if(i < flast)
-                        sb.Append("','");
-                    else
-                        sb.Append("')");
-                }
+                    if (i > 0)
+                        sb.Append(',');
 
-                string query = sb.ToString();
+                    string parameterName = "key" + i.ToString();
+                    sb.Append(':').Append(parameterName);
+
+                    if (hasColumnType)
+                        cmd.Parameters.Add(m_database.CreateParameter(parameterName, keys[i], fieldType));
+                    else
+                        cmd.Parameters.Add(m_database.CreateParameter(parameterName, keys[i]));
+                }
+                sb.Append(')');
 
                 cmd.Connection = conn;
-                cmd.CommandText = query;
+                cmd.CommandText = sb.ToString();
                 conn.Open();
                 return DoQuery(cmd);
             }
