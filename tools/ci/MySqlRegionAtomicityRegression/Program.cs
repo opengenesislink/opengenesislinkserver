@@ -221,6 +221,11 @@ try
             if (MarkerCount() == 0)
                 throw new Exception($"Async {table} INSERT failure was never exercised");
 
+            // The terrain worker and GetObjectIDs serialize on the same
+            // m_dbLock. This ensures the failed transaction has completed
+            // its rollback before validating the stored baseline.
+            db.GetObjectIDs(rid);
+
             // Wait for the worker's transaction to finish; committed changes
             // must never expose a missing or partially updated terrain row.
             deadline = DateTime.UtcNow.AddSeconds(20);
