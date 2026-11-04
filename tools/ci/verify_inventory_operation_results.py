@@ -19,7 +19,7 @@ assert "allMoved = false" in move
 assert "return allMoved;" in move
 assert "return true;" not in move
 
-tests = (root / "OpenSim/Services/InventoryService/Tests/XInventoryServiceTests.cs").read_text()
+tests = (root / "OpenSim/Services/InventoryService/Tests/XInventoryOperationResultTests.cs").read_text()
 assert "TestMoveItemsPropagatesBackendFailure" in tests
 assert "MoveItems(owner, new List<InventoryItemBase> { item }), Is.False" in tests
 assert "MoveItems(owner, new List<InventoryItemBase> { item }), Is.True" in tests
