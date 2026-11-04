@@ -27,4 +27,13 @@ for name, end in (("StoreTerrain", "StoreBakedTerrain"),
         assert token in region, name + ": missing " + token
     assert region.index("transaction.Commit();") > region.index("ExecuteNonQuery(cmd2);")
     assert region.index("ExecuteNonQuery(cmd);") < region.index("ExecuteNonQuery(cmd2);")
-print("PASS: StoreObject and both terrain paths use SQL transactions with rollback")
+inventory = body("public virtual void StorePrimInventory(UUID primID, ICollection<TaskInventoryItem> items)",
+                 "public UUID[] GetObjectIDs(UUID regionID)")
+for token in ("dbcon.BeginTransaction()", "cmd.Transaction = transaction;",
+              "transaction.Commit();", "transaction.Rollback();", "throw;"):
+    assert token in inventory, "StorePrimInventory: missing " + token
+assert inventory.index("cmd.Transaction = transaction;") < inventory.index(
+    'cmd.CommandText = "delete from primitems')
+assert "if (items.Count != 0)" in inventory, "Empty inventory must still commit deletion"
+assert inventory.index("transaction.Commit();") > inventory.index("foreach (TaskInventoryItem item in items)")
+print("PASS: StoreObject, StorePrimInventory and both terrain paths are transactional")
