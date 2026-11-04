@@ -17,6 +17,7 @@ assert "bool allMoved = true" in move
 assert "if (!m_Database.MoveItem(" in move
 assert "allMoved = false" in move
 assert "return allMoved;" in move
+assert "current[0].parentFolderID != item.Folder" in move, "No-op must not be marked as failure"
 assert "return true;" not in move
 
 tests = (root / "OpenSim/Services/InventoryService/Tests/XInventoryOperationResultTests.cs").read_text()
