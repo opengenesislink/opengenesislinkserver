@@ -66,6 +66,14 @@ jobs:
           dotnet run --no-build -c Release --project tools/ci/OglImageCodecRegression/OglImageCodecRegression.csproj -- --hybrid "$RUNNER_TEMP/ogl-codec.j2k"
           dotnet run --no-build -c Release --project tools/ci/OglImageCodecRegression/OglImageCodecRegression.csproj -- --hybrid "$RUNNER_TEMP/ogl-codec.jp2"
 
+      - name: Exercise read-only staging corpus validator (ARM64 synthetic)
+        env:
+          OGL_IMAGE_CODEC_NATIVE_DIR: ${{ github.workspace }}/bin/lib64
+        run: |
+          mkdir -p "$RUNNER_TEMP/ogl-asset-corpus"
+          cp "$RUNNER_TEMP/ogl-codec.j2k" "$RUNNER_TEMP/ogl-codec.jp2" "$RUNNER_TEMP/ogl-asset-corpus/"
+          dotnet run --no-build -c Release --project tools/ci/OglImageCodecRegression/OglImageCodecRegression.csproj -- --corpus "$RUNNER_TEMP/ogl-asset-corpus"
+
       - name: Native OpenJPEG2 malformed-input smoke (Linux ARM64)
         run: python3 tools/ci/OglImageCodecRegression/fuzz_native.py "$RUNNER_TEMP/ogl-codec.j2k" "$RUNNER_TEMP/ogl-codec.jp2"
 
