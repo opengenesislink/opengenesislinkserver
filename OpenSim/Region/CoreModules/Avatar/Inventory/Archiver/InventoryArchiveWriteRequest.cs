@@ -623,25 +623,24 @@ namespace OpenSim.Region.CoreModules.Avatar.Inventory.Archiver
 
             m_log.InfoFormat("[OGL-IAR]: Erzeuge IAR-Archivformat Version {0}.{1}.", majorVersion, minorVersion);
 
-            StringWriter sw = new StringWriter();
-            XmlTextWriter xtw = new XmlTextWriter(sw);
-            xtw.Formatting = Formatting.Indented;
-            xtw.WriteStartDocument();
-            xtw.WriteStartElement("archive");
-            xtw.WriteAttributeString("major_version", majorVersion.ToString());
-            xtw.WriteAttributeString("minor_version", minorVersion.ToString());
+            // TarArchiveWriter.WriteFile(string) encodes this string as UTF-8.
+            // A StringWriter-backed XmlTextWriter would instead declare
+            // encoding="utf-16", making the UTF-8 archive.xml fail byte-stream
+            // XML validation (no UTF-16 BOM). Serialize to a UTF-8 stream.
+            using MemoryStream controlXml = new();
+            using (XmlTextWriter xtw = new(controlXml, new System.Text.UTF8Encoding(false)))
+            {
+                xtw.Formatting = Formatting.Indented;
+                xtw.WriteStartDocument();
+                xtw.WriteStartElement("archive");
+                xtw.WriteAttributeString("major_version", majorVersion.ToString());
+                xtw.WriteAttributeString("minor_version", minorVersion.ToString());
+                xtw.WriteElementString("assets_included", SaveAssets.ToString());
+                xtw.WriteEndElement();
+                xtw.Flush();
+            }
 
-            xtw.WriteElementString("assets_included", SaveAssets.ToString());
-
-            xtw.WriteEndElement();
-
-            xtw.Flush();
-            xtw.Close();
-
-            String s = sw.ToString();
-            sw.Close();
-
-            return s;
+            return System.Text.Encoding.UTF8.GetString(controlXml.ToArray());
         }
     }
 }
