@@ -6,8 +6,6 @@ using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
-using System.Reflection;
-using System.Runtime.InteropServices;
 using OpenMetaverse.Imaging;
 using CSJ2K;
 
@@ -157,85 +155,9 @@ namespace OpenSim.Region.CoreModules.Agent.TextureSender
         }
     }
 
-    /// <summary>
-    /// CoreCLR ignores Mono's dllmap config. Resolve the existing OpenSim
-    /// platform binaries from trusted, explicit directories without changing
-    /// the shared OpenMetaverse.dll or installing process-global symlinks.
-    /// </summary>
-    internal static class OglNativeCodecLoader
-    {
-        private static readonly object Sync = new object();
-        private static bool configured;
-
-        internal static void EnsureConfigured()
-        {
-            lock (Sync)
-            {
-                if (configured) return;
-                try
-                {
-                    NativeLibrary.SetDllImportResolver(typeof(OpenJPEG).Assembly, Resolve);
-                }
-                catch (InvalidOperationException)
-                {
-                    // Another host module installed a resolver for this assembly.
-                    // Never replace it: the existing resolver owns native bindings.
-                }
-                configured = true;
-            }
-        }
-
-        private static IntPtr Resolve(string libraryName, Assembly assembly, DllImportSearchPath? searchPath)
-        {
-            if (!string.Equals(libraryName, "openjpeg-dotnet", StringComparison.OrdinalIgnoreCase))
-                return IntPtr.Zero;
-
-            string filename;
-            if (OperatingSystem.IsWindows() && RuntimeInformation.ProcessArchitecture == Architecture.X64)
-                filename = "openjpeg-dotnet-x86_64.dll";
-            else if (OperatingSystem.IsMacOS() && RuntimeInformation.ProcessArchitecture == Architecture.X64)
-                filename = "libopenjpeg-dotnet.dylib";
-            else if (OperatingSystem.IsLinux() && RuntimeInformation.ProcessArchitecture == Architecture.X64)
-                filename = "libopenjpeg-dotnet-x86_64.so";
-            else if (OperatingSystem.IsLinux() && RuntimeInformation.ProcessArchitecture == Architecture.Arm64)
-                filename = "libopenjpeg-dotnet-arm64.so";
-            else
-                return IntPtr.Zero;
-
-            string overrideDir = Environment.GetEnvironmentVariable("OGL_IMAGE_CODEC_NATIVE_DIR");
-            if (!string.IsNullOrWhiteSpace(overrideDir) && Path.IsPathFullyQualified(overrideDir))
-            {
-                IntPtr native = LoadFrom(Path.Combine(overrideDir, filename));
-                if (native != IntPtr.Zero)
-                    return native;
-            }
-            return LoadFrom(Path.Combine(AppContext.BaseDirectory, "lib64", filename));
-        }
-
-        private static IntPtr LoadFrom(string filepath)
-        {
-            try
-            {
-                if (File.Exists(filepath) && NativeLibrary.TryLoad(filepath, out IntPtr native))
-                    return native;
-            }
-            catch (Exception)
-            {
-                // Let CoreCLR's normal import failure name the missing/invalid
-                // library; higher-level codec selection will try the fallback.
-            }
-            return IntPtr.Zero;
-        }
-    }
-
     /// <summary>OpenJPEG adapter; the asset format remains J2C/JP2, not HTJ2K.</summary>
     public sealed class OglOpenJpegCodecProvider : IOglImageCodecProvider
     {
-        public OglOpenJpegCodecProvider()
-        {
-            OglNativeCodecLoader.EnsureConfigured();
-        }
-
         public string Name => "OpenJPEG";
         public bool TryDecodeImage(byte[] data, out Image image)
         {
