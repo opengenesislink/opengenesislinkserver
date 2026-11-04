@@ -17,7 +17,7 @@ string connectionString = new MySqlConnectionStringBuilder
     Password = password
 }.ConnectionString;
 
-using var db = new MySQLSimulationData(connectionString);
+var db = new MySQLSimulationData(connectionString);
 using var connection = new MySqlConnection(connectionString);
 connection.Open();
 
