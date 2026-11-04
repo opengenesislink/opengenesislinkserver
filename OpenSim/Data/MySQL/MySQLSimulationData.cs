@@ -407,84 +407,69 @@ namespace OpenSim.Data.MySQL
 
             #region Prim Inventory Loading
 
-            // Instead of attempting to LoadItems on every prim,
-            // most of which probably have no items... get a
-            // list from DB of all prims which have items and
-            // LoadItems only on those
-            List<SceneObjectPart> primsWithInventory = new List<SceneObjectPart>();
-            lock (m_dbLock)
-            {
-                using (MySqlConnection dbcon = new MySqlConnection(m_connectionString))
-                {
-                    dbcon.Open();
-
-                    using (MySqlCommand itemCmd = dbcon.CreateCommand())
-                    {
-                        itemCmd.CommandText = "SELECT DISTINCT primID FROM primitems";
-                        using (IDataReader itemReader = ExecuteReader(itemCmd))
-                        {
-                            while (itemReader.Read())
-                            {
-                                if (!(itemReader["primID"] is DBNull))
-                                {
-                                    UUID primID = DBGuid.FromDB(itemReader["primID"].ToString());
-                                    if (prims.ContainsKey(primID))
-                                        primsWithInventory.Add(prims[primID]);
-                                }
-                            }
-                        }
-                    }
-                    dbcon.Close();
-                }
-            }
-
-            foreach (SceneObjectPart prim in primsWithInventory)
-            {
-                LoadItems(prim);
-            }
+            // Fetch only this region's task inventory in one indexed JOIN.
+            // This avoids scanning other regions' inventory IDs and opening a
+            // new SQL connection per prim.
+            int primsWithInventory = LoadItems(prims, regionID);
 
             #endregion Prim Inventory Loading
 
-            m_log.DebugFormat("[REGION DB]: Loaded inventory from {0} objects", primsWithInventory.Count);
+            m_log.DebugFormat("[REGION DB]: Loaded inventory from {0} objects", primsWithInventory);
 
             return new List<SceneObjectGroup>(objects.Values);
         }
 
         /// <summary>
-        /// Load in a prim's persisted inventory.
+        /// Batch-load persisted task inventory for prims belonging to this region.
         /// </summary>
-        /// <param name="prim">The prim</param>
-        private void LoadItems(SceneObjectPart prim)
+        private int LoadItems(Dictionary<UUID, SceneObjectPart> prims, UUID regionID)
         {
+            Dictionary<UUID, List<TaskInventoryItem>> grouped = new Dictionary<UUID, List<TaskInventoryItem>>();
+
             lock (m_dbLock)
             {
-                List<TaskInventoryItem> inventory = new List<TaskInventoryItem>();
-
                 using (MySqlConnection dbcon = new MySqlConnection(m_connectionString))
                 {
                     dbcon.Open();
-
                     using (MySqlCommand cmd = dbcon.CreateCommand())
                     {
-                        cmd.CommandText = "select * from primitems where PrimID = ?PrimID";
-                        cmd.Parameters.AddWithValue("PrimID", prim.UUID.ToString());
+                        cmd.CommandText =
+                            "SELECT i.* FROM primitems AS i " +
+                            "INNER JOIN prims AS p ON p.UUID = i.primID " +
+                            "WHERE p.RegionUUID = ?RegionUUID";
+                        cmd.Parameters.AddWithValue("RegionUUID", regionID.ToString());
+                        cmd.CommandTimeout = 3600;
 
                         using (IDataReader reader = ExecuteReader(cmd))
                         {
                             while (reader.Read())
                             {
-                                TaskInventoryItem item = BuildItem(reader);
+                                if (reader["primID"] is DBNull)
+                                    continue;
 
-                                item.ParentID = prim.UUID; // Values in database are often wrong
+                                UUID primID = DBGuid.FromDB(reader["primID"].ToString());
+                                if (!prims.TryGetValue(primID, out SceneObjectPart prim))
+                                    continue;
+
+                                TaskInventoryItem item = BuildItem(reader);
+                                item.ParentID = prim.UUID; // Database parent folders may be stale.
+
+                                if (!grouped.TryGetValue(primID, out List<TaskInventoryItem> inventory))
+                                {
+                                    inventory = new List<TaskInventoryItem>();
+                                    grouped.Add(primID, inventory);
+                                }
                                 inventory.Add(item);
                             }
                         }
                     }
-                    dbcon.Close();
                 }
-
-                prim.Inventory.RestoreInventoryItems(inventory);
             }
+
+            foreach (KeyValuePair<UUID, List<TaskInventoryItem>> entry in grouped)
+                prims[entry.Key].Inventory.RestoreInventoryItems(entry.Value);
+
+            return grouped.Count;
         }
 
         // Legacy entry point for when terrain was always a 256x256 hieghtmap
