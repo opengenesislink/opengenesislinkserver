@@ -49,3 +49,9 @@ jobs:
       - name: Build Windows server and addons
         shell: cmd
         run: dotnet build OpenSim.sln --configuration Release
+
+      - name: Runtime smoke - boot real ROBUST .NET 10 on Windows x64
+        shell: pwsh
+        run: |
+          python tools/gen11/robust_runtime_smoke.py
+          if ($LASTEXITCODE -ne 0) { throw "ROBUST Windows runtime smoke failed" }
