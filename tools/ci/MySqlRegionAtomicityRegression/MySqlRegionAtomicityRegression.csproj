@@ -6,6 +6,9 @@
     <Nullable>disable</Nullable>
   </PropertyGroup>
   <ItemGroup>
+    <!-- Legacy MySql.Data needs CAS/configuration compatibility assemblies on .NET 10. -->
+    <PackageReference Include="System.Security.Permissions" Version="8.0.0" />
+    <PackageReference Include="System.Configuration.ConfigurationManager" Version="8.0.0" />
     <Reference Include="MySql.Data">
       <HintPath>../../../bin/MySql.Data.dll</HintPath>
       <Private>True</Private>
