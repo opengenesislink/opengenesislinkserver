@@ -84,7 +84,24 @@ internal static class Program
         Evaluate(false, "no control file", new[] { inventory });
         Evaluate(false, "checksum mismatch", new[] { xml, inventory }, badChecksum: true);
         Evaluate(false, "overlarge single payload", new[] { xml, new Entry("assets/big.bin", new byte[OglIarInspector.MaxFileBytes > int.MaxValue ? 1 : (int)OglIarInspector.MaxFileBytes + 1]), inventory });
-        Console.WriteLine("OGL IAR bounded preflight: PASS (11 valid/adversarial fixtures)");
+        // Validate the 64-bit quota boundary without allocating a giant
+        // fixture. Content validation is still tested with TAR/GZip fixtures.
+        long tenGiB = 10L * 1024 * 1024 * 1024;
+        Assert(OglIarInspector.MaxCompressedBytes == tenGiB,
+            "compressed limit matches configured 10 GiB");
+        Assert(OglIarInspector.MaxExpandedBytes == 40L * 1024 * 1024 * 1024,
+            "expanded TAR limit is bounded");
+        Assert(!OglIarInspector.IsAllowedCompressedSize(127),
+            "too-short archive rejected");
+        Assert(OglIarInspector.IsAllowedCompressedSize(128),
+            "minimum archive length accepted");
+        Assert(OglIarInspector.IsAllowedCompressedSize(2L * 1024 * 1024 * 1024 + 1),
+            "compressed IAR over 2 GiB is permitted");
+        Assert(OglIarInspector.IsAllowedCompressedSize(tenGiB),
+            "10 GiB compressed archive permitted");
+        Assert(!OglIarInspector.IsAllowedCompressedSize(tenGiB + 1),
+            "compressed IAR beyond 10 GiB rejected");
+        Console.WriteLine("OGL IAR bounded preflight: PASS (11 fixtures + size boundaries)");
         return 0;
     }
 }
