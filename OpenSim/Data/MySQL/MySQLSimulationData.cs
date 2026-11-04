@@ -526,13 +526,16 @@ namespace OpenSim.Data.MySQL
                     {
                         dbcon.Open();
 
+                        using (MySqlTransaction transaction = dbcon.BeginTransaction())
                         using (MySqlCommand cmd = dbcon.CreateCommand())
                         {
+                            cmd.Transaction = transaction;
                             cmd.CommandText = "delete from terrain where RegionUUID = ?RegionUUID";
                             cmd.Parameters.AddWithValue("RegionUUID", regionID.ToString());
 
                             using (MySqlCommand cmd2 = dbcon.CreateCommand())
                             {
+                                cmd2.Transaction = transaction;
                                 try
                                 {
                                     cmd2.CommandText = "insert into terrain (RegionUUID, " +
@@ -545,10 +548,16 @@ namespace OpenSim.Data.MySQL
 
                                     ExecuteNonQuery(cmd);
                                     ExecuteNonQuery(cmd2);
+                                    transaction.Commit();
                                 }
                                 catch (Exception e)
                                 {
-                                    m_log.ErrorFormat(e.ToString());
+                                    try { transaction.Rollback(); }
+                                    catch (Exception rollbackError)
+                                    {
+                                        m_log.Error("[REGION DB]: StoreTerrain rollback failed: " + rollbackError);
+                                    }
+                                    m_log.Error("[REGION DB]: StoreTerrain failed: " + e);
                                 }
                             }
                         }
@@ -574,13 +583,16 @@ namespace OpenSim.Data.MySQL
                     {
                         dbcon.Open();
 
+                        using (MySqlTransaction transaction = dbcon.BeginTransaction())
                         using (MySqlCommand cmd = dbcon.CreateCommand())
                         {
+                            cmd.Transaction = transaction;
                             cmd.CommandText = "delete from bakedterrain where RegionUUID = ?RegionUUID";
                             cmd.Parameters.AddWithValue("RegionUUID", regionID.ToString());
 
                             using (MySqlCommand cmd2 = dbcon.CreateCommand())
                             {
+                                cmd2.Transaction = transaction;
                                 try
                                 {
                                     cmd2.CommandText = "insert into bakedterrain (RegionUUID, " +
@@ -593,10 +605,16 @@ namespace OpenSim.Data.MySQL
 
                                     ExecuteNonQuery(cmd);
                                     ExecuteNonQuery(cmd2);
+                                    transaction.Commit();
                                 }
                                 catch (Exception e)
                                 {
-                                    m_log.ErrorFormat(e.ToString());
+                                    try { transaction.Rollback(); }
+                                    catch (Exception rollbackError)
+                                    {
+                                        m_log.Error("[REGION DB]: StoreBakedTerrain rollback failed: " + rollbackError);
+                                    }
+                                    m_log.Error("[REGION DB]: StoreBakedTerrain failed: " + e);
                                 }
                             }
                         }
