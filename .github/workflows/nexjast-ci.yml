@@ -694,6 +694,10 @@ jobs:
         shell: bash
         run: python3 tools/gen11/robust_runtime_smoke.py
 
+      - name: Regression-test .NET 10 Flotsam disk-cache roundtrip and old-format fallback
+        shell: bash
+        run: dotnet run --configuration Release --project tools/ci/FlotsamCacheNet10Regression/FlotsamCacheNet10Regression.csproj
+
       - name: Verify server build includes all five simulator addon DLLs
         shell: bash
         run: |
