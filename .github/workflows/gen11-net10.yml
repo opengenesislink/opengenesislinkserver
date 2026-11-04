@@ -118,6 +118,14 @@ jobs:
             dotnet OglImageCodecRegression.dll "$RUNNER_TEMP/ogl-codec.j2k"
           )
 
+      - name: Save native Linux x64 codec artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ogl-openjpeg2-linux-x64
+          path: bin/lib64/libogl-openjpeg2-x86_64.so
+          if-no-files-found: error
+          retention-days: 14
+
       - name: Regression test - IAR preflight on net10
         run: dotnet run -c Release --project tools/ci/OglIarPreflightRegression/OglIarPreflightRegression.csproj
 
