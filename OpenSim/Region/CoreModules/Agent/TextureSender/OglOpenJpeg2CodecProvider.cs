@@ -50,6 +50,8 @@ namespace OpenSim.Region.CoreModules.Agent.TextureSender
                 filename = "libogl-openjpeg2-x86_64.so";
             else if (OperatingSystem.IsLinux() && RuntimeInformation.ProcessArchitecture == Architecture.Arm64)
                 filename = "libogl-openjpeg2-arm64.so";
+            else if (OperatingSystem.IsWindows() && RuntimeInformation.ProcessArchitecture == Architecture.X64)
+                filename = "ogl-openjpeg2-x86_64.dll";
             else
                 return null;
 
