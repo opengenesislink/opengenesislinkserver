@@ -528,9 +528,9 @@ namespace OpenSim.Services.FSAssetService
             }
             catch (Exception exception)
             {
-                m_log.Error(exception.ToString());
-                Thread.Sleep(5000);
-                Environment.Exit(1);
+                // A corrupt or temporarily unreadable asset must not shut down
+                // the entire ROBUST process (and all unrelated asset requests).
+                m_log.Error("[FSASSETS]: Failed to retrieve asset " + id + ": " + exception);
                 return null;
             }
         }
