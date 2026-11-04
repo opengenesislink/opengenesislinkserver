@@ -41,7 +41,7 @@ jobs:
       - name: Install native build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libgdiplus libc6-dev libopenjp2-tools
+          sudo apt-get install -y libgdiplus libc6-dev libopenjp2-tools libopenjp2-dev pkg-config
 
       - name: Regenerate Prebuild solution and retarget to net10.0
         run: |
@@ -58,11 +58,22 @@ jobs:
       - name: Build standalone AssetService addon under .NET 10
         run: bash addon-modules/OGLAssetService/build.sh Release
 
+      - name: Compile OpenJPEG 2.x native hybrid validator
+        run: |
+          bash addon-modules/OGLImageCodec/build.sh
+          ldd bin/lib64/libogl-openjpeg2-x86_64.so
+          test -s bin/lib64/libogl-openjpeg2-x86_64.so
+
       - name: Create native JPEG2000 J2C fixture with OpenJPEG tools
         run: |
           python3 tools/ci/OglImageCodecRegression/make_fixture.py "$RUNNER_TEMP/ogl-codec.pgm"
           opj_compress -i "$RUNNER_TEMP/ogl-codec.pgm" -o "$RUNNER_TEMP/ogl-codec.j2k" -r 20,10,1
           opj_dump -i "$RUNNER_TEMP/ogl-codec.j2k" >/dev/null
+
+      - name: Regression test - OpenJPEG 2.x native hybrid on actual J2C
+        env:
+          OGL_IMAGE_CODEC_NATIVE_DIR: ${{ github.workspace }}/bin/lib64
+        run: dotnet run -c Release --project tools/ci/OglImageCodecRegression/OglImageCodecRegression.csproj -- --hybrid "$RUNNER_TEMP/ogl-codec.j2k"
 
       - name: Regression test - OGL Image Codec Engine safe fallback and validation
         run: dotnet run -c Release --project tools/ci/OglImageCodecRegression/OglImageCodecRegression.csproj
