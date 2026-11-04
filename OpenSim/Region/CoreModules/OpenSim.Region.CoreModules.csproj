@@ -504,6 +504,9 @@
     <Compile Include="Agent\TextureSender\J2KDecoderModule.cs">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="Agent\TextureSender\OglImageCodecEngine.cs">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="Agent\IPBan\SceneBanner.cs">
       <SubType>Code</SubType>
     </Compile>
