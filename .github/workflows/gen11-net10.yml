@@ -68,12 +68,16 @@ jobs:
         run: |
           python3 tools/ci/OglImageCodecRegression/make_fixture.py "$RUNNER_TEMP/ogl-codec.pgm"
           opj_compress -i "$RUNNER_TEMP/ogl-codec.pgm" -o "$RUNNER_TEMP/ogl-codec.j2k" -r 20,10,1
+          opj_compress -i "$RUNNER_TEMP/ogl-codec.pgm" -o "$RUNNER_TEMP/ogl-codec.jp2" -r 20,10,1
           opj_dump -i "$RUNNER_TEMP/ogl-codec.j2k" >/dev/null
+          opj_dump -i "$RUNNER_TEMP/ogl-codec.jp2" >/dev/null
 
       - name: Regression test - OpenJPEG 2.x native hybrid on actual J2C
         env:
           OGL_IMAGE_CODEC_NATIVE_DIR: ${{ github.workspace }}/bin/lib64
-        run: dotnet run -c Release --project tools/ci/OglImageCodecRegression/OglImageCodecRegression.csproj -- --hybrid "$RUNNER_TEMP/ogl-codec.j2k"
+        run: |
+          dotnet run -c Release --project tools/ci/OglImageCodecRegression/OglImageCodecRegression.csproj -- --hybrid "$RUNNER_TEMP/ogl-codec.j2k"
+          dotnet run -c Release --project tools/ci/OglImageCodecRegression/OglImageCodecRegression.csproj -- --hybrid "$RUNNER_TEMP/ogl-codec.jp2"
 
       - name: Regression test - OGL Image Codec Engine safe fallback and validation
         run: dotnet run -c Release --project tools/ci/OglImageCodecRegression/OglImageCodecRegression.csproj
