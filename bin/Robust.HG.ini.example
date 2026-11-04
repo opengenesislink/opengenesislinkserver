@@ -1166,4 +1166,4 @@
     ; Optional legacy NFS backend: set StorageBackend=NFS and mount this root.
     SharedStorageRoot = ""
     RetentionDays = 30
-    MaximumArchiveMiB = 2048
+    MaximumArchiveMiB = 10240
