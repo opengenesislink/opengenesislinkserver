@@ -6,7 +6,7 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Microsoft.Data.Sqlite" Version="8.0.11" />
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.14" />
     <Compile Include="../OGLAssetService/IOGLAssetLocationDirectory.cs" Link="IOGLAssetLocationDirectory.cs" />
     <Compile Include="../OGLAssetService/OGLAssetLocationDirectory.cs" Link="OGLAssetLocationDirectory.cs" />
     <Compile Include="../OGLAssetService/OGLSqliteAssetLocationDirectory.cs" Link="OGLSqliteAssetLocationDirectory.cs" />

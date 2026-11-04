@@ -690,6 +690,13 @@ jobs:
         run: dotnet build --configuration Release OpenSim.sln
 
 
+      - name: Verify patched SQLite dependencies on all AssetService projects
+        shell: bash
+        run: |
+          dotnet restore addons/OGLAssetService.Migration/OGLAssetService.Migration.csproj
+          dotnet restore addons/OGLAssetService.Tests/OGLAssetService.Tests.csproj
+          python3 tools/ci/verify_sqlite_native_dependency.py
+
       - name: Smoke-test real .NET 10 ROBUST with isolated loopback HTTP
         shell: bash
         run: python3 tools/gen11/robust_runtime_smoke.py
