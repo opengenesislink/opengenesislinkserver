@@ -78,7 +78,8 @@ def main() -> int:
         )
         logfile = temp / "robust.log"
         env = os.environ.copy()
-        env["DOTNET_ROLL_FORWARD"] = "Disable"
+        # Stay on .NET 10 but accept its latest security/servicing patch.
+        env["DOTNET_ROLL_FORWARD"] = "LatestPatch"
         env["DOTNET_CLI_TELEMETRY_OPTOUT"] = "1"
         with logfile.open("w+", encoding="utf-8", errors="replace") as log, subprocess.Popen(
             ["dotnet", "Robust.dll", "-inifile=" + str(ini)],
