@@ -146,7 +146,13 @@ namespace OpenSim.Region.CoreModules.Agent.TextureSender
                 m_useCSJ2K = startupConfig.GetBoolean("UseCSJ2K", m_useCSJ2K);
                 m_useOglImageCodec = startupConfig.GetBoolean("OglImageCodecEnabled", false);
                 if (m_useOglImageCodec)
-                    m_log.Info("[J2KDecoderModule]: OGL Image Codec Engine enabled (OpenJPEG2 validated-hybrid primary when available, CSJ2K fallback)");
+                {
+                    bool nativeAvailable = new OglOpenJpeg2CodecProvider().NativeAvailable;
+                    if (nativeAvailable)
+                        m_log.Info("[J2KDecoderModule]: OGL Image Codec Engine enabled; native OpenJPEG2 validator loaded");
+                    else
+                        m_log.Warn("[J2KDecoderModule]: OGL Image Codec Engine enabled but OpenJPEG2 native validator unavailable; CSJ2K compatibility fallback remains active");
+                }
             }
         }
 
