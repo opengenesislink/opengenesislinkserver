@@ -45,6 +45,17 @@ assert "MaxExpandedBytes = 40L * 1024 * 1024 * 1024" in policy
 assert "if (!IsAllowedCompressedSize(info.Length))" in policy
 assert "MaxFileBytes = 64L * 1024 * 1024" in policy
 assert "MaxEntries = 100000" in policy
+# The IAR control XML must advertise the UTF-8 encoding actually stored by
+# TarArchiveWriter.WriteFile(string), while legacy archives remain inspectable
+# without permitting arbitrary encoding spoofing or XML external entities.
+assert 'new(controlXml, new System.Text.UTF8Encoding(false))' in src["writer"]
+assert 'Encoding.UTF8.GetString(controlXml.ToArray())' in src["writer"]
+assert 'XmlTextWriter xtw = new XmlTextWriter(sw)' not in src["writer"]
+assert 'const string legacyDeclaration = ' in policy
+assert 'payload.AsSpan().StartsWith(legacyPrefix)' in policy
+assert 'new UTF8Encoding(false, true).GetString(payload)' in policy
+assert 'DtdProcessing = DtdProcessing.Prohibit' in policy
+assert 'XmlResolver = null' in policy
 # Terminal handoff must not disappear after the last asset-progress log.
 assert 'GC.Collect();\n            PerformAssetsRequestCallback(m_timeout);' not in src["assets"]
 assert "Archivabschluss wird gestartet" in src["assets"]
