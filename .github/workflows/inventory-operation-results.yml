@@ -1,0 +1,22 @@
+name: Inventory Operation Result Guard
+
+on:
+  pull_request:
+    paths:
+      - 'OpenSim/Services/InventoryService/XInventoryService.cs'
+      - 'OpenSim/Tests/Common/Mock/TestXInventoryDataPlugin.cs'
+      - 'OpenSim/Services/InventoryService/Tests/XInventoryServiceTests.cs'
+      - 'tools/ci/verify_inventory_operation_results.py'
+      - '.github/workflows/inventory-operation-results.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  inventory-operation-results:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify inventory create/move error signaling
+        run: python3 tools/ci/verify_inventory_operation_results.py
