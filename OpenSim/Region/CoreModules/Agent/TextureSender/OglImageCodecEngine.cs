@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: BSD-3-Clause
+/* SPDX-License-Identifier: MPL-2.0
  * OpenGenesisLINK Generation 1.1 JPEG2000 codec-provider foundation.
  * Keeps existing JPEG2000 assets and IJ2KDecoder wire contracts unchanged.
  */
