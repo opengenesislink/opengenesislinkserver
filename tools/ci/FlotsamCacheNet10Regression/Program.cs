@@ -22,7 +22,11 @@ internal static class Program
                 throw new Exception("Missing versioned Flotsam codec");
 
             const string id = "fee03dc5-1f4d-46cc-8456-e19b85699c69";
-            AssetBase original = new(id, "Net10 cache fixture", 7, "creator-test");
+            AssetBase original = new();
+            original.ID = id;
+            original.Name = "Net10 cache fixture";
+            original.Type = 7;
+            original.CreatorID = "creator-test";
             original.Description = "Structured cache metadata roundtrip";
             original.Metadata.CreationDate = new DateTime(2026, 11, 4, 12, 30, 0, DateTimeKind.Utc);
             original.Metadata.ContentType = "application/vnd.ll.notecard";

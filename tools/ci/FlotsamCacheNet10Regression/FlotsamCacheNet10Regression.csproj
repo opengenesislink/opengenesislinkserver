@@ -6,6 +6,8 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="OpenMetaverseTypes"><HintPath>../../../bin/OpenMetaverseTypes.dll</HintPath></Reference>
+    <Reference Include="OpenMetaverse"><HintPath>../../../bin/OpenMetaverse.dll</HintPath></Reference>
     <ProjectReference Include="../../../OpenSim/Framework/OpenSim.Framework.csproj" />
     <ProjectReference Include="../../../OpenSim/Region/CoreModules/OpenSim.Region.CoreModules.csproj" />
   </ItemGroup>
