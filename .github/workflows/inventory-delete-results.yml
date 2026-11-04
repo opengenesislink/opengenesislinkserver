@@ -1,0 +1,21 @@
+name: Inventory Delete Result Guard
+
+on:
+  pull_request:
+    paths:
+      - 'OpenSim/Services/InventoryService/XInventoryService.cs'
+      - 'OpenSim/Services/InventoryService/Tests/XInventoryDeleteResultTests.cs'
+      - 'tools/ci/verify_inventory_delete_results.py'
+      - '.github/workflows/inventory-delete-results.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  inventory-delete-results:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify inventory deletion result propagation and regression fixture
+        run: python3 tools/ci/verify_inventory_delete_results.py
