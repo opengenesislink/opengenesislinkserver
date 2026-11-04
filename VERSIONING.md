@@ -21,6 +21,7 @@ OpenGenesisLINK continues from the OpenSimulator 0.9.3.0 source baseline and the
 3. Development builds use the `Dev` flavour.
 4. Release candidates use `RC1`, `RC2`, `RC3` as required.
 5. Public-facing product and runtime branding use **OpenGenesisLINK Generation 1**; technical build/assembly and addon compatibility continue to use the four-component version, currently `0.9.4.0`. The release channel (Dev/Stable) is metadata, not part of the public generation name.
+   Server startup banners, `show version` and simulator metadata must use `VersionInfo.PublicVersionName` via `VersionInfo.Version` without appending a Git SHA or `.version` content. When a public Generation 1.1 build is designated, change `VersionInfo.PublicGenerationName` for that build; do not infer the generation from the runtime or the commit hash.
 6. OpenGenesisLINK versions advance independently of the OpenSimulator upstream version.
 7. A version bump must be committed together with the development/release state that introduces it.
 8. Historical OpenSimulator baseline references and applicable BSD/third-party notices remain unchanged while inherited licensed material remains.
