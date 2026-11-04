@@ -62,7 +62,7 @@ namespace NexVerse.Server.Api
             string root = section?.GetString(
                 m_UseWebDav ? "TemporaryStorageRoot" : "SharedStorageRoot",
                 m_UseWebDav ? "/var/lib/opengenesislink/iar-staging" : "")?.Trim() ?? "";
-            long maxMib = section?.GetLong("MaximumArchiveMiB", 2048) ?? 2048;
+            long maxMib = section?.GetLong("MaximumArchiveMiB", 10240) ?? 10240;
             m_NasHost = section?.GetString("NasHost", "10.78.0.4")?.Trim() ?? "";
             int days = section?.GetInt("RetentionDays", 30) ?? 30;
             m_RetentionDays = Math.Clamp(days, 1, OglIarNasStorage.MaximumRetentionDays);
