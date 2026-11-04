@@ -71,7 +71,7 @@ assert "PRIM_POINT_LIGHT" in lamp
 assert "setPowered(FALSE);" in lamp
 assert 'status != "OUTAGE"' in lamp
 
-assert "net8.0" in project
+assert "net10.0" in project
 assert "<ProjectGuid>" in project
 assert 'AfterTargets="Build"' in project
 assert 'DestinationFiles="$(MSBuildThisFileDirectory)../../bin/$(TargetFileName)"' in project

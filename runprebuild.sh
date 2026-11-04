@@ -20,7 +20,15 @@ case "$1" in
   *)
 
     cp bin/System.Drawing.Common.dll.linux bin/System.Drawing.Common.dll
+    # The bundled legacy prebuild.dll accepts net8_0. Immediately retarget
+    # generated projects before adding addons or compiling.
     dotnet bin/prebuild.dll /target vs2022 /targetframework net8_0 /excludedir = "obj | bin" /file prebuild.xml
+    python3 tools/gen11/retarget_net10.py
+    python3 tools/gen11/retarget_net10.py --check
+    # The shipped Prebuild generator cannot emit net10_0 directly. Convert only
+    # its generated TargetFramework elements before any SDK restore/build.
+    python3 tools/ci/gen11_retarget_generated_csproj.py --fix
+    python3 tools/ci/gen11_retarget_generated_csproj.py --check
     # Prebuild regenerates OpenSim.sln from scratch. Keep SDK-style city
     # and the weather addon in the actual solution, not manual build steps.
     # This also makes a plain 'dotnet build OpenSim.sln' compile their DLLs.

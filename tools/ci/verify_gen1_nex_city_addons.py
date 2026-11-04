@@ -32,7 +32,7 @@ for name, channel in zip(names, channels):
     assert f"LSLChannel = {channel}" in cfg
     assert f"integer CHANNEL = {channel};" in script
     assert f"OpenGenesisLINK.Addons.{name}" in csproj
-    assert "net8.0" in csproj
+    assert "net10.0" in csproj
     assert '<Target Name="CopyAddonToSimulatorBin" AfterTargets="Build"' in csproj
     assert 'DestinationFiles="$(MSBuildThisFileDirectory)../../bin/$(TargetFileName)"' in csproj
     assert "<ProjectGuid>" in csproj

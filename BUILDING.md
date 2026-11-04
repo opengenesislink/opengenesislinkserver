@@ -1,89 +1,78 @@
-# git clone
+# OpenGenesisLINK Generation 1.1 – .NET 10 Build
 
-get or update source from git
+> **G1.1 ist ein Entwicklungszweig.** Der produktive G1-Server und der Branch `main` werden durch die Befehle nicht automatisch aktualisiert. Für G1.1 den Branch `GEN1.1NET10` verwenden. Die älteren OpenSimulator-Bauanweisungen für .NET 8 gelten **nicht** für diesen Zweig.
 
- `git clone git://opensimulator.org/git/opensim`
-	
+## Voraussetzungen / Requirements
 
+- **.NET 10 SDK** (siehe `global.json`; mindestens 10.0.100, Feature-Rollforward innerhalb von .NET 10).
+- **.NET 10 Runtime** für ROBUST und Simulatoren; kein bloßes .NET-8-Runtime-Upgrade.
+- Linux x64, Linux ARM64 oder Windows x64; aktuelle Linux-Distribution mit `libgdiplus`, `libc6-dev`. Für optionale native OpenJPEG2-Tests zusätzlich `libopenjp2-7-dev`, `libopenjp2-tools` und `pkg-config`.
+- Für MariaDB-Livebetrieb weiterhin korrekte, separat verwaltete Zugänge, ein überprüftes Backup und eine eigene Staging-Konfiguration. **Keine Produktivzugänge im Repository.**
 
-# Building on Windows
+Prüfen:
 
-## Requirements
-  To building under Windows, the following is required:
+```bash
+dotnet --info
+dotnet --list-runtimes
+```
 
-  * [dotnet 8.0 SDK](https://dotnet.microsoft.com/en-us/download/dotnet/8.0)
+Es muss eine `Microsoft.NETCore.App 10.x`-Runtime vorhanden sein. Sicherheits- und Patchupdates innerhalb derselben Major-Version sind ausdrücklich zulässig.
 
-optionally also
+## Linux x64 / ARM64
 
-  * [Visual Studio .NET](https://visualstudio.microsoft.com/vs/features/net-development/), version 2022 or later
-  
+```bash
+git clone --branch GEN1.1NET10 https://github.com/opengenesislink/opengenesislinkserver.git
+cd opengenesislinkserver
+bash runprebuild.sh
+python3 tools/gen11/verify_net10.py
+dotnet restore OpenSim.sln
+dotnet build OpenSim.sln --configuration Release --no-restore
+```
 
-### Building
- To create the project files, run   
+**Wichtig:** Der im Repository mitgelieferte ältere `bin/prebuild.dll` erzeugt technisch noch `net8.0`-Projektdateien. `runprebuild.sh` konvertiert **direkt anschließend** die generierten TFMs zu `net10.0` und fügt die G1-Addons wieder zur Solution hinzu. Der Build selbst läuft anschließend unter .NET 10. Ein isolierter `dotnet bin/prebuild.dll`-Aufruf ohne Retarget-Schritt ist nicht das unterstützte Buildverfahren.
 
-  `runprebuild.bat`
+### ROBUST und Simulator starten
 
-run 
-  `compile.bat`
+Nur in einer gesonderten, vorbereiteten **Staging-Installation** mit eigenen INI-Dateien und eigener Datenbank starten:
 
-Or load the generated OpenSim.sln into Visual Studio and build the solution.
+```bash
+cd bin
+dotnet Robust.dll -inifile=Robust.HG.ini
+# Simulator in separater Sitzung:
+dotnet OpenSim.dll
+```
 
-Configure, see below
+Die Example-INI-Dateien sind **Vorlagen** und müssen für die Testumgebung angepasst werden. Die eingecheckten aktiven `OpenSim.ini` und `Robust.HG.ini` sind **keine** Musterkonfiguration für eine Liveumstellung.
 
-Now just run `OpenSim.exe` from the `bin` folder, and set up the region.
+## Windows x64 (PowerShell)
 
-# Building on Linux / Mac
+```powershell
+git clone --branch GEN1.1NET10 https://github.com/opengenesislink/opengenesislinkserver.git
+cd opengenesislinkserver
+cmd /c runprebuild.bat
+dotnet restore OpenSim.sln
+dotnet build OpenSim.sln --configuration Release --no-restore
+```
 
-## Requirements
+Start im vorbereiteten Staging: `dotnet bin/Robust.dll` bzw. `dotnet bin/OpenSim.dll` bei richtigem Arbeitsverzeichnis, laufenden Diensten und Konfigurationen.
 
- * [dotnet 8.0 SDK](https://dotnet.microsoft.com/en-us/download/dotnet/8.0)
- * libgdiplus 
- 
- if you have mono 6.x complete, you already have libgdiplus, otherwise you need to install it
- using a package manager for your operating system, like apt, brew, macports, etc
- for example on debian:
- 
- `apt-get update && apt-get install -y apt-utils libgdiplus libc6-dev`
+## Verbindliche automatisierte .NET-10-Prüfungen
 
-### Building
-  To create the project files, run:
+- `tools/gen11/verify_net10.py`: alle generierten Hauptprojekt-/Addon-TFMs und runtimeconfig-Dateien auf .NET 10 prüfen.
+- `tools/gen11/robust_runtime_smoke.py`: echte `Robust.dll` unter .NET 10 mit **isoliertem temporärem INI ohne Service-Connectoren** starten und nur den Loopback-HTTP-Listener prüfen; keine Verbindung zur Live-Datenbank.
+- `.github/workflows/gen11-net10.yml`: Linux-x64-Full-Solution-Build, ROBUST-Runtime-Test und Addon-/IAR-/NexBus-/Codecregressionen.
+- `.github/workflows/gen11-net10-build.yml`: Windows-x64-Full-Solution-Build und ROBUST-Runtime-Test.
+- `.github/workflows/gen11-codec-arm64.yml`: Linux-ARM64-Full-Solution-Build, ROBUST-Runtime-Test und native Codec-/ARM64-Tests.
 
-  `./runprebuild.sh`
+Der ROBUST-HTTP-Smoke ist ein **Start- und Laufzeitnachweis**, nicht die Abnahme eines produktiven Login-/Inventory-/Asset-/Hypergrid-Szenarios. Diese benötigt in G11-06 eine isolierte MariaDB/FSAssets-Staging-Kopie und echte Viewer-/Simulator-End-to-End-Tests.
 
-  then run
+## Noch offen vor einer echten G1.1-Produktionsmigration
 
- `dotnet build --configuration Release OpenSim.sln`
-  
+1. Integrationsbetrieb mit MariaDB, FSAssets/WebDAV, Inventar, Login, Simulator, ScriptEngine (LSL/OSSL), Addons und Fremd-Hypergrid.
+2. Konsistentes Backup, Restore und vollständig getesteter Rückweg auf die bisherige G1-Version.
+3. Migration aller Deployment-/systemd-/Docker-/Paketpfade auf die `dotnet`-10-Runtime; keine unkontrollierten alten `net8.0`-Binaries im Release.
+4. TLS-/World-API-/Codec-Staging-Abnahme gemäß `doc/Generation-1.1/ROADMAP.md`.
 
-Configure. See below
+---
 
-run `./opensim.sh` from the `bin` folder, and set up the region
-
-
-
-# Configure #
-## Standalone mode ##
-Copy `OpenSim.ini.example` to `OpenSim.ini` in the `bin/` directory, and verify the `[Const]` section, correcting for your case.
-
-On `[Architecture]` section uncomment only the line with Standalone.ini if you do now want HG, or the line with StandaloneHypergrid.ini if you do
-
-copy the `StandaloneCommon.ini.example` to `StandaloneCommon.ini` in the `bin/config-include` directory.
-
-The StandaloneCommon.ini file describes the database and backend services that OpenSim will use, and is set to use sqlite by default, which requires no setup.
-
-
-## Grid mode ##
-Each grid may have its own requirements, so FOLLOW your Grid instructions!
-in general:
-Copy `OpenSim.ini.example` to `OpenSim.ini` in the `bin/` directory, and verify the `[Const]` section, correcting for your case
- 
-On `[Architecture]` section uncomment only the line with Grid.ini if you do now want HG, or the line with GridHypergrid.ini if you do
-
-and copy the `GridCommon.ini.example` file to `GridCommon.ini` inside the `bin/config-include` directory and edit as necessary
-
-
-
-# References
-
-* http://opensimulator.org/wiki/Build_Instructions
-* http://opensimulator.org/wiki/Configuration
+**English quick reference:** Generation 1.1 uses the .NET 10 SDK and runtime, **not .NET 8**. Regenerate projects with `runprebuild.sh` on Linux or `runprebuild.bat` on Windows (both include the legacy-Prebuild retargeting step), then `dotnet build -c Release OpenSim.sln`. Run `tools/gen11/verify_net10.py` and the isolated ROBUST runtime smoke. Never point CI test configs at the live NexVerse database or replace production INI files automatically.

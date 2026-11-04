@@ -31,7 +31,7 @@ fi
 bash runprebuild.sh
 
 dotnet build addons/OGLWeather/OpenGenesisLINK.Addons.OGLWeather.csproj -c "$CONFIG"
-DLL="addons/OGLWeather/bin/$CONFIG/net8.0/OpenGenesisLINK.Addons.OGLWeather.dll"
+DLL="addons/OGLWeather/bin/$CONFIG/net10.0/OpenGenesisLINK.Addons.OGLWeather.dll"
 test -s "$DLL" || { echo "OGLWeather DLL missing" >&2; exit 1; }
 
 if [[ $# -eq 3 ]]; then
