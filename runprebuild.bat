@@ -4,6 +4,12 @@ copy bin\System.Drawing.Common.dll.win bin\System.Drawing.Common.dll
 
 dotnet bin\prebuild.dll /target vs2022 /targetframework net8_0 /excludedir = "obj | bin" /file prebuild.xml
 if errorlevel 1 exit /b 1
+rem Legacy generator emits net8.0; retarget generated projects to net10.0.
+py -3 tools\gen11\retarget_net10.py
+if errorlevel 1 exit /b 1
+py -3 tools\gen11\retarget_net10.py --check
+if errorlevel 1 exit /b 1
+if errorlevel 1 exit /b 1
 rem The bundled generator cannot emit net10_0 yet: retarget generated projects.
 powershell -NoProfile -ExecutionPolicy Bypass -File tools\ci\gen11_retarget_generated_csproj.ps1
 if errorlevel 1 exit /b 1

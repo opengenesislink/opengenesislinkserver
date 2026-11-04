@@ -17,7 +17,7 @@ fi
 test -f "$ROOT/bin/prebuild.dll" || { echo "Missing bin/prebuild.dll" >&2; exit 1; }
 bash runprebuild.sh
 dotnet build "addons/$NAME/OpenGenesisLINK.Addons.$NAME.csproj" --configuration "$CFG"
-DLL="$ROOT/addons/$NAME/bin/$CFG/net8.0/OpenGenesisLINK.Addons.$NAME.dll"
+DLL="$ROOT/addons/$NAME/bin/$CFG/net10.0/OpenGenesisLINK.Addons.$NAME.dll"
 test -s "$DLL" || { echo "Compiled addon not found: $DLL" >&2; exit 1; }
 if [[ "${3:-}" == "--sim-bin" ]]; then
   TARGET="$(realpath -m -- "$4")"
