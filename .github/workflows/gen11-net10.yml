@@ -138,6 +138,19 @@ jobs:
       - name: Regression test - NexBus on net10
         run: dotnet run -c Release --project tools/ci/NexBusRegression/NexBusRegression.csproj
 
+      - name: Stage isolated Linux x64 .NET 10 ROBUST and simulator runtime
+        run: |
+          python3 tools/gen11/stage_net10_runtime.py --rid linux-x64 --output "$RUNNER_TEMP/ogl-g11-linux-x64"
+          python3 tools/gen11/robust_runtime_smoke.py --bin "$RUNNER_TEMP/ogl-g11-linux-x64/bin"
+
+      - name: Upload Linux x64 .NET 10 staging runtime bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: ogl-g11-net10-linux-x64-staging
+          path: ${{ runner.temp }}/ogl-g11-linux-x64
+          if-no-files-found: error
+          retention-days: 10
+
       - name: Verify addon and generated project contracts
         run: |
           python3 tools/ci/verify_ogl_energy.py
