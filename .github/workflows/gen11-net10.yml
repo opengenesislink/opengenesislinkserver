@@ -55,6 +55,9 @@ jobs:
       - name: Build ROBUST, simulators and linked addons under .NET 10
         run: dotnet build OpenSim.sln --configuration Release --no-restore
 
+      - name: Runtime smoke - boot real ROBUST .NET 10 without DB
+        run: python3 tools/gen11/robust_runtime_smoke.py
+
       - name: Build standalone AssetService addon under .NET 10
         run: bash addon-modules/OGLAssetService/build.sh Release
 
