@@ -101,7 +101,7 @@ internal static class Program
             read.Invoke(null, new object[] { stream, id });
             throw new InvalidOperationException("Invalid cache accepted: " + label);
         }
-        catch (TargetInvocationException ex) when (ex.InnerException is IOException)
+        catch (TargetInvocationException ex) when (ex.InnerException is InvalidDataException || ex.InnerException is IOException)
         {
         }
     }
