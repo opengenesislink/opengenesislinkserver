@@ -182,72 +182,57 @@ namespace OpenSim.Data.PGSQL
             if (grp != null)
                 objects[grp.UUID] = grp;
 
-            // Instead of attempting to LoadItems on every prim,
-            // most of which probably have no items... get a
-            // list from DB of all prims which have items and
-            // LoadItems only on those
-            List<SceneObjectPart> primsWithInventory = new List<SceneObjectPart>();
-            string qry = "select distinct \"primID\" from primitems";
-            using (NpgsqlConnection conn = new NpgsqlConnection(m_connectionString))
-            using (NpgsqlCommand command = new NpgsqlCommand(qry, conn))
-            {
-                conn.Open();
-                using (NpgsqlDataReader itemReader = command.ExecuteReader())
-                {
-                    while (itemReader.Read())
-                    {
-                        if (itemReader["primID"] is not DBNull)
-                        {
-                            if(UUID.TryParse(itemReader["primID"].ToString(), out UUID primID) &&
-                                    prims.TryGetValue(primID, out SceneObjectPart sop))
-                            {
-                                primsWithInventory.Add(sop);
-                            }
-                        }
-                    }
-                }
-            }
+            // Load inventory for this region with one indexed query instead
+            // of querying every prim and scanning other regions' items.
+            int primsWithInventory = LoadItems(prims, regionUUID);
 
-            LoadItems(primsWithInventory);
-
-            _Log.DebugFormat("[REGION DB]: Loaded {0} objects using {1} prims", objects.Count, prims.Count);
+            _Log.DebugFormat("[REGION DB]: Loaded {0} objects using {1} prims; inventory from {2} prims",
+                objects.Count, prims.Count, primsWithInventory);
 
             return new List<SceneObjectGroup>(objects.Values);
         }
 
         /// <summary>
-        /// Load in the prim's persisted inventory.
+        /// Batch-load all task inventory for loaded prims in the requested region.
         /// </summary>
-        /// <param name="allPrims">all prims with inventory on a region</param>
-        private void LoadItems(List<SceneObjectPart> allPrimsWithInventory)
+        private int LoadItems(Dictionary<UUID, SceneObjectPart> prims, UUID regionUUID)
         {
-            string sql = @"SELECT * FROM primitems WHERE ""primID"" = :PrimID";
+            Dictionary<UUID, List<TaskInventoryItem>> grouped = new Dictionary<UUID, List<TaskInventoryItem>>();
+            string sql = @"SELECT inv.* FROM primitems AS inv
+                           INNER JOIN prims AS p ON p.""UUID"" = inv.""primID""
+                           WHERE p.""RegionUUID"" = :RegionUUID";
+
             using (NpgsqlConnection conn = new NpgsqlConnection(m_connectionString))
             using (NpgsqlCommand command = new NpgsqlCommand(sql, conn))
             {
+                command.Parameters.Add(_Database.CreateParameter("RegionUUID", regionUUID));
                 conn.Open();
-                foreach (SceneObjectPart objectPart in allPrimsWithInventory)
+                using (NpgsqlDataReader reader = command.ExecuteReader())
                 {
-                    command.Parameters.Clear();
-                    command.Parameters.Add(_Database.CreateParameter("PrimID", objectPart.UUID));
-
-                    List<TaskInventoryItem> inventory = new List<TaskInventoryItem>();
-
-                    using (NpgsqlDataReader reader = command.ExecuteReader())
+                    while (reader.Read())
                     {
-                        while (reader.Read())
+                        if (reader["primID"] is DBNull ||
+                            !UUID.TryParse(reader["primID"].ToString(), out UUID primID) ||
+                            !prims.TryGetValue(primID, out SceneObjectPart prim))
+                            continue;
+
+                        TaskInventoryItem item = BuildItem(reader);
+                        item.ParentID = prim.UUID; // Persisted parent folder may be stale.
+
+                        if (!grouped.TryGetValue(primID, out List<TaskInventoryItem> inventory))
                         {
-                            TaskInventoryItem item = BuildItem(reader);
-
-                            item.ParentID = objectPart.UUID; // Values in database are
-                            // often wrong
-                            inventory.Add(item);
+                            inventory = new List<TaskInventoryItem>();
+                            grouped.Add(primID, inventory);
                         }
+                        inventory.Add(item);
                     }
-
-                    objectPart.Inventory.RestoreInventoryItems(inventory);
                 }
             }
+
+            foreach (KeyValuePair<UUID, List<TaskInventoryItem>> entry in grouped)
+                prims[entry.Key].Inventory.RestoreInventoryItems(entry.Value);
+
+            return grouped.Count;
         }
 
         /// <summary>

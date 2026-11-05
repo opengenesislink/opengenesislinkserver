@@ -287,16 +287,14 @@ namespace OpenSim.Region.ClientStack.LindenUDP
             SocketAddress workSktAddress = new(m_udpSocket.AddressFamily);
             while (m_IsRunningInbound)
             {
-                UDPPacketBuffer buf = GetNewUDPBuffer(null); // we need a fresh one here, for now at least
+                UDPPacketBuffer buf = GetNewUDPBuffer(null); // fresh buffer until packet handoff
+                bool handedOff = false;
                 try
                 {
-                    int nbytes = 
+                    int nbytes =
                         await m_udpSocket.ReceiveFromAsync(buf.Data.AsMemory(), SocketFlags.None, workSktAddress, InboundCancellationSource.Token).ConfigureAwait(false);
                     if (!m_IsRunningInbound || InboundCancellationSource.IsCancellationRequested)
-                    {
-                        FreeUDPBuffer(buf);
                         return;
-                    }
 
                     if (nbytes > 0)
                     {
@@ -306,6 +304,10 @@ namespace OpenSim.Region.ClientStack.LindenUDP
                         buf.DataLength = nbytes;
                         UdpReceives++;
 
+                        // PacketReceived may free this buffer or enqueue it for
+                        // asynchronous processing; ownership transfers on entry.
+                        // Never return it to the pool a second time if it throws.
+                        handedOff = true;
                         PacketReceived(buf);
 
                         if (m_currentReceiveTimeSamples >= s_receiveTimeSamples)
@@ -322,15 +324,20 @@ namespace OpenSim.Region.ClientStack.LindenUDP
                             m_currentReceiveTimeSamples++;
                         }
                     }
-                    else
-                        FreeUDPBuffer(buf);
                 }
                 catch (OperationCanceledException)
                 {
                 }
                 catch (Exception e)
                 {
-                    m_log.Error($"[UDPBASE]: Error processing UDP receiveFrom. Exception ", e);
+                    m_log.Error("[UDPBASE]: Error processing UDP receiveFrom.", e);
+                }
+                finally
+                {
+                    // Also return the buffer after socket errors, cancellation,
+                    // endpoint conversion failures and zero-length datagrams.
+                    if (!handedOff)
+                        FreeUDPBuffer(buf);
                 }
             }
         }

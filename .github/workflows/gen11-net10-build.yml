@@ -22,6 +22,8 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '10.0.x'
+      - name: Verify nested inventory Lost And Found safety
+        run: python3 tools/ci/verify_inventory_ancestor_guard.py
       - name: Verify retargeting implementation
         run: python3 tools/ci/gen11_retarget_generated_csproj.py --self-test
       - name: Regenerate and normalize project files
