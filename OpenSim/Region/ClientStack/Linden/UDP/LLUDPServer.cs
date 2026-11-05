@@ -923,16 +923,24 @@ namespace OpenSim.Region.ClientStack.LindenUDP
             if(udpClient.PendingAcks.Count == 0)
                 return;
 
-            UDPPacketBuffer buf = GetNewUDPBuffer(udpClient.RemoteEndPoint);
-            Buffer.BlockCopy(PacketAckHeader, 0, buf.Data, 0, 10);
-            byte[] data = buf.Data;
-            // count at position 10
-            int pos = 11;
-
+            // Allocate the next packet only when another ACK actually arrives.
+            // Otherwise, exact multiples of 255 leave an unused pool buffer behind.
+            UDPPacketBuffer buf = null;
+            byte[] data = null;
+            int pos = 11; // ACK count is at offset 10
             int count = 0;
             while (udpClient.PendingAcks.Dequeue(out uint ack))
             {
-                Utils.UIntToBytes(ack, data, pos); pos += 4;
+                if (count == 0)
+                {
+                    buf = GetNewUDPBuffer(udpClient.RemoteEndPoint);
+                    Buffer.BlockCopy(PacketAckHeader, 0, buf.Data, 0, 10);
+                    data = buf.Data;
+                    pos = 11;
+                }
+
+                Utils.UIntToBytes(ack, data, pos);
+                pos += 4;
                 ++count;
 
                 if (count == 255)
@@ -940,11 +948,6 @@ namespace OpenSim.Region.ClientStack.LindenUDP
                     data[10] = 255;
                     buf.DataLength = pos;
                     SendUDPPacket(udpClient, buf, ThrottleOutPacketType.Unknown);
-
-                    buf = GetNewUDPBuffer(udpClient.RemoteEndPoint);
-                    Buffer.BlockCopy(PacketAckHeader, 0, buf.Data, 0, 10);
-                    data = buf.Data;
-                    pos = 11;
                     count = 0;
                 }
             }
