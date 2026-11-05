@@ -1,0 +1,35 @@
+name: OGL BulletSim Avatar Stair Assist
+
+on:
+  pull_request:
+    paths:
+      - 'OpenSim/Region/PhysicsModules/BulletS/BSActorAvatarMove.cs'
+      - 'OpenSim/Region/PhysicsModules/BulletS/BSParam.cs'
+      - 'bin/OpenSimDefaults.ini'
+      - 'tools/ci/AvatarStairAssistRegression/**'
+      - 'tools/ci/verify_avatar_stair_assist.py'
+      - '.github/workflows/ogl-avatar-stair-assist.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  avatar-stair-assist:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: Verify safe stair-assist boundaries and configuration
+        run: python3 tools/ci/verify_avatar_stair_assist.py
+      - name: Generate .NET 10 projects
+        run: |
+          chmod +x runprebuild.sh
+          ./runprebuild.sh
+      - name: Compile OpenGenesisLINK .NET 10 simulator and BulletSim
+        run: dotnet build OpenSim.sln -c Release
+      - name: Test avatar stair rise and travel direction
+        run: dotnet run --project tools/ci/AvatarStairAssistRegression/AvatarStairAssistRegression.csproj -c Release
