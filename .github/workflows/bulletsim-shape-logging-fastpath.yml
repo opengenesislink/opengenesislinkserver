@@ -1,0 +1,20 @@
+name: BulletSim Shape Logging Fastpath
+
+on:
+  pull_request:
+    paths:
+      - 'OpenSim/Region/PhysicsModules/BulletS/BSShapeCollection.cs'
+      - 'tools/ci/verify_bulletsim_shape_logging_fastpath.py'
+      - '.github/workflows/bulletsim-shape-logging-fastpath.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  bulletsim-shape-logging:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Guard disabled shape diagnostics and preserve native broadphase
+        run: python3 tools/ci/verify_bulletsim_shape_logging_fastpath.py
