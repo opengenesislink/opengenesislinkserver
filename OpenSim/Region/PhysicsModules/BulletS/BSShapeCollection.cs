@@ -91,8 +91,10 @@ namespace OpenSim.Region.PhysicsModule.BulletS
                 bool newBody = CreateBody((newGeom || forceRebuild), prim, m_physicsScene.World, bodyCallback);
                 ret = newGeom || newBody;
             }
-            DetailLog("{0},BSShapeCollection.GetBodyAndShape,taintExit,force={1},ret={2},body={3},shape={4}",
-                                    prim.LocalID, forceRebuild, ret, prim.PhysBody, prim.PhysShape);
+            // Skip formatting/params allocation when detailed physics logging is off.
+            if (m_physicsScene.PhysicsLogging.Enabled)
+                DetailLog("{0},BSShapeCollection.GetBodyAndShape,taintExit,force={1},ret={2},body={3},shape={4}",
+                                        prim.LocalID, forceRebuild, ret, prim.PhysBody, prim.PhysShape);
 	    
             return ret;
         }
@@ -182,7 +184,7 @@ namespace OpenSim.Region.PhysicsModule.BulletS
                 if (prim.PhysShape.HasPhysicalShape)
                     scaleOfExistingShape = m_physicsScene.PE.GetLocalScaling(prim.PhysShape.physShapeInfo);
 	    
-                if (DDetail) DetailLog("{0},BSShapeCollection.CreateGeom,maybeNative,force={1},primScale={2},primSize={3},primShape={4}",
+                if (DDetail && m_physicsScene.PhysicsLogging.Enabled) DetailLog("{0},BSShapeCollection.CreateGeom,maybeNative,force={1},primScale={2},primSize={3},primShape={4}",
                             prim.LocalID, forceRebuild, prim.Scale, prim.Size, prim.PhysShape.physShapeInfo.shapeType);
 	    
                 // It doesn't look like Bullet scales native spheres so make sure the scales are all equal
@@ -199,7 +201,7 @@ namespace OpenSim.Region.PhysicsModule.BulletS
                                                 BSPhysicsShapeType.SHAPE_SPHERE, FixedShapeKey.KEY_SPHERE);
                         ret = true;
                     }
-                    if (DDetail) DetailLog("{0},BSShapeCollection.CreateGeom,sphere,force={1},rebuilt={2},shape={3}",
+                    if (DDetail && m_physicsScene.PhysicsLogging.Enabled) DetailLog("{0},BSShapeCollection.CreateGeom,sphere,force={1},rebuilt={2},shape={3}",
                                             prim.LocalID, forceRebuild, ret, prim.PhysShape);
                 }
                 // If we didn't make a sphere, maybe a box will work.
@@ -216,7 +218,7 @@ namespace OpenSim.Region.PhysicsModule.BulletS
                                                 BSPhysicsShapeType.SHAPE_BOX, FixedShapeKey.KEY_BOX);
                         ret = true;
                     }
-                    if (DDetail) DetailLog("{0},BSShapeCollection.CreateGeom,box,force={1},rebuilt={2},shape={3}",
+                    if (DDetail && m_physicsScene.PhysicsLogging.Enabled) DetailLog("{0},BSShapeCollection.CreateGeom,box,force={1},rebuilt={2},shape={3}",
                                             prim.LocalID, forceRebuild, ret, prim.PhysShape);
                 }
             }
@@ -295,7 +297,7 @@ namespace OpenSim.Region.PhysicsModule.BulletS
                     // The current shape on the prim is the correct one. We don't need the potential reference.
                     potentialHull.Dereference(m_physicsScene);
                 }
-                if (DDetail) DetailLog("{0},BSShapeCollection.CreateGeom,hull,shape={1}", prim.LocalID, prim.PhysShape);
+                if (DDetail && m_physicsScene.PhysicsLogging.Enabled) DetailLog("{0},BSShapeCollection.CreateGeom,hull,shape={1}", prim.LocalID, prim.PhysShape);
             }
             else
             {
@@ -315,7 +317,7 @@ namespace OpenSim.Region.PhysicsModule.BulletS
                     // We don't need this reference to the mesh that is already being using.
                     potentialMesh.Dereference(m_physicsScene);
                 }
-                if (DDetail) DetailLog("{0},BSShapeCollection.CreateGeom,mesh,shape={1}", prim.LocalID, prim.PhysShape);
+                if (DDetail && m_physicsScene.PhysicsLogging.Enabled) DetailLog("{0},BSShapeCollection.CreateGeom,mesh,shape={1}", prim.LocalID, prim.PhysShape);
             }
             return ret;
         }
@@ -327,11 +329,11 @@ namespace OpenSim.Region.PhysicsModule.BulletS
         {
             lock (m_collectionActivityLock)
             {
-                if (DDetail) DetailLog("{0},BSShapeCollection.ReferenceBody,newBody,body={1}", body.ID, body);
+                if (DDetail && m_physicsScene.PhysicsLogging.Enabled) DetailLog("{0},BSShapeCollection.ReferenceBody,newBody,body={1}", body.ID, body);
                 if (!m_physicsScene.PE.IsInWorld(m_physicsScene.World, body))
                 {
                     m_physicsScene.PE.AddObjectToWorld(m_physicsScene.World, body);
-                    if (DDetail) DetailLog("{0},BSShapeCollection.ReferenceBody,addedToWorld,ref={1}", body.ID, body);
+                    if (DDetail && m_physicsScene.PhysicsLogging.Enabled) DetailLog("{0},BSShapeCollection.ReferenceBody,addedToWorld,ref={1}", body.ID, body);
                 }
             }
         }
@@ -346,7 +348,7 @@ namespace OpenSim.Region.PhysicsModule.BulletS
 	    
             lock (m_collectionActivityLock)
             {
-                if (DDetail) DetailLog("{0},BSShapeCollection.DereferenceBody,DestroyingBody,body={1}", body.ID, body);
+                if (DDetail && m_physicsScene.PhysicsLogging.Enabled) DetailLog("{0},BSShapeCollection.DereferenceBody,DestroyingBody,body={1}", body.ID, body);
                 // If the caller needs to know the old body is going away, pass the event up.
                 if (bodyCallback != null)
                     bodyCallback(body, null);
@@ -382,7 +384,7 @@ namespace OpenSim.Region.PhysicsModule.BulletS
                 {
                     // If the collisionObject is not the correct type for solidness, rebuild what's there
                     mustRebuild = true;
-                    if (DDetail) DetailLog("{0},BSShapeCollection.CreateBody,forceRebuildBecauseChangingBodyType,bodyType={1}", prim.LocalID, bodyType);
+                    if (DDetail && m_physicsScene.PhysicsLogging.Enabled) DetailLog("{0},BSShapeCollection.CreateBody,forceRebuildBecauseChangingBodyType,bodyType={1}", prim.LocalID, bodyType);
                 }
             }
 	    
@@ -395,12 +397,12 @@ namespace OpenSim.Region.PhysicsModule.BulletS
                 if (prim.IsSolid)
                 {
                     aBody = m_physicsScene.PE.CreateBodyFromShape(sim, prim.PhysShape.physShapeInfo, prim.LocalID, prim.RawPosition, prim.RawOrientation);
-                    if (DDetail) DetailLog("{0},BSShapeCollection.CreateBody,rigid,body={1}", prim.LocalID, aBody);
+                    if (DDetail && m_physicsScene.PhysicsLogging.Enabled) DetailLog("{0},BSShapeCollection.CreateBody,rigid,body={1}", prim.LocalID, aBody);
                 }
                 else
                 {
                     aBody = m_physicsScene.PE.CreateGhostFromShape(sim, prim.PhysShape.physShapeInfo, prim.LocalID, prim.RawPosition, prim.RawOrientation);
-                    if (DDetail) DetailLog("{0},BSShapeCollection.CreateBody,ghost,body={1}", prim.LocalID, aBody);
+                    if (DDetail && m_physicsScene.PhysicsLogging.Enabled) DetailLog("{0},BSShapeCollection.CreateBody,ghost,body={1}", prim.LocalID, aBody);
                 }
 	    
                 ReferenceBody(aBody);
