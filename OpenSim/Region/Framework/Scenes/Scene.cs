@@ -392,8 +392,9 @@ namespace OpenSim.Region.Framework.Scenes
         /// Signals whether temporary objects are currently being cleaned up.  Needed because this is launched
         /// asynchronously from the update loop.
         /// </summary>
-        private bool m_cleaningTemps = false;
-        private bool m_sendingCoarseLocations = false; // same for async course locations sending
+        // Updated by worker threads and observed by the scene heartbeat.
+        private volatile bool m_cleaningTemps = false;
+        private volatile bool m_sendingCoarseLocations = false; // async coarse-location updates
 
         // TODO: Possibly stop other classes being able to manipulate this directly.
         private readonly SceneGraph m_sceneGraph;
@@ -1763,18 +1764,37 @@ namespace OpenSim.Region.Framework.Scenes
                     if (!m_sendingCoarseLocations && GetNumberOfClients() > 0 && Frame % m_update_coarse_locations == 0)
                     {
                         m_sendingCoarseLocations = true;
-                        WorkManager.RunInThreadPool(
-                            delegate
-                            {
-                                SceneGraph.GetCoarseLocations(out List<Vector3> coarseLocations, out List<UUID> avatarUUIDs, 60);
-                                // Send coarse locations to clients
-                                ForEachScenePresence(delegate(ScenePresence presence)
+                        try
+                        {
+                            WorkManager.RunInThreadPool(
+                                delegate
                                 {
-                                    if(!presence.IsNPC)
-                                        presence.SendCoarseLocations(coarseLocations, avatarUUIDs);
-                                });
-                                m_sendingCoarseLocations = false; 
-                            }, null, string.Format("SendCoarseLocations ({0})", Name));
+                                    try
+                                    {
+                                        SceneGraph.GetCoarseLocations(out List<Vector3> coarseLocations, out List<UUID> avatarUUIDs, 60);
+                                        // Send coarse locations to clients.
+                                        ForEachScenePresence(delegate(ScenePresence presence)
+                                        {
+                                            if (!presence.IsNPC)
+                                                presence.SendCoarseLocations(coarseLocations, avatarUUIDs);
+                                        });
+                                    }
+                                    catch (Exception e)
+                                    {
+                                        m_log.Error("[SCENE]: Failed to send coarse locations in " + Name, e);
+                                    }
+                                    finally
+                                    {
+                                        m_sendingCoarseLocations = false;
+                                    }
+                                }, null, string.Format("SendCoarseLocations ({0})", Name));
+                        }
+                        catch
+                        {
+                            // A failed work-item submission must also release the guard.
+                            m_sendingCoarseLocations = false;
+                            throw;
+                        }
                     }
 
                     // Get the simulation frame time that the avatar force input
@@ -1821,8 +1841,30 @@ namespace OpenSim.Region.Framework.Scenes
                     if (Frame % m_update_temp_cleaning == 0 && !m_cleaningTemps)
                     {
                         m_cleaningTemps = true;
-                        WorkManager.RunInThreadPool(
-                            delegate { CleanTempObjects(); m_cleaningTemps = false; }, null, $"CleanTempObjects ({Name})");
+                        try
+                        {
+                            WorkManager.RunInThreadPool(
+                                delegate
+                                {
+                                    try
+                                    {
+                                        CleanTempObjects();
+                                    }
+                                    catch (Exception e)
+                                    {
+                                        m_log.Error("[SCENE]: Failed to clean temporary objects in " + Name, e);
+                                    }
+                                    finally
+                                    {
+                                        m_cleaningTemps = false;
+                                    }
+                                }, null, $"CleanTempObjects ({Name})");
+                        }
+                        catch
+                        {
+                            m_cleaningTemps = false;
+                            throw;
+                        }
                         nowMS = Util.GetTimeStampMS();
                         tempOnRezMS = (float)(nowMS - lastMS); // bad.. counts the FireAndForget, not CleanTempObjects
                         lastMS = nowMS;

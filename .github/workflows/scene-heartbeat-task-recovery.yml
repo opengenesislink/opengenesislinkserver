@@ -1,0 +1,20 @@
+name: Scene Heartbeat Task Recovery
+
+on:
+  pull_request:
+    paths:
+      - 'OpenSim/Region/Framework/Scenes/Scene.cs'
+      - 'tools/ci/verify_scene_heartbeat_task_recovery.py'
+      - '.github/workflows/scene-heartbeat-task-recovery.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  heartbeat-task-recovery:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Assert coarse-location and temp-cleanup tasks always release guards
+        run: python3 tools/ci/verify_scene_heartbeat_task_recovery.py
