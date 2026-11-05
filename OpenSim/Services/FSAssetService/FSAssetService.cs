@@ -528,9 +528,9 @@ namespace OpenSim.Services.FSAssetService
             }
             catch (Exception exception)
             {
-                m_log.Error(exception.ToString());
-                Thread.Sleep(5000);
-                Environment.Exit(1);
+                // A corrupt or temporarily unreadable asset must not shut down
+                // the entire ROBUST process (and all unrelated asset requests).
+                m_log.Error("[FSASSETS]: Failed to retrieve asset " + id + ": " + exception);
                 return null;
             }
         }
@@ -630,6 +630,13 @@ namespace OpenSim.Services.FSAssetService
         private string Store(AssetBase asset, bool force)
         {
             int tickCount = Environment.TickCount;
+            // Normalize object XML before calculating the content-addressed digest.
+            // The metadata hash must always refer to exactly the bytes we persist.
+            if (asset.Type == (int)AssetType.Object && asset.Data != null)
+            {
+                string xml = ExternalRepresentationUtils.SanitizeXml(Utils.BytesToString(asset.Data));
+                asset.Data = Utils.StringToBytes(xml);
+            }
             string hash = GetSHA256Hash(asset.Data);
 
             if (asset.Name.Length > AssetBase.MAX_ASSET_NAME)
@@ -657,14 +664,6 @@ namespace OpenSim.Services.FSAssetService
 
                 if (!File.Exists(finalFile))
                 {
-                    // Deal with bug introduced in Oct. 20 (1eb3e6cc43e2a7b4053bc1185c7c88e22356c5e8)
-                    // Fix bad assets before storing on this server
-                    if (asset.Type == (int)AssetType.Object && asset.Data != null)
-                    {
-                        string xml = ExternalRepresentationUtils.SanitizeXml(Utils.BytesToString(asset.Data));
-                        asset.Data = Utils.StringToBytes(xml);
-                    }
-
                     FileStream fs = File.Create(tempFile);
 
                     fs.Write(asset.Data, 0, asset.Data.Length);

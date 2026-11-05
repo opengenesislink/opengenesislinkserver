@@ -254,9 +254,8 @@ namespace OpenSim.Data.MySQL
                     {
                         cmd.CommandText = String.Format("insert into {0} (id, name, description, type, hash, asset_flags, create_time, access_time) values ( ?id, ?name, ?description, ?type, ?hash, ?asset_flags, UNIX_TIMESTAMP(), UNIX_TIMESTAMP())", m_Table);
 
-                        ExecuteNonQuery(cmd);
-
-                        return true;
+                        // Failed INSERTs must not be acknowledged as durable metadata.
+                        return ExecuteNonQuery(cmd);
                     }
 
                     //cmd.CommandText = String.Format("update {0} set hash = ?hash, access_time = UNIX_TIMESTAMP() where id = ?id", m_Table);

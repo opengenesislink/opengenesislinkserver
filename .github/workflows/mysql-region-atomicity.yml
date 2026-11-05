@@ -1,0 +1,52 @@
+name: MariaDB Region Atomicity Regression
+
+on:
+  pull_request:
+    paths:
+      - 'OpenSim/Data/MySQL/MySQLSimulationData.cs'
+      - 'tools/ci/verify_mysql_region_atomicity.py'
+      - 'tools/ci/MySqlRegionAtomicityRegression/**'
+      - '.github/workflows/mysql-region-atomicity.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  mysql-region-rollback:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    services:
+      mariadb:
+        image: mariadb:11
+        env:
+          MARIADB_ROOT_PASSWORD: ogl-test-only
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=5s --health-timeout=5s --health-retries=20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: Guard object and terrain transaction boundaries
+        run: python3 tools/ci/verify_mysql_region_atomicity.py
+      - name: Generate .NET 10 projects
+        run: |
+          chmod +x runprebuild.sh
+          ./runprebuild.sh
+      - name: Compile OpenGenesisLINK .NET 10
+        run: dotnet build OpenSim.sln --configuration Release
+      - name: Prepare disposable MariaDB regression schema
+        env:
+          MYSQL_PWD: ogl-test-only
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq mariadb-client
+          mysql --protocol=tcp -h 127.0.0.1 -P 3306 -u root -e "CREATE DATABASE ogl_region_atomic_ci;"
+      - name: Exercise object and inventory rollback after injected SQL failures
+        env:
+          OGL_MYSQL_REGION_TX_CI_PASSWORD: ogl-test-only
+        run: dotnet run --project tools/ci/MySqlRegionAtomicityRegression/MySqlRegionAtomicityRegression.csproj --configuration Release

@@ -4,6 +4,15 @@ from pathlib import Path
 import json
 
 root = Path(__file__).resolve().parents[2]
+
+# Public server banners must not expose Git commit hashes or .version contents.
+# Generation 1/1.1 is selected in VersionInfo, independently of the build SHA.
+server_base = (root / "OpenSim/Framework/Servers/ServerBase.cs").read_text()
+version_info = (root / "OpenSim/Framework/VersionInfo.cs").read_text()
+assert "m_version = VersionInfo.Version.Trim();" in server_base
+assert "EnhanceVersionInformation" not in server_base
+assert "m_version +=" not in server_base
+assert 'PublicVersionName = ProductName + " " + PublicGenerationName;' in version_info
 core = (root / "OpenSim/Region/CoreModules/OpenSim.Region.CoreModules.csproj").read_text()
 assert "<TargetFramework>net10.0</TargetFramework>" in core
 assert "OglImageCodecEngine.cs" not in core, "G11-02 codec accidentally included"

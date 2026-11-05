@@ -1,0 +1,20 @@
+name: UDP ACK Buffer Regression
+
+on:
+  pull_request:
+    paths:
+      - 'OpenSim/Region/ClientStack/Linden/UDP/LLUDPServer.cs'
+      - 'tools/ci/verify_udp_ack_batch_buffers.py'
+      - '.github/workflows/udp-ack-buffer-regression.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  udp-ack-batching:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Guard lazy ACK batch buffer allocation
+        run: python3 tools/ci/verify_udp_ack_batch_buffers.py

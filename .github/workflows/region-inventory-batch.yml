@@ -1,0 +1,67 @@
+name: Region Inventory Batch Regression
+
+on:
+  pull_request:
+    paths:
+      - 'OpenSim/Data/MySQL/MySQLSimulationData.cs'
+      - 'OpenSim/Data/PGSQL/PGSQLSimulationData.cs'
+      - 'tools/ci/RegionInventoryBatchRegression/**'
+      - 'tools/ci/verify_region_inventory_batch.py'
+      - '.github/workflows/region-inventory-batch.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  region-inventory-batch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    services:
+      mariadb:
+        image: mariadb:11
+        env:
+          MARIADB_ROOT_PASSWORD: ogl-test-only
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=5s --health-timeout=5s --health-retries=20
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: ogl-test-only
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres"
+          --health-interval=5s --health-timeout=5s --health-retries=20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: Verify both inventory loaders are region-scoped and batched
+        run: python3 tools/ci/verify_region_inventory_batch.py
+      - name: Generate projects and build core
+        run: |
+          chmod +x runprebuild.sh
+          ./runprebuild.sh
+          dotnet build OpenSim.sln --configuration Release
+      - name: Prepare disposable database schemas
+        env:
+          MYSQL_PWD: ogl-test-only
+          PGPASSWORD: ogl-test-only
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq mariadb-client postgresql-client
+          mysql --protocol=tcp -h 127.0.0.1 -P 3306 -u root -e "CREATE DATABASE ogl_region_batch_ci;"
+          psql -X -v ON_ERROR_STOP=1 -h 127.0.0.1 -p 5432 -U postgres -d postgres -c "CREATE DATABASE ogl_region_batch_ci;"
+      - name: Region inventory isolation and batch regression MariaDB
+        env:
+          OGL_REGION_BATCH_CI_PASSWORD: ogl-test-only
+        run: dotnet run --project tools/ci/RegionInventoryBatchRegression/RegionInventoryBatchRegression.csproj --configuration Release -- mysql
+      - name: Region inventory isolation and batch regression PostgreSQL
+        env:
+          OGL_REGION_BATCH_CI_PASSWORD: ogl-test-only
+        run: dotnet run --project tools/ci/RegionInventoryBatchRegression/RegionInventoryBatchRegression.csproj --configuration Release -- pgsql

@@ -39,6 +39,8 @@ jobs:
         run: |
           chmod +x runprebuild.sh
           ./runprebuild.sh
+      - name: Verify legacy FSAssets metadata and content-hash invariants
+        run: python3 tools/ci/verify_fsassets_store_integrity.py
       - name: Compile full OpenSimulator solution (includes both FSAsset SQL providers)
         run: dotnet build OpenSim.sln -c Release
       - name: Compile OGL AssetService connector and atomic write integration

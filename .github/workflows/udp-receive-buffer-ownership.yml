@@ -1,0 +1,20 @@
+name: UDP Receive Buffer Ownership
+
+on:
+  pull_request:
+    paths:
+      - 'OpenSim/Region/ClientStack/Linden/UDP/OpenSimUDPBase.cs'
+      - 'tools/ci/verify_udp_receive_buffer_ownership.py'
+      - '.github/workflows/udp-receive-buffer-ownership.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  udp-receive-buffer-ownership:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Guard UDP receive cancellation and ownership
+        run: python3 tools/ci/verify_udp_receive_buffer_ownership.py

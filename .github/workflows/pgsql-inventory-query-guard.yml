@@ -1,0 +1,20 @@
+name: PostgreSQL Inventory Query Guard
+
+on:
+  pull_request:
+    paths:
+      - 'OpenSim/Data/PGSQL/PGSQLGenericTableHandler.cs'
+      - 'tools/ci/verify_pgsql_inventory_query.py'
+      - '.github/workflows/pgsql-inventory-query-guard.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  parameterized-query-guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify PostgreSQL multi-key query is parameterized
+        run: python3 tools/ci/verify_pgsql_inventory_query.py
