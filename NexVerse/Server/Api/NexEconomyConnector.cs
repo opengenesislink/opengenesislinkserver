@@ -31,6 +31,8 @@ namespace NexVerse.Server.Api
 
         private IUserAccountService m_UserAccounts;
         private IInstantMessage m_InstantMessages;
+        private TimeZoneInfo m_DailyLoginRewardZone;
+        private static NexEconomyConnector s_DailyLoginSubscriber;
 
         public static NexEconomyConnector Current { get; private set; }
 
@@ -131,6 +133,64 @@ namespace NexVerse.Server.Api
 
             InitializeConsoleAdministration(
                 config);
+
+            if (economy.GetBoolean("DailyLoginRewardEnabled", false))
+            {
+                string zoneId = economy.GetString("DailyLoginRewardTimezone", "Europe/Berlin").Trim();
+                try
+                {
+                    m_DailyLoginRewardZone = TimeZoneInfo.FindSystemTimeZoneById(zoneId);
+                }
+                catch (Exception e)
+                {
+                    m_Log.ErrorFormat(
+                        "[NEX-LOGIN-REWARD]: Invalid timezone {0}; rewards disabled: {1}",
+                        zoneId, e.Message);
+                    return;
+                }
+
+                lock (s_Sync)
+                {
+                    // A reinitialized connector must never attach duplicate listeners.
+                    if (s_DailyLoginSubscriber != null)
+                        NexResidentLoginEvents.SuccessfulLocalLogin -=
+                            s_DailyLoginSubscriber.HandleSuccessfulLocalLogin;
+                    NexResidentLoginEvents.SuccessfulLocalLogin += HandleSuccessfulLocalLogin;
+                    s_DailyLoginSubscriber = this;
+                }
+                m_Log.InfoFormat(
+                    "[NEX-LOGIN-REWARD]: 7-day NV$ rewards active (calendar timezone {0}).",
+                    m_DailyLoginRewardZone.Id);
+            }
+        }
+
+        private void HandleSuccessfulLocalLogin(Guid residentId, string displayName)
+        {
+            if (!Enabled || Economy == null || m_DailyLoginRewardZone == null)
+                return;
+
+            try
+            {
+                DateOnly localDate = DateOnly.FromDateTime(
+                    TimeZoneInfo.ConvertTime(DateTimeOffset.UtcNow, m_DailyLoginRewardZone).DateTime);
+                var reward = Economy.CreditResidentDailyLoginBonus(
+                    residentId, displayName, localDate);
+                if (reward.Credited)
+                {
+                    m_Log.InfoFormat(
+                        "[NEX-LOGIN-REWARD]: {0} credited {1} NV$ (day {2}/7, {3}, transaction {4}).",
+                        residentId, reward.Amount, reward.Day,
+                        localDate.ToString("yyyy-MM-dd"), reward.TransactionId);
+                }
+            }
+            catch (Exception e)
+            {
+                // Do not block the viewer login. An uncredited user can retry
+                // by logging in again on the same calendar day.
+                m_Log.ErrorFormat(
+                    "[NEX-LOGIN-REWARD]: Credit for local resident {0} failed: {1}",
+                    residentId, e);
+            }
         }
 
         private void InitializeConsoleAdministration(
