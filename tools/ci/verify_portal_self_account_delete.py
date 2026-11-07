@@ -66,7 +66,7 @@ for path, expected in (
 
 docs = read("doc/NexVerse/PORTAL_SELF_ACCOUNT_DELETE.md")
 for marker in ("Konto & Sicherheit", "CSRF", "Bearer", "logout_required",
-               "core_identity_only", "109.91.20.9"):
+               "core_identity_only", "152.53.143.155"):
     assert marker in docs, marker
 
 print("Citizen self-account-deletion API and explicit portal logout contract: OK")

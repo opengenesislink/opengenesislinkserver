@@ -53,7 +53,7 @@ Keine Passwoerter oder Tokens loggen. Dem Browser keinen
 [NexVerseWorldApi]
 EnableNativeTokens = true
 PortalAccountSelfDeleteEnabled = true
-PortalRegistrationTrustedProxyIPs = "109.91.20.9"
+PortalRegistrationTrustedProxyIPs = "152.53.143.155"
 ```
 
 Die benoetigte Proxy-IP entspricht der tatsaechlichen TCP-Quelladresse
