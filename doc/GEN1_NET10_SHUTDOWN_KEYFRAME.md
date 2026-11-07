@@ -45,3 +45,10 @@ The packet ACK queues are replaced with empty instances instead of assigned
 `null`. Late acknowledgements/packet callbacks can no longer throw solely
 because the queues were nulled out on disconnect. Concurrent packet cleanup
 still needs an in-world high-churn stress test.
+
+## Headless main-thread shutdown order
+
+`OpenSimBackground` previously signalled the main startup waiter *before* its
+base shutdown completed. The completion event is now signalled from a
+`finally` block **after** application cleanup, preventing the main
+thread from treating an in-progress shutdown as completed.

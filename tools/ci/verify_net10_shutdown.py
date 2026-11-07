@@ -15,6 +15,9 @@ assert "IsBackground = true" in scenes
 assert "scene.Close();" in scenes
 assert "plugin.Dispose()" in base
 assert "SceneManager.Close(regionCloseTimeoutSeconds)" in base
+background = (root / "OpenSim/Region/Application/OpenSimBackground.cs").read_text()
+shutdown = background.split("public override void Shutdown()", 1)[1]
+assert shutdown.index("base.Shutdown();") < shutdown.index("WorldHasComeToAnEnd.Set();")
 assert "m_pendingAdds = null;" not in udp
 assert "m_pendingAcknowledgements = null;" not in udp
 assert "m_pendingRemoves = null;" not in udp

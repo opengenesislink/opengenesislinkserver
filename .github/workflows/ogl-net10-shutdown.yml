@@ -8,6 +8,7 @@ on:
       - 'OpenSim/Region/Framework/Scenes/SceneManager.cs'
       - 'OpenSim/Region/Framework/Scenes/Scene.cs'
       - 'OpenSim/Region/Application/OpenSimBase.cs'
+      - 'OpenSim/Region/Application/OpenSimBackground.cs'
       - 'tools/ci/Net10ShutdownRegression/**'
       - 'tools/ci/verify_net10_shutdown.py'
       - '.github/workflows/ogl-net10-shutdown.yml'

@@ -64,11 +64,27 @@ namespace OpenSim
         /// <summary>
         /// Performs any last-minute sanity checking and shuts down the region server
         /// </summary>
+        private int m_oglShutdownStarted;
+
         public override void Shutdown()
         {
-            WorldHasComeToAnEnd.Set();
-            m_log.Info("[OPENSIM MAIN]: World has come to an end");
-            base.Shutdown();
+            if (Interlocked.Exchange(ref m_oglShutdownStarted, 1) != 0)
+            {
+                m_log.Warn("[OGL SHUTDOWN]: Duplicate background shutdown request ignored.");
+                return;
+            }
+
+            try
+            {
+                // Do not release the main Startup() waiter until the scene
+                // manager and application plugins have finished their teardown.
+                base.Shutdown();
+            }
+            finally
+            {
+                m_log.Info("[OPENSIM MAIN]: World has come to an end after shutdown cleanup");
+                WorldHasComeToAnEnd.Set();
+            }
         }
     }
 }
