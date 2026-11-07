@@ -14,6 +14,7 @@ on:
       - 'OpenSim/Region/Application/OpenSimBackground.cs'
       - 'tools/ci/Net10ShutdownRegression/**'
       - 'tools/ci/verify_net10_shutdown.py'
+      - 'tools/ci/smoke_g1_multi_region_shutdown.py'
       - 'tools/ci/verify_avatar_evacuation.py'
       - '.github/workflows/ogl-net10-shutdown.yml'
   workflow_dispatch:
@@ -40,3 +41,5 @@ jobs:
         run: dotnet build OpenSim.sln -c Release
       - name: Test safe keyframe format and disconnect
         run: dotnet run --project tools/ci/Net10ShutdownRegression/Net10ShutdownRegression.csproj -c Release
+      - name: Stop a real multi-region .NET 10 simulator using its console
+        run: python3 tools/ci/smoke_g1_multi_region_shutdown.py
