@@ -136,9 +136,11 @@ OGL-Viewer-Renderer bleibt ein separates Entwicklungsziel.
 ### OSSL-Berechtigung für dynamische Wetteranzeigen
 
 Die Texturtafeln (inklusive eigener Skripte, die `osSetDynamicTextureData`
-verwenden) benötigen eine explizite Freigabe. Das aktive
-`bin/OpenSim.ini` und die Beispielvorlage setzen unter `[OSSL]`:
-`Allow_osSetDynamicTextureData = true`. Das genügt sowohl für
+verwenden) benötigen eine explizite Freigabe. Die tatsächlich zuletzt
+geladene `bin/config-include/osslEnable.ini` setzt unter `[OSSL]`
+`Allow_osSetDynamicTextureData = true`. `bin/OpenSim.ini` bindet über
+`osslDefaultEnable.ini` diese abschließende Override-Datei ein.
+Die Freigabe genügt sowohl für
 `osSetDynamicTextureData` als auch für `osSetDynamicTextureDataFace`,
 weil beide im aktuellen Server denselben Berechtigungsnamen prüfen.
 Das globale `OSFunctionThreatLevel` wird **nicht erhöht**.

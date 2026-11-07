@@ -152,15 +152,20 @@ assert "OGLSeasons" not in workflow, "obsolete CI weather gate still active"
 assert "OGLSeasons" not in read("runprebuild.sh"), "obsolete compile step still active"
 assert "OGLWeather" in read("runprebuild.sh"), "new addon missing from compile script"
 
-# Public Stadt NexVerse weather/text boards render under ordinary resident
-# ownership, not just ESTATE_MANAGER/ESTATE_OWNER. Only the VeryLow dynamic
-# texture renderer is enabled: no global OSSL threat-level escalation.
+# Config loader merges OpenSim.ini, then the included osslDefaultEnable.ini
+# and ultimately config-include/osslEnable.ini. Override the final included
+# profile rather than setting an ineffective key in OpenSim.ini itself.
 for path in ("bin/OpenSim.ini", "bin/OpenSim.ini.example"):
     settings = read(path)
     ossl = settings.split("[OSSL]", 1)[1].split("\n[", 1)[0]
     assert 'Include-osslDefaultEnable = "config-include/osslDefaultEnable.ini"' in ossl
-    assert "Allow_osSetDynamicTextureData = true" in ossl
-    assert "OSFunctionThreatLevel =" not in ossl, "never escalate OSSL threat level"
+    assert "Allow_osSetDynamicTextureData =" not in ossl
+base_ossl = read("bin/config-include/osslDefaultEnable.ini")
+assert 'Include-osslEnable = "config-include/osslEnable.ini"' in base_ossl
+override_ossl = read("bin/config-include/osslEnable.ini")
+assert "Allow_osSetDynamicTextureData = true" in override_ossl
+assert "OSFunctionThreatLevel = NoAccess" in override_ossl, "do not increase global OSSL threat level"
+assert override_ossl.count("Allow_osSetDynamicTextureData = true") == 1
 dynamic_api = read("OpenSim/Region/ScriptEngine/Shared/Api/Implementation/OSSL_Api.cs")
 assert 'CheckThreatLevel(ThreatLevel.VeryLow, "osSetDynamicTextureData")' in dynamic_api
 print("OGLWeather static contracts: simulator-wide, deterministic, opt-in, native viewer CAPS plus bounded ephemeral Firestorm particles PASS")
