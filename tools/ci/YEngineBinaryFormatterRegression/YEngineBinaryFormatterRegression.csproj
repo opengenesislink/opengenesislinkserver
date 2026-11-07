@@ -12,7 +12,7 @@
     <!-- UUID is defined in the checked-in OpenMetaverseTypes runtime DLL. -->
     <Reference Include="OpenMetaverseTypes">
       <HintPath>../../../bin/OpenMetaverseTypes.dll</HintPath>
-      <Private>false</Private>
+      <Private>true</Private>
     </Reference>
   </ItemGroup>
 </Project>
