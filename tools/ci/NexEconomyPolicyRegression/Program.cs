@@ -30,6 +30,47 @@ internal static class Program
         throw new InvalidOperationException(message);
     }
 
+    private static void RunDailyLoginRewardRegression(NexEconomyService economy, string label)
+    {
+        Guid residentId = Guid.NewGuid();
+        DateOnly startDay = new DateOnly(2026, 11, 8);
+        long expectedBalance = 0;
+        for (int i = 0; i < 8; i++)
+        {
+            DateOnly date = startDay.AddDays(i);
+            int expectedDay = (i % 7) + 1;
+            long amount = expectedDay == 7 ? 60L : 10L;
+            var grant = economy.CreditResidentDailyLoginBonus(
+                residentId, label + " reward citizen", date);
+            Require(grant.Credited && grant.Day == expectedDay && grant.Amount == amount,
+                label + ": wrong daily reward on " + date);
+            expectedBalance += amount;
+            Require(economy.GetBalance(residentId) == expectedBalance,
+                label + ": daily bonus balance mismatch");
+            var retry = economy.CreditResidentDailyLoginBonus(
+                residentId, label + " reward citizen", date);
+            Require(!retry.Credited && retry.Day == expectedDay &&
+                    retry.Amount == amount && retry.TransactionId == grant.TransactionId,
+                label + ": duplicate login bonus returned a second credit");
+            Require(economy.GetBalance(residentId) == expectedBalance,
+                label + ": duplicate login bonus changed balance");
+        }
+        var reset = economy.CreditResidentDailyLoginBonus(
+            residentId, label + " reward citizen", startDay.AddDays(9));
+        Require(reset.Credited && reset.Day == 1 && reset.Amount == 10L,
+            label + ": missed calendar day did not reset streak");
+        expectedBalance += 10;
+        Require(economy.GetBalance(residentId) == expectedBalance,
+            label + ": reset bonus not in ledger");
+
+        Guid otherAvatar = Guid.NewGuid();
+        var other = economy.CreditResidentDailyLoginBonus(
+            otherAvatar, label + " other citizen", startDay);
+        Require(other.Credited && other.Day == 1 && other.Amount == 10L &&
+                economy.GetBalance(otherAvatar) == 10,
+            label + ": resident rewards not isolated");
+    }
+
     private static void RunPolicyRegression(
         INexLedgerStore store,
         INexLedgerAccountStateStore stateStore,
@@ -41,6 +82,8 @@ internal static class Program
             new NexEconomyService(
                 ledger,
                 stateStore);
+
+        RunDailyLoginRewardRegression(economy, label);
 
         Guid systemId =
             Guid.NewGuid();
