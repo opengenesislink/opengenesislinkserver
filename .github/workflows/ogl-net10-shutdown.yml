@@ -51,7 +51,13 @@ jobs:
       - name: Test safe keyframe format and disconnect
         run: dotnet run --project tools/ci/Net10ShutdownRegression/Net10ShutdownRegression.csproj -c Release
       - name: Produce CI-only legacy keyframe fixture on .NET 8
-        run: dotnet run --project tools/ci/LegacyKeyframeFixture/LegacyKeyframeFixture.csproj -c Release -- /tmp/ogl-legacy-ci.bin
+        run: |
+          # Prebuild's G1.1 retarget pass rewrites ALL *.csproj to .NET 10.
+          # Materialize this historical .NET 8 *fixture only* outside the repo.
+          mkdir -p /tmp/ogl-legacy-fixture
+          cp tools/ci/LegacyKeyframeFixture/Program.cs /tmp/ogl-legacy-fixture/Program.cs
+          cp tools/ci/LegacyKeyframeFixture/LegacyKeyframeFixture.csproj.template /tmp/ogl-legacy-fixture/LegacyKeyframeFixture.csproj
+          dotnet run --project /tmp/ogl-legacy-fixture/LegacyKeyframeFixture.csproj -c Release -- /tmp/ogl-legacy-ci.bin
       - name: Convert historical NRBF to typed OGKF without deserialization
         run: |
           dotnet run --project tools/migration/KeyframeLegacyConverter/KeyframeLegacyConverter.csproj -c Release -- /tmp/ogl-legacy-ci.bin /tmp/ogl-keyframe-ci.ogkf
