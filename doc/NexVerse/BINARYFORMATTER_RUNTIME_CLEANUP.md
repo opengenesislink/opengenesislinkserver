@@ -38,3 +38,27 @@ conversion/restart policy is needed for such records.
 
 This PR does **not** automatically rewrite or remove old script data, affect
 the primary `main` branch or change the standalone Keyframe migration PR.
+
+## Read-only inventory of saved YEngine scripts before staging
+
+Run only against a copy of the YEngine `.state` directory:
+
+```bash
+python3 tools/ci/audit_yengine_states.py \
+  --directory /path/to/backed-up-script-states \
+  --report /tmp/ogl-yengine-state-audit.json
+```
+
+The report records file names relative to the supplied backup, SHA-256 of
+the original XML, snapshot SHA-256, size and parsing status. It does not
+contact the grid, database, object store or any remote URLs, and does not
+alter original files. XML is limited to 8 MiB and DTD/entity declarations
+are refused.
+
+**Important:** YEngine migration snapshots are opaque binary event/state
+streams. The audit cannot conclusively determine whether an individual
+snapshot contains a `BinaryFormatter` graph without interpreting the
+full format. It marks valid snapshots `inspect-required`, not
+`legacy-detected`. The only valid compatibility verdict comes from a
+controlled, backed-up staging restore; **do not assume all snapshots are
+upgrade-safe because the audit succeeded.**

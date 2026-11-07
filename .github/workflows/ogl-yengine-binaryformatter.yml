@@ -7,6 +7,8 @@ on:
       - 'OpenSim/Region/ScriptEngine/YEngine/**'
       - 'tools/ci/YEngineBinaryFormatterRegression/**'
       - 'tools/ci/verify_yengine_binaryformatter_safety.py'
+      - 'tools/ci/audit_yengine_states.py'
+      - 'tools/ci/test_yengine_state_audit.py'
       - '.github/workflows/ogl-yengine-binaryformatter.yml'
   workflow_dispatch:
 
@@ -30,5 +32,7 @@ jobs:
           ./runprebuild.sh
       - name: Build full OpenGenesisLINK G1 .NET 10 solution
         run: dotnet build OpenSim.sln -c Release
+      - name: Test read-only YEngine state file audit
+        run: python3 tools/ci/test_yengine_state_audit.py
       - name: Exercise YEngine safe state roundtrips and legacy rejection
         run: dotnet run --project tools/ci/YEngineBinaryFormatterRegression/YEngineBinaryFormatterRegression.csproj -c Release
