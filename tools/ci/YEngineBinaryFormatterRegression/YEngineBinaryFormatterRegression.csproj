@@ -9,5 +9,10 @@
   <ItemGroup>
     <ProjectReference Include="../../../OpenSim/Region/ScriptEngine/YEngine/OpenSim.Region.ScriptEngine.YEngine.csproj" />
     <ProjectReference Include="../../../OpenSim/Framework/OpenSim.Framework.csproj" />
+    <!-- UUID is defined in the checked-in OpenMetaverseTypes runtime DLL. -->
+    <Reference Include="OpenMetaverseTypes">
+      <HintPath>../../../bin/OpenMetaverseTypes.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
   </ItemGroup>
 </Project>
