@@ -90,3 +90,27 @@ checkLock.Start();
 Assert(checkLock.Join(3000), "timer lock probe completed");
 Assert(releasedByOtherThread, "timer exception released m_frames lock across threads");
 Console.WriteLine("PASS: KeyframeMotion timer releases frame lock after exception");
+
+if (args.Length == 1)
+{
+    byte[] migratedBytes = System.IO.File.ReadAllBytes(args[0]);
+    KeyframeMotion convertedMotion = KeyframeMotion.FromData(null, migratedBytes);
+    Assert(convertedMotion != null && !convertedMotion.HasLegacySerialization,
+        "legacy NRBF fixture decoded and migrated to typed OGKF");
+    Assert(migratedBytes.SequenceEqual(convertedMotion.Serialize()),
+        "legacy migration retains exact state after modern decode/re-encode");
+    Assert(convertedMotion.Data ==
+        (KeyframeMotion.DataFormat.Rotation | KeyframeMotion.DataFormat.Translation),
+        "legacy movement data flags");
+    var framesField = typeof(KeyframeMotion).GetField("m_keyframes",
+        System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!;
+    var frames = (KeyframeMotion.Keyframe[])framesField.GetValue(convertedMotion)!;
+    Assert(frames.Length == 1 && frames[0].TimeMS == 250 &&
+        frames[0].TimeTotal == 350 &&
+        frames[0].Position.HasValue &&
+        frames[0].Position.Value.X == 1.25f &&
+        frames[0].Rotation.HasValue &&
+        frames[0].Rotation.Value.W == 1f,
+        "legacy frame values and nullable vector/rotation preserved");
+    Console.WriteLine("PASS: synthetic .NET8 BinaryFormatter movement converted to .NET10 OGKF v1");
+}

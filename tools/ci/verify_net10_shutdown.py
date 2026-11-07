@@ -32,4 +32,9 @@ assert shutdown.index("base.Shutdown();") < shutdown.index("WorldHasComeToAnEnd.
 assert "m_pendingAdds = null;" not in udp
 assert "m_pendingAcknowledgements = null;" not in udp
 assert "m_pendingRemoves = null;" not in udp
+converter = (root / "tools/migration/KeyframeLegacyConverter/Program.cs").read_text()
+assert "NrbfDecoder.DecodeClassRecord(" in converter
+assert "new BinaryFormatter(" not in converter
+assert "FileMode.CreateNew" in converter
+assert "KeyframeMotion.FromData(null, converted)" in converter
 print("PASS: shutdown isolation, byte-only keyframe migration and ACK queue lifetime")

@@ -13,6 +13,9 @@ on:
       - 'OpenSim/Framework/Servers/BaseOpenSimServer.cs'
       - 'OpenSim/Region/Application/OpenSimBackground.cs'
       - 'tools/ci/Net10ShutdownRegression/**'
+      - 'tools/ci/LegacyKeyframeFixture/**'
+      - 'tools/migration/KeyframeLegacyConverter/**'
+      - 'doc/NexVerse/KEYFRAME_LEGACY_MIGRATION.md'
       - 'tools/ci/verify_net10_shutdown.py'
       - 'tools/ci/smoke_g1_multi_region_shutdown.py'
       - 'tools/ci/verify_avatar_evacuation.py'
@@ -30,7 +33,9 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '10.0.x'
+          dotnet-version: |
+            8.0.x
+            10.0.x
       - name: Install native VectorRender dependency
         run: |
           sudo apt-get update -qq
@@ -45,5 +50,11 @@ jobs:
         run: dotnet build OpenSim.sln -c Release
       - name: Test safe keyframe format and disconnect
         run: dotnet run --project tools/ci/Net10ShutdownRegression/Net10ShutdownRegression.csproj -c Release
+      - name: Produce CI-only legacy keyframe fixture on .NET 8
+        run: dotnet run --project tools/ci/LegacyKeyframeFixture/LegacyKeyframeFixture.csproj -c Release -- /tmp/ogl-legacy-ci.bin
+      - name: Convert historical NRBF to typed OGKF without deserialization
+        run: |
+          dotnet run --project tools/migration/KeyframeLegacyConverter/KeyframeLegacyConverter.csproj -c Release -- /tmp/ogl-legacy-ci.bin /tmp/ogl-keyframe-ci.ogkf
+          dotnet run --project tools/ci/Net10ShutdownRegression/Net10ShutdownRegression.csproj -c Release -- /tmp/ogl-keyframe-ci.ogkf
       - name: Stop a real multi-region .NET 10 simulator using its console
         run: python3 tools/ci/smoke_g1_multi_region_shutdown.py --regions 12
