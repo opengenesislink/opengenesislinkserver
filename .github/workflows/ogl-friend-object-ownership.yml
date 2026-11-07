@@ -1,0 +1,33 @@
+name: OGL Friend Edit and Firestorm Owner Selection
+
+on:
+  pull_request:
+    paths:
+      - 'OpenSim/Region/CoreModules/World/Permissions/PermissionsModule.cs'
+      - 'tools/ci/verify_ogl_friend_object_flags.py'
+      - 'tools/ci/FriendObjectOwnershipRegression/**'
+      - '.github/workflows/ogl-friend-object-ownership.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  friend-ownership-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: Check ownership vs friend editing code path
+        run: python3 tools/ci/verify_ogl_friend_object_flags.py
+      - name: Generate OpenSim solution
+        run: |
+          chmod +x runprebuild.sh
+          ./runprebuild.sh
+      - name: Build Generation 1 server under .NET 10
+        run: dotnet build OpenSim.sln -c Release
+      - name: Validate runtime object flags for owner and friend
+        run: dotnet run --project tools/ci/FriendObjectOwnershipRegression/FriendObjectOwnershipRegression.csproj -c Release
