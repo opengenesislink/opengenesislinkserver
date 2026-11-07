@@ -1,0 +1,34 @@
+name: OGL .NET 10 BinaryFormatter YEngine Safety
+
+on:
+  pull_request:
+    paths:
+      - 'OpenSim/Framework/Util.cs'
+      - 'OpenSim/Region/ScriptEngine/YEngine/**'
+      - 'tools/ci/YEngineBinaryFormatterRegression/**'
+      - 'tools/ci/verify_yengine_binaryformatter_safety.py'
+      - '.github/workflows/ogl-yengine-binaryformatter.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  yengine-binaryformatter-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: Verify old unsafe YEngine paths are disabled
+        run: python3 tools/ci/verify_yengine_binaryformatter_safety.py
+      - name: Generate OpenSim .NET 10 solution
+        run: |
+          chmod +x runprebuild.sh
+          ./runprebuild.sh
+      - name: Build full OpenGenesisLINK G1 .NET 10 solution
+        run: dotnet build OpenSim.sln -c Release
+      - name: Exercise YEngine safe state roundtrips and legacy rejection
+        run: dotnet run --project tools/ci/YEngineBinaryFormatterRegression/YEngineBinaryFormatterRegression.csproj -c Release
