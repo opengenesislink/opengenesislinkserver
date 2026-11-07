@@ -162,6 +162,27 @@ try
         Check(File.ReadAllText(path) == dangerous,
             "invalid saved state remains preserved for migration");
 
+        // Exercise the actual private LoadInitialState() path, not only XML
+        // helpers: malformed historical data must stop this script without
+        // deleting its .state or silently replaying state_entry().
+        XMRInstance failedRestore = Fake();
+        SetField(failedRestore, "m_StateFileName", path);
+        MethodInfo loadInitial = typeof(XMRInstance).GetMethod("LoadInitialState",
+            BindingFlags.Instance | BindingFlags.NonPublic)
+            ?? throw new Exception("Missing YEngine LoadInitialState method");
+        Reject<InvalidDataException>(() =>
+        {
+            try { loadInitial.Invoke(failedRestore, Array.Empty<object>()); }
+            catch (TargetInvocationException ex) when (ex.InnerException != null)
+            {
+                System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(
+                    ex.InnerException).Throw();
+                throw;
+            }
+        }, "LoadInitialState refuses invalid historical .state without reset");
+        Check(File.ReadAllText(path) == dangerous,
+            "LoadInitialState preserved original .state bytes");
+
         File.WriteAllText(path, "original");
         Reject<NotSupportedException>(() => Util.SerializeToFile(path, "new"),
             "obsolete generic serializer must fail closed");

@@ -1286,7 +1286,6 @@ namespace OpenSim.Region.PhysicsModule.ubODEMeshing
                     {
                         using(FileStream stream = File.Open(filename, FileMode.Open, FileAccess.Read, FileShare.Read))
                         {
-//                            BinaryFormatter bformatter = new BinaryFormatter();
                             mesh = Mesh.FromStream(stream,key);
                         }
 
