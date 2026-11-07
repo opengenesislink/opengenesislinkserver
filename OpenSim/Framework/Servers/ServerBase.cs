@@ -33,7 +33,6 @@ using System.Linq;
 using System.Reflection;
 using System.Runtime;
 using System.Text;
-using System.Text.RegularExpressions;
 using System.Threading;
 using log4net;
 using log4net.Appender;
@@ -75,15 +74,19 @@ namespace OpenSim.Framework.Servers
         protected ServerStatsCollector m_serverStatsCollector;
 
         /// <summary>
-        /// Server version information.  Usually VersionInfo + information about git commit, operating system, etc.
+        /// Stable public simulator version for viewer RegionHandshake.
+        /// Never include a .version file or Git SHA: adjacent regions built
+        /// from different commits must not look like different server products.
+        /// Build diagnostics remain available separately in VersionInfo.
         /// </summary>
         protected string m_version;
 
         public ServerBase()
         {
             m_startuptime = DateTime.Now;
-            m_version = VersionInfo.Version;
-            EnhanceVersionInformation();
+            // VersionInfo.Version is padded for legacy protocol compatibility.
+            // Trim only its trailing spaces before Scene appends the platform.
+            m_version = VersionInfo.Version.TrimEnd();
         }
 
         protected void CreatePIDFile(string path)
@@ -751,60 +754,6 @@ namespace OpenSim.Framework.Servers
             Notice("Startup directory: " + m_startupDirectory);
             if (null != m_consoleAppender)
                 Notice(String.Format("Console log level: {0}", m_consoleAppender.Threshold));
-        }
-
-        /// <summary>
-        /// Enhance the version string with extra information if it's available.
-        /// </summary>
-        protected void EnhanceVersionInformation()
-        {
-            const string manualVersionFileName = ".version";
-            string buildVersion = string.Empty;
-
-            if (File.Exists(manualVersionFileName))
-            {
-                using (StreamReader CommitFile = File.OpenText(manualVersionFileName))
-                    buildVersion = CommitFile.ReadLine();
-
-                if (!string.IsNullOrEmpty(buildVersion))
-                {
-                    m_version += buildVersion;
-                    return;
-                }
-            }
-
-            string gitDir = Path.Combine("..", ".git");
-            string gitRefPointerPath = Path.Combine(gitDir, "HEAD");
-            if (File.Exists(gitRefPointerPath))
-            {
-                //m_log.DebugFormat("[SERVER BASE]: Found {0}", gitRefPointerPath);
-
-                string rawPointer = "";
-
-                using (StreamReader pointerFile = File.OpenText(gitRefPointerPath))
-                    rawPointer = pointerFile.ReadLine();
-
-                //m_log.DebugFormat("[SERVER BASE]: rawPointer [{0}]", rawPointer);
-
-                Match m = Regex.Match(rawPointer, "^ref: (.+)$");
-
-                if (m.Success)
-                {
-                    //m_log.DebugFormat("[SERVER BASE]: Matched [{0}]", m.Groups[1].Value);
-
-                    string gitRef = m.Groups[1].Value;
-                    string gitRefPath = Path.Combine(gitDir, gitRef);
-                    if (File.Exists(gitRefPath))
-                    {
-                        //m_log.DebugFormat("[SERVER BASE]: Found gitRefPath [{0}]", gitRefPath);
-                        using (StreamReader refFile = File.OpenText(gitRefPath))
-                            buildVersion = refFile.ReadLine();
-
-                        if (!string.IsNullOrEmpty(buildVersion))
-                            m_version += buildVersion[..7];
-                    }
-                }
-            }
         }
 
         public string GetVersionText()
