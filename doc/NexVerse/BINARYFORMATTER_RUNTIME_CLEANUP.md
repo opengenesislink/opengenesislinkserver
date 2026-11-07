@@ -106,3 +106,10 @@ Legacy XEngine imports retain their distinct Variables-based format.
 
 Script timers are not changed until the YEngine binary snapshot was
 decoded successfully. No automatic historic graph execution is enabled.
+
+Import preflight also rejects YEngine snapshot headers whose migration version
+does not match `XMRInstance.migrationVersion`. This protects existing state
+files from obviously incompatible payloads; it **does not** prove that the
+remaining object graph is valid or compatible. Only a controlled staged
+restore with its compiled script can establish that. No unsafe object
+deserialization is used in preflight.

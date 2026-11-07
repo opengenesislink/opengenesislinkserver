@@ -1223,7 +1223,14 @@ namespace OpenSim.Region.ScriptEngine.Yengine
                     return false;
                 try
                 {
-                    Convert.FromBase64String(snapshotN.InnerText);
+                    byte[] migration = Convert.FromBase64String(snapshotN.InnerText);
+                    // The first byte is YEngine's explicit migration version.
+                    // Reject definitely incompatible OAR data before replacing
+                    // an existing .state file. Full object-graph validation
+                    // still requires the matching compiled script on staging.
+                    if (migration.Length < 3 ||
+                        migration[0] != XMRInstance.migrationVersion)
+                        return false;
                 }
                 catch (FormatException)
                 {

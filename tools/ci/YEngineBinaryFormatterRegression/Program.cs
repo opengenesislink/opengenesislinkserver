@@ -237,10 +237,17 @@ try
     Check(File.ReadAllText(importedPath) == beforeImport,
         "oversized OAR XML left saved state unchanged");
 
-    Check(engine.SetXMLState(stateId, importPrefix + "AQID" + importSuffix),
-        "valid bounded YEngine OAR state imported");
-    Check(File.ReadAllText(importedPath).Contains("<Snapshot>AQID</Snapshot>"),
-        "valid OAR state atomically installed");
+    Check(!engine.SetXMLState(stateId, importPrefix + "AQID" + importSuffix),
+        "unsupported YEngine migration version rejected before import");
+    Check(File.ReadAllText(importedPath) == beforeImport,
+        "unknown-version OAR state did not overwrite existing state");
+    string matchingHeader = Convert.ToBase64String(
+        new byte[] { XMRInstance.migrationVersion, 16, 0 });
+    Check(engine.SetXMLState(stateId, importPrefix + matchingHeader + importSuffix),
+        "bounded YEngine OAR header imported without full script decoding");
+    Check(File.ReadAllText(importedPath).Contains(
+        "<Snapshot>" + matchingHeader + "</Snapshot>"),
+        "matching-header OAR state atomically installed");
     Check(Directory.GetFiles(Path.GetDirectoryName(importedPath)!).Length == 1,
         "OAR importer left no temporary files");
 
