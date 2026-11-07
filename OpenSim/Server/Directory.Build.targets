@@ -1,6 +1,11 @@
 <Project>
   <!-- Prebuild regenerates Robust.csproj from prebuild.xml. Keep the OGL
        admin host dependency attached to the generated project as well. -->
+  <!-- Preserve the common security policy even though this directory has
+       its own Directory.Build.targets for ROBUST's generated references. -->
+  <Import Project="../../Directory.Build.targets"
+          Condition="Exists('$(MSBuildThisFileDirectory)../../Directory.Build.targets')" />
+
   <ItemGroup Condition="'$(MSBuildProjectName)' == 'Robust'">
     <ProjectReference Include="../../addons/OGLAssetService/OGLAssetService.csproj"
                       Condition="Exists('$(MSBuildProjectDirectory)/../../addons/OGLAssetService/OGLAssetService.csproj')" />

@@ -1,0 +1,59 @@
+name: OGL .NET 10 BinaryFormatter YEngine Safety
+
+on:
+  pull_request:
+    paths:
+      - 'OpenSim/Framework/Util.cs'
+      - 'OpenSim/Server/runtimeconfig.template.json'
+      - 'OpenSim/Region/Application/runtimeconfig.template.json'
+      - 'Prebuild/src/Core/Targets/VSGenericTarget.cs'
+      - 'Directory.Build.targets'
+      - 'OpenSim/Server/Directory.Build.targets'
+      - 'tools/gen11/retarget_net10.py'
+      - 'bin/*.runtimeconfig.json'
+      - 'OpenSim/Region/ScriptEngine/YEngine/**'
+      - 'tools/ci/YEngineBinaryFormatterRegression/**'
+      - 'tools/ci/verify_yengine_binaryformatter_safety.py'
+      - 'tools/ci/audit_yengine_states.py'
+      - 'tools/ci/test_yengine_state_audit.py'
+      - '.github/workflows/ogl-yengine-binaryformatter.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  yengine-binaryformatter-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: Verify old unsafe YEngine paths are disabled
+        run: python3 tools/ci/verify_yengine_binaryformatter_safety.py
+      - name: Generate OpenSim .NET 10 solution
+        run: |
+          chmod +x runprebuild.sh
+          ./runprebuild.sh
+      - name: Recheck generated projects, runtime and actual MSBuild security properties
+        run: |
+          python3 tools/gen11/retarget_net10.py --check
+          python3 tools/ci/verify_yengine_binaryformatter_safety.py
+          for project in \
+              OpenSim/Region/Application/OpenSim.csproj \
+              OpenSim/Server/Robust.csproj \
+              OpenSim/Region/ScriptEngine/YEngine/OpenSim.Region.ScriptEngine.YEngine.csproj; do
+            actual="$(dotnet msbuild "$project" -getProperty:EnableUnsafeBinaryFormatterSerialization -nologo)"
+            if [ "$actual" != "false" ]; then
+              echo "Unsafe BinaryFormatter setting for $project: $actual" >&2
+              exit 1
+            fi
+          done
+      - name: Build full OpenGenesisLINK G1 .NET 10 solution
+        run: dotnet build OpenSim.sln -c Release
+      - name: Test read-only YEngine state file audit
+        run: python3 tools/ci/test_yengine_state_audit.py
+      - name: Exercise YEngine safe state roundtrips and legacy rejection
+        run: dotnet run --project tools/ci/YEngineBinaryFormatterRegression/YEngineBinaryFormatterRegression.csproj -c Release

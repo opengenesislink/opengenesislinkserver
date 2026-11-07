@@ -1475,8 +1475,10 @@ namespace OpenSim.Region.ScriptEngine.Yengine
             DELEGATE,
             SDTCLOBJ,
             SYSCHAR,
-            SYSERIAL,
-            THROWNEX
+            SYSERIAL, // Legacy BinaryFormatter: strictly rejected
+            THROWNEX, // Legacy BinaryFormatter: strictly rejected
+            SYSERIALSAFE, // Versioned allowlisted exception codec
+            THROWNEXSAFE // Typed script exception + thrown value
         }
 
         /**
@@ -1490,6 +1492,8 @@ namespace OpenSim.Region.ScriptEngine.Yengine
                 migrateOutWriter = mow;
                 migrateOutObjects = new Dictionary<object, int>();
                 migrateOutLists = new Dictionary<object[], ObjLslList>();
+                migrateOutDepth = 0;
+                migrateOutNodes = 0;
                 SendObjValue(ehArgs);
                 mow.Write(doGblInit);
                 mow.Write(stateCode);
@@ -1500,8 +1504,11 @@ namespace OpenSim.Region.ScriptEngine.Yengine
                     mow.Write("**newStateCode**");
                     mow.Write(newStateCode);
                 }
+                int frameCount = 0;
                 for(XMRStackFrame thisSF = stackFrames; thisSF is not null; thisSF = thisSF.nextSF)
                 {
+                    if (++frameCount > MaxMigrationFrames)
+                        throw new InvalidDataException("YEngine stack frame count exceeds limit");
                     mow.Write(thisSF.funcName);
                     mow.Write(thisSF.callNo);
                     SendObjValue(thisSF.objArray);
@@ -1513,6 +1520,8 @@ namespace OpenSim.Region.ScriptEngine.Yengine
                 migrateOutWriter = null;
                 migrateOutObjects = null;
                 migrateOutLists = null;
+                migrateOutDepth = 0;
+                migrateOutNodes = 0;
             }
         }
 
@@ -1523,11 +1532,22 @@ namespace OpenSim.Region.ScriptEngine.Yengine
         private BinaryWriter migrateOutWriter;
         private Dictionary<object, int> migrateOutObjects;
         private Dictionary<object[], ObjLslList> migrateOutLists;
+        private int migrateOutDepth;
+        private int migrateOutNodes;
         public void SendObjValue(object graph)
         {
-            BinaryWriter mow = migrateOutWriter;
+            if (++migrateOutNodes > MaxMigrationNodes)
+                throw new InvalidDataException("YEngine state object count exceeds limit");
+            if (++migrateOutDepth > MaxMigrationDepth)
+            {
+                --migrateOutDepth;
+                throw new InvalidDataException("YEngine state nesting depth exceeds limit");
+            }
+            try
+            {
+                BinaryWriter mow = migrateOutWriter;
 
-            // Value types (including nulls) are always output directly.
+                // Value types (including nulls) are always output directly.
             if(graph is null)
             {
                 mow.Write((byte)Ser.NULL);
@@ -1668,6 +1688,8 @@ namespace OpenSim.Region.ScriptEngine.Yengine
             }
             else if(graph is Array array)
             {
+                if (array.Length > 65536)
+                    throw new InvalidDataException("YEngine state array length exceeds limit");
                 mow.Write((byte)Ser.SYSARRAY);
                 mow.Write(SysType2String(array.GetType().GetElementType()));
                 mow.Write(array.Length);
@@ -1676,6 +1698,8 @@ namespace OpenSim.Region.ScriptEngine.Yengine
             }
             else if(graph is string sg)
             {
+                if (sg.Length > MaxMigrationStringLength)
+                    throw new InvalidDataException("YEngine state string exceeds limit");
                 mow.Write((byte)Ser.SYSSTR);
                 mow.Write(sg);
             }
@@ -1705,50 +1729,61 @@ namespace OpenSim.Region.ScriptEngine.Yengine
                 mow.Write((byte)Ser.SDTCLOBJ);
                 XMRSDTypeClObjgraph.Capture(this.SendObjValue);
             }
-            else if(graph is ScriptThrownException ScriptThrownExceptiongraph)
+            else if(graph is ScriptThrownException scriptThrown)
             {
-                MemoryStream memoryStream = new MemoryStream();
-                System.Runtime.Serialization.Formatters.Binary.BinaryFormatter bformatter =
-                        new System.Runtime.Serialization.Formatters.Binary.BinaryFormatter();
-                bformatter.Serialize(memoryStream, graph);
-                byte[] rawBytes = memoryStream.ToArray();
-                mow.Write((byte)Ser.THROWNEX);
-                mow.Write((int)rawBytes.Length);
-                mow.Write(rawBytes);
-                SendObjValue(ScriptThrownExceptiongraph.thrown);
+                mow.Write((byte)Ser.THROWNEXSAFE);
+                ScriptStateExceptionCodec.WriteBoundedText(mow, scriptThrown.Message);
+                SendObjValue(scriptThrown.thrown);
+            }
+            else if(graph is Exception exception)
+            {
+                mow.Write((byte)Ser.SYSERIALSAFE);
+                ScriptStateExceptionCodec.Write(mow, exception);
             }
             else
             {
-                MemoryStream memoryStream = new MemoryStream();
-                System.Runtime.Serialization.Formatters.Binary.BinaryFormatter bformatter =
-                        new System.Runtime.Serialization.Formatters.Binary.BinaryFormatter();
-                bformatter.Serialize(memoryStream, graph);
-                byte[] rawBytes = memoryStream.ToArray();
-                mow.Write((byte)Ser.SYSERIAL);
-                mow.Write(rawBytes.Length);
-                mow.Write(rawBytes);
+                // This is intentionally fail-closed. An unknown CLR object
+                // must never be resurrected from untrusted script state.
+                throw new NotSupportedException(
+                    "YEngine state cannot safely serialize CLR object " +
+                    graph.GetType().FullName);
+            }
+            }
+            finally
+            {
+                --migrateOutDepth;
             }
         }
 
         /**
          * @brief Use short strings for known type names.
          */
+        // Untrusted saved script state may contain array element type tags.
+        // Keep this mapping symmetric and explicit: NEVER resolve arbitrary
+        // CLR names from script/OAR data (Type.GetType can load assemblies).
         private static string SysType2String(Type type)
         {
-            if(type.IsArray && (type.GetArrayRank() == 1))
+            if (type == null)
+                throw new ArgumentNullException(nameof(type));
+
+            int depth = 0;
+            while (type.IsArray)
             {
-                string str = KnownSysType2String(type.GetElementType());
-                if(str is not null)
-                    return str + "[]";
+                if (type.GetArrayRank() != 1 || ++depth > 4)
+                    throw new NotSupportedException(
+                        "YEngine state supports only one-dimensional arrays (max depth 4)");
+                type = type.GetElementType();
             }
-            else
-            {
-                string str = KnownSysType2String(type);
-                if(str is not null)
-                    return str;
-            }
-            return type.ToString();
+
+            string tag = KnownSysType2String(type);
+            if (tag == null)
+                throw new NotSupportedException(
+                    "Unsupported YEngine state array element type: " + type.FullName);
+            for (int i = 0; i < depth; i++)
+                tag += "[]";
+            return tag;
         }
+
         private static string KnownSysType2String(Type type)
         {
             if(type == typeof(bool))
@@ -1765,6 +1800,12 @@ namespace OpenSim.Region.ScriptEngine.Yengine
                 return "in";
             if(type == typeof(LSL_List))
                 return "li";
+            if(type == typeof(LSL_Float))
+                return "lf";
+            if(type == typeof(LSL_Integer))
+                return "ln";
+            if(type == typeof(LSL_String))
+                return "lk";
             if(type == typeof(object))
                 return "ob";
             if(type == typeof(LSL_Rotation))
@@ -1779,49 +1820,68 @@ namespace OpenSim.Region.ScriptEngine.Yengine
                 return "xa";
             return null;
         }
+
         private static Type String2SysType(string str)
         {
-            if(str.EndsWith("[]"))
-                return String2SysType(str.Substring(0, str.Length - 2)).MakeArrayType();
+            // Short ASCII identifiers only; never pass input type names to
+            // reflection. The maximum 4 array ranks are nested SZ arrays.
+            if (string.IsNullOrEmpty(str) || str.Length > 16)
+                throw new InvalidDataException("Invalid YEngine array type tag");
 
-            if(str == "bo")
-                return typeof(bool);
-            if(str == "ch")
-                return typeof(char);
-            if(str == "de")
-                return typeof(Delegate);
-            if(str == "do")
-                return typeof(double);
-            if(str == "fl")
-                return typeof(float);
-            if(str == "in")
-                return typeof(int);
-            if(str == "li")
-                return typeof(LSL_List);
-            if(str == "ob")
-                return typeof(object);
-            if(str == "ro")
-                return typeof(LSL_Rotation);
-            if(str == "sc")
-                return typeof(XMRSDTypeClObj);
-            if(str == "st")
-                return typeof(string);
-            if(str == "ve")
-                return typeof(LSL_Vector);
-            if(str == "xa")
-                return typeof(XMR_Array);
-            return Type.GetType(str, true);
+            int depth = 0;
+            while (str.EndsWith("[]", StringComparison.Ordinal))
+            {
+                if (++depth > 4)
+                    throw new InvalidDataException("YEngine array nesting limit exceeded");
+                str = str.Substring(0, str.Length - 2);
+            }
+
+            Type type = str switch
+            {
+                "bo" => typeof(bool),
+                "ch" => typeof(char),
+                "de" => typeof(Delegate),
+                "do" => typeof(double),
+                "fl" => typeof(float),
+                "in" => typeof(int),
+                "li" => typeof(LSL_List),
+                "lf" => typeof(LSL_Float),
+                "ln" => typeof(LSL_Integer),
+                "lk" => typeof(LSL_String),
+                "ob" => typeof(object),
+                "ro" => typeof(LSL_Rotation),
+                "sc" => typeof(XMRSDTypeClObj),
+                "st" => typeof(string),
+                "ve" => typeof(LSL_Vector),
+                "xa" => typeof(XMR_Array),
+                _ => throw new InvalidDataException("Unsupported YEngine array type tag")
+            };
+            for (int i = 0; i < depth; i++)
+                type = type.MakeArrayType();
+            return type;
         }
 
         /**
          * @brief Read state in from a stream.
          */
+        // Saved YEngine state can originate from other grids or OAR imports.
+        // These limits constrain parser work and allocations independently
+        // of the upstream network or region file size.
+        private const int MaxMigrationDepth = 64;
+        private const int MaxMigrationNodes = 131072;
+        private const int MaxMigrationFrames = 4096;
+        private const int MaxMigrationStringLength = 262144;
+        private int migrateInDepth;
+        private int migrateInNodes;
+
         public void MigrateIn(BinaryReader mir)
         {
             try
             {
                 migrateInReader = mir;
                 migrateInObjects = new Dictionary<int, object>();
+                migrateInDepth = 0;
+                migrateInNodes = 0;
                 ehArgs = (object[])RecvObjValue();
                 doGblInit = mir.ReadBoolean();
                 stateCode = mir.ReadInt32();
@@ -1830,8 +1890,12 @@ namespace OpenSim.Region.ScriptEngine.Yengine
                 glblVars.RecvArrays(RecvObjValue);
                 XMRStackFrame lastSF = null;
                 string funcName;
-                while((funcName = mir.ReadString()) != "")
+                int frameHeaders = 0;
+                while((funcName = ScriptStateExceptionCodec.ReadLimitedString(mir)) != "")
                 {
+                    // Include the optional **newStateCode** marker in the budget.
+                    if (++frameHeaders > MaxMigrationFrames + 1)
+                        throw new InvalidDataException("YEngine stack frame count exceeds limit");
                     if(funcName == "**newStateCode**")
                     {
                         newStateCode = mir.ReadInt32();
@@ -1852,6 +1916,8 @@ namespace OpenSim.Region.ScriptEngine.Yengine
             {
                 migrateInReader = null;
                 migrateInObjects = null;
+                migrateInDepth = 0;
+                migrateInNodes = 0;
             }
         }
 
@@ -1863,11 +1929,20 @@ namespace OpenSim.Region.ScriptEngine.Yengine
         private Dictionary<int, object> migrateInObjects;
         public object RecvObjValue()
         {
-            BinaryReader mir = this.migrateInReader;
-            int ident = this.migrateInObjects.Count;
-            Ser code = (Ser)mir.ReadByte();
-            switch(code)
+            if (++migrateInNodes > MaxMigrationNodes)
+                throw new InvalidDataException("YEngine state object count exceeds limit");
+            if (++migrateInDepth > MaxMigrationDepth)
             {
+                --migrateInDepth;
+                throw new InvalidDataException("YEngine state nesting depth exceeds limit");
+            }
+            try
+            {
+                BinaryReader mir = this.migrateInReader;
+                int ident = this.migrateInObjects.Count;
+                Ser code = (Ser)mir.ReadByte();
+                switch(code)
+                {
                 case Ser.NULL:
                     return null;
 
@@ -1913,8 +1988,13 @@ namespace OpenSim.Region.ScriptEngine.Yengine
 
                 case Ser.SYSARRAY:
                 {
-                    Type eletype = String2SysType(mir.ReadString());
+                    string typeName = ScriptStateExceptionCodec.ReadLimitedString(mir);
                     int length = mir.ReadInt32();
+                    // Script state may originate from OARs and foreign regions.
+                    // Reject an attacker-sized array before allocating storage.
+                    if (length < 0 || length > 65536)
+                        throw new InvalidDataException("YEngine state array length exceeds limit");
+                    Type eletype = String2SysType(typeName);
                     Array array = Array.CreateInstance(eletype, length);
                     this.migrateInObjects.Add(ident, array);
                     for(int i = 0; i < length; i++)
@@ -1938,7 +2018,8 @@ namespace OpenSim.Region.ScriptEngine.Yengine
                     return mir.ReadChar();
 
                 case Ser.SYSSTR:
-                    string s = mir.ReadString();
+                    string s = ScriptStateExceptionCodec.ReadLimitedString(
+                        mir, MaxMigrationStringLength);
                     this.migrateInObjects.Add(ident, s);
                     return s;
 
@@ -1964,8 +2045,8 @@ namespace OpenSim.Region.ScriptEngine.Yengine
 
                 case Ser.DELEGATE:
                     this.migrateInObjects.Add(ident, null);  // placeholder
-                    string name = mir.ReadString();         // function name
-                    string sig = mir.ReadString();         // delegate type
+                    string name = ScriptStateExceptionCodec.ReadLimitedString(mir);
+                    string sig = ScriptStateExceptionCodec.ReadLimitedString(mir);
                     object targ = this.RecvObjValue();      // 'this' object
                     Delegate del = this.GetScriptMethodDelegate(name, sig, targ);
                     this.migrateInObjects[ident] = del;       // actual value
@@ -1978,32 +2059,35 @@ namespace OpenSim.Region.ScriptEngine.Yengine
                     return clobj;
 
                 case Ser.SYSERIAL:
+                case Ser.THROWNEX:
+                    throw new InvalidDataException(
+                        "Legacy BinaryFormatter YEngine state is not supported: " +
+                        "migrate trusted script snapshots offline");
+
+                case Ser.SYSERIALSAFE:
                 {
-                    int rawLength = mir.ReadInt32();
-                    byte[] rawBytes = mir.ReadBytes(rawLength);
-                    MemoryStream memoryStream = new MemoryStream(rawBytes);
-                    System.Runtime.Serialization.Formatters.Binary.BinaryFormatter bformatter =
-                            new System.Runtime.Serialization.Formatters.Binary.BinaryFormatter();
-                    object graph = bformatter.Deserialize(memoryStream);
-                    this.migrateInObjects.Add(ident, graph);
-                    return graph;
+                    Exception exception = ScriptStateExceptionCodec.Read(mir);
+                    this.migrateInObjects.Add(ident, exception);
+                    return exception;
                 }
 
-                case Ser.THROWNEX:
+                case Ser.THROWNEXSAFE:
                 {
-                    int rawLength = mir.ReadInt32();
-                    byte[] rawBytes = mir.ReadBytes(rawLength);
-                    MemoryStream memoryStream = new MemoryStream(rawBytes);
-                    System.Runtime.Serialization.Formatters.Binary.BinaryFormatter bformatter =
-                            new System.Runtime.Serialization.Formatters.Binary.BinaryFormatter();
-                    object graph = bformatter.Deserialize(memoryStream);
-                    this.migrateInObjects.Add(ident, graph);
-                    ((ScriptThrownException)graph).thrown = RecvObjValue();
-                    return graph;
+                    string message = ScriptStateExceptionCodec.ReadLimitedString(mir);
+                    ScriptThrownException exception =
+                        (ScriptThrownException)ScriptThrownException.Wrap(message);
+                    this.migrateInObjects.Add(ident, exception);
+                    exception.thrown = RecvObjValue();
+                    return exception;
                 }
 
                 default:
-                    throw new Exception("bad stream code " + code.ToString());
+                    throw new InvalidDataException("bad stream code " + code.ToString());
+                }
+            }
+            finally
+            {
+                --migrateInDepth;
             }
         }
 
