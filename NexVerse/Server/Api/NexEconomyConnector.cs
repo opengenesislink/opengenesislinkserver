@@ -61,7 +61,15 @@ namespace NexVerse.Server.Api
                 config.Configs[sectionName];
 
             lock (s_Sync)
+            {
+                if (s_DailyLoginSubscriber != null)
+                {
+                    NexResidentLoginEvents.SuccessfulLocalLogin -=
+                        s_DailyLoginSubscriber.HandleSuccessfulLocalLogin;
+                    s_DailyLoginSubscriber = null;
+                }
                 Current = this;
+            }
 
             if (economy == null ||
                 !economy.GetBoolean(
