@@ -183,6 +183,64 @@ try
         Check(File.ReadAllText(path) == dangerous,
             "LoadInitialState preserved original .state bytes");
 
+    // A failed snapshot used to leave suspendOnCheckRunHold=true forever.
+    // Force MigrateOut to throw from an incomplete synthetic script.
+    XMRInstance incomplete = Fake();
+    incomplete.m_Item = new TaskInventoryItem { AssetID = OpenMetaverse.UUID.Random() };
+    incomplete.m_ObjCode = (ScriptObjCode)RuntimeHelpers.GetUninitializedObject(
+        typeof(ScriptObjCode));
+    incomplete.m_ObjCode.sourceHash = "ci-snapshot-failure";
+    SetField(incomplete, "m_Engine",
+        RuntimeHelpers.GetUninitializedObject(typeof(Yengine)));
+    using (var ready = new System.Threading.ManualResetEvent(true))
+    {
+        SetField(incomplete, "m_DetachReady", ready);
+        SetField(incomplete, "m_RunLock", new object());
+        Reject<NullReferenceException>(() => incomplete.GetExecutionState(
+            new XmlDocument()), "snapshot failure injection reached MigrateOut");
+        FieldInfo suspended = typeof(XMRInstance).GetField("suspendOnCheckRunHold",
+            BindingFlags.NonPublic | BindingFlags.Instance)
+            ?? throw new Exception("Missing YEngine suspension flag");
+        Check(!(bool)suspended.GetValue(incomplete),
+            "failed snapshot released script suspension flag");
+    }
+
+    // OAR/region-crossing path SetXMLState used File.Create and unbounded
+    // XmlDocument.LoadXml. It must reject invalid inputs without changing
+    // the last known-good .state file.
+    var engine = (Yengine)RuntimeHelpers.GetUninitializedObject(typeof(Yengine));
+    typeof(Yengine).GetField("m_ScriptBasePath",
+        BindingFlags.Instance | BindingFlags.NonPublic)!
+        .SetValue(engine, root);
+    var stateId = OpenMetaverse.UUID.Random();
+    string importedPath = XMRInstance.GetStateFileName(root, stateId);
+    File.WriteAllText(importedPath, "<ScriptState>preserve</ScriptState>");
+    string beforeImport = File.ReadAllText(importedPath);
+    string importPrefix = $"<State Engine=\"YEngine\" Asset=\"{stateId}\">" +
+        "<ScriptState Engine=\"YEngine\"><Snapshot>";
+    string importSuffix = "</Snapshot></ScriptState></State>";
+
+    Check(!engine.SetXMLState(stateId, importPrefix + "???INVALID???" + importSuffix),
+        "invalid OAR snapshot base64 rejected");
+    Check(File.ReadAllText(importedPath) == beforeImport,
+        "invalid OAR snapshot did not replace saved state");
+    Check(!engine.SetXMLState(stateId,
+        "<!DOCTYPE a [<!ENTITY x SYSTEM \"file:///etc/passwd\">]>" +
+        importPrefix + "&x;" + importSuffix), "OAR DTD rejected");
+    Check(File.ReadAllText(importedPath) == beforeImport,
+        "OAR XML with DTD left previous state unchanged");
+    Check(!engine.SetXMLState(stateId, new string('x', 8 * 1024 * 1024 + 1)),
+        "oversized OAR XML rejected");
+    Check(File.ReadAllText(importedPath) == beforeImport,
+        "oversized OAR XML left saved state unchanged");
+
+    Check(engine.SetXMLState(stateId, importPrefix + "AQID" + importSuffix),
+        "valid bounded YEngine OAR state imported");
+    Check(File.ReadAllText(importedPath).Contains("<Snapshot>AQID</Snapshot>"),
+        "valid OAR state atomically installed");
+    Check(Directory.GetFiles(Path.GetDirectoryName(importedPath)!).Length == 1,
+        "OAR importer left no temporary files");
+
         File.WriteAllText(path, "original");
         Reject<NotSupportedException>(() => Util.SerializeToFile(path, "new"),
             "obsolete generic serializer must fail closed");
