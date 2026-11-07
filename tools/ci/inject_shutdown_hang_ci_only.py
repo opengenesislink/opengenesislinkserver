@@ -22,10 +22,10 @@ injected = """        public override void Close()
             if (Name == "OGL Shutdown CI 2")
             {
                 m_log.Warn("[OGL SHUTDOWN CI]: Deliberately blocking region 2 close");
-                System.Threading.Thread.Sleep(20000);
+                System.Threading.Thread.Sleep(30000);
             }
             if (Interlocked.Exchange(ref m_oglCloseStarted, 1) != 0)"""
 if before.count(target) != 1:
     raise SystemExit("Scene.Close method signature changed; abort fault injection")
 source.write_text(before.replace(target, injected))
-print("PASS: inserted test-only 20-second blocking close for OGL Shutdown CI 2")
+print("PASS: inserted test-only 30-second blocking close for OGL Shutdown CI 2")

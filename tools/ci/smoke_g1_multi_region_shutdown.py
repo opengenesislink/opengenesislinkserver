@@ -49,7 +49,7 @@ def run_smoke(workdir: Path, region_count: int, expect_timeout: bool = False) ->
                       f'regionload_estatesdir = "{ESTATES}"')
     ini = ini.replace("19100", "19210").replace("19102", "19212")
     ini += ("\n[OGLShutdown]\nRegionCloseTimeoutSeconds = "
-            + ("1" if expect_timeout else "30") + "\n")
+            + ("8" if expect_timeout else "30") + "\n")
     # OpenSim resolves includes relative to its own bin/config directory.
     config = BIN / "OpenSim.OglShutdownSmoke.Tests.ini"
     config.write_text(ini)
