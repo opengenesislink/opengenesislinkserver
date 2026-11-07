@@ -822,11 +822,14 @@ namespace OpenSim.Region.CoreModules.World.Permissions
             if ((grpEffectiveOwnerPerms & (uint)PermissionMask.Transfer) == 0)
                 grpEffectiveOwnerPerms &= ~(uint)PermissionMask.Copy;
 
-            // if friends with rights then owner
+            // Friends granted object-edit rights are editors, not owners.
+            // Firestorm's "Select Only My Objects" checks ObjectYouOwner:
+            // only the real owner may receive that bit. Keep the existing
+            // modify/move/copy capability flags and ObjectOwnerModify behavior.
             if (notGroupdOwned && IsFriendWithPerms(sp.UUID, task.OwnerID))
             {
                 returnMask = ApplyObjectModifyMasks(grpEffectiveOwnerPerms, objflags, unlocked);
-                returnMask |= EXTRAOWNERMASK;
+                returnMask |= (uint)PrimFlags.ObjectAnyOwner;
                 if((returnMask & (uint)PrimFlags.ObjectModify) != 0)
                     returnMask |= (uint)PrimFlags.ObjectOwnerModify;
                 return returnMask;
