@@ -9,6 +9,7 @@ import argparse
 import os
 from pathlib import Path
 import pty
+import re
 import select
 import shutil
 import signal
@@ -108,15 +109,17 @@ def run_smoke(workdir: Path, region_count: int, expect_timeout: bool = False) ->
             raise AssertionError(
                 "All region close callbacks may have finished, but OpenSim process did not exit"
             ) from exc
+        # Region log output is ANSI-colored when the simulator owns a PTY.
+        plain_logs = re.sub(r"\\x1b\\[[0-9;?]*[A-Za-z]", "", logs)
         if expect_timeout:
             if proc.returncode == 0:
                 raise AssertionError("Timed-out region incorrectly reported successful shutdown")
-            if "[OGL SHUTDOWN]: TIMEOUT" not in logs or "OGL Shutdown CI 2" not in logs:
+            if "[OGL SHUTDOWN]: TIMEOUT" not in plain_logs or "OGL Shutdown CI 2" not in plain_logs:
                 raise AssertionError("Expected stuck region timeout log not found")
             if f"Region OGL Shutdown CI 1 closed in" not in logs or (
                     f"Region OGL Shutdown CI 3 closed in" not in logs):
                 raise AssertionError("Other regions did not finish closing after one timeout")
-            if "region close operations failed or timed out" not in logs:
+            if "region close operations failed or timed out" not in plain_logs:
                 raise AssertionError("Nonzero failure summary not found")
             print("PASS: injected blocked region reported timeout, other regions"
                   " closed, OpenSim exited nonzero")
