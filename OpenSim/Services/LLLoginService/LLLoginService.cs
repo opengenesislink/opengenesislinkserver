@@ -39,6 +39,7 @@ using OpenMetaverse;
 
 using OpenSim.Framework;
 using NexVerse.Core.Identity;
+using NexVerse.Core.Economy;
 using OpenSim.Server.Base;
 using OpenSim.Services.Connectors.InstantMessage;
 using OpenSim.Services.Interfaces;
@@ -819,6 +820,21 @@ namespace OpenSim.Services.LLLoginService
                             viewer = safeViewerChannel,
                             version = safeViewerVersion
                         }));
+
+                    // Only after a successful authenticated local login,
+                    // accepted ToS and a launched simulator agent. Reward
+                    // failure must never invalidate an otherwise valid login.
+                    try
+                    {
+                        NexResidentLoginEvents.NotifySuccessfulLocalLogin(
+                            account.PrincipalID.Guid, account.EffectiveDisplayName);
+                    }
+                    catch (Exception rewardError)
+                    {
+                        m_log.WarnFormat(
+                            "[NEX-LOGIN-REWARD]: Could not dispatch local login for {0}: {1}",
+                            account.PrincipalID, rewardError.Message);
+                    }
                     return response;
                }
             catch (Exception e)
