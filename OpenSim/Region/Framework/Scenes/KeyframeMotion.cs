@@ -516,6 +516,8 @@ namespace OpenSim.Region.Framework.Scenes
 
         public void SetKeyframes(Keyframe[] frames)
         {
+            // A newly supplied movement supersedes any inert legacy payload.
+            m_oglLegacyPayload = null;
             m_keyframes = frames;
         }
 
@@ -527,6 +529,8 @@ namespace OpenSim.Region.Framework.Scenes
 
             newmotion.m_group = newgrp;
             newmotion.m_scene = newgrp.Scene;
+            if (m_oglLegacyPayload != null)
+                newmotion.m_oglLegacyPayload = (byte[])m_oglLegacyPayload.Clone();
 
             if (m_keyframes != null)
             {

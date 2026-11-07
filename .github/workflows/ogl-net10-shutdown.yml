@@ -1,0 +1,37 @@
+name: OGL .NET 10 Persistence and Shutdown Gate
+
+on:
+  pull_request:
+    paths:
+      - 'OpenSim/Region/Framework/Scenes/KeyframeMotion.cs'
+      - 'OpenSim/Region/ClientStack/Linden/UDP/UnackedPacketCollection.cs'
+      - 'OpenSim/Region/Framework/Scenes/SceneManager.cs'
+      - 'OpenSim/Region/Framework/Scenes/Scene.cs'
+      - 'OpenSim/Region/Application/OpenSimBase.cs'
+      - 'tools/ci/Net10ShutdownRegression/**'
+      - 'tools/ci/verify_net10_shutdown.py'
+      - '.github/workflows/ogl-net10-shutdown.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  net10-shutdown-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: Static shutdown and migration guards
+        run: python3 tools/ci/verify_net10_shutdown.py
+      - name: Generate OpenSim project graph
+        run: |
+          chmod +x runprebuild.sh
+          ./runprebuild.sh
+      - name: Build .NET10 server and region modules
+        run: dotnet build OpenSim.sln -c Release
+      - name: Test safe keyframe format and disconnect
+        run: dotnet run --project tools/ci/Net10ShutdownRegression/Net10ShutdownRegression.csproj -c Release
