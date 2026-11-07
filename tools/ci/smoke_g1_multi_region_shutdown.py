@@ -100,8 +100,14 @@ def run_smoke(workdir: Path) -> None:
         capture(1)
         os.write(master, b"shutdown\r")
         capture(90)
-        if proc.poll() is None:
-            raise AssertionError("Shutdown command did not terminate OpenSim within 90 seconds")
+        # Environment.Exit closes the PTY before Popen.poll() necessarily sees
+        # the process exit. Reap the process instead of racing its final close.
+        try:
+            proc.wait(timeout=10)
+        except subprocess.TimeoutExpired as exc:
+            raise AssertionError(
+                "All region close callbacks may have finished, but OpenSim process did not exit"
+            ) from exc
         if proc.returncode != 0:
             raise AssertionError(f"Simulator exit status was {proc.returncode}")
         for name in NAMES:
