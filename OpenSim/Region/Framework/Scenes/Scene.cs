@@ -487,6 +487,7 @@ namespace OpenSim.Region.Framework.Scenes
         private readonly int m_fastMapStartupDelaySeconds;
         private bool m_mapRefreshEnabled;
         private readonly object m_mapGenerationLock = new();
+        private int m_oglCloseStarted;
         private readonly CancellationTokenSource m_fastMapCancellation = new();
         private volatile bool m_fastMapShutdownRequested;
         private int m_fastMapStartupQueued;
@@ -1523,6 +1524,12 @@ namespace OpenSim.Region.Framework.Scenes
         // This is the method that shuts down the scene.
         public override void Close()
         {
+            if (Interlocked.Exchange(ref m_oglCloseStarted, 1) != 0)
+            {
+                m_log.WarnFormat("[OGL SHUTDOWN]: Duplicate close request for {0} ignored.", Name);
+                return;
+            }
+            m_log.InfoFormat("[OGL SHUTDOWN]: {0}: cancelling FastMap work", Name);
             // Pending FastMap jobs must not touch a disposed scene. An active
             // render cannot be interrupted safely; wait before releasing region
             // services/physics. This can prolong shutdown if rendering is busy.
@@ -1530,6 +1537,7 @@ namespace OpenSim.Region.Framework.Scenes
             m_fastMapCancellation.Cancel();
             m_mapGenerationTimer.Stop();
             lock (m_mapGenerationLock) { }
+            m_log.InfoFormat("[OGL SHUTDOWN]: {0}: FastMap drained, deregistering grid/clients", Name);
 
             if (m_shuttingDown)
             {
@@ -1580,8 +1588,9 @@ namespace OpenSim.Region.Framework.Scenes
             m_log.Debug("[SCENE]: TriggerSceneShuttingDown");
             EventManager.TriggerSceneShuttingDown(this);
 
-            m_log.Debug("[SCENE]: Persisting changed objects");
+            m_log.InfoFormat("[OGL SHUTDOWN]: {0}: starting forced object backup", Name);
             Backup(true);
+            m_log.InfoFormat("[OGL SHUTDOWN]: {0}: forced object backup finished", Name);
 
             m_log.Debug("[SCENE]: Closing scene");
 
@@ -1594,6 +1603,7 @@ namespace OpenSim.Region.Framework.Scenes
             // attempt to reference a null or disposed physics scene.
             if (PhysicsScene is not null)
             {
+                m_log.InfoFormat("[OGL SHUTDOWN]: {0}: disposing physics", Name);
                 m_log.Debug("[SCENE]: Dispose Physics");
                 PhysicsScene phys = PhysicsScene;
                 // remove the physics engine from both Scene and SceneGraph

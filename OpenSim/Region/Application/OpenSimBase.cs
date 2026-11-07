@@ -1000,16 +1000,26 @@ namespace OpenSim
             m_log.Info("[SHUTDOWN]: Killing clients");
             m_log.Info("[SHUTDOWN]: Closing console and terminating");
 
+            // Default is a bounded emergency shutdown. Set to 0 when every
+            // region must finish synchronously regardless of delay.
+            int regionCloseTimeoutSeconds = Math.Clamp(
+                Config?.Configs["OGLShutdown"]?.GetInt("RegionCloseTimeoutSeconds", 180) ?? 180, 0, 3600);
             try
             {
-                SceneManager.Close();
-
-                foreach (IApplicationPlugin plugin in m_plugins)
-                    plugin.Dispose();
+                SceneManager.Close(regionCloseTimeoutSeconds);
             }
             catch (Exception e)
             {
-                m_log.Error("[SHUTDOWN]: Ignoring failure during shutdown - ", e);
+                m_log.Error("[OGL SHUTDOWN]: Scene manager failed; attempting plugin cleanup regardless.", e);
+            }
+
+            foreach (IApplicationPlugin plugin in m_plugins)
+            {
+                try { plugin.Dispose(); }
+                catch (Exception e)
+                {
+                    m_log.Error("[OGL SHUTDOWN]: Failed to dispose plugin " + plugin.GetType().FullName, e);
+                }
             }
 
             base.ShutdownSpecific();
