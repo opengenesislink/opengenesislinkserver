@@ -89,6 +89,12 @@ namespace OpenSim.Region.CoreModules.World.Terrain
         private Scene m_scene;
         private volatile bool m_tainted;
 
+        // Serialize heightmap writes, but throttle per resident rather than per region.
+        // A single busy editor must not drop terrain edits from other residents.
+        private readonly object m_terrainEditLock = new object();
+        private readonly Dictionary<UUID, double> m_nextTerrainEditByResident = new Dictionary<UUID, double>();
+        private float m_oglTerrainBrushStrengthMultiplier = 2.0f;
+
         private String m_InitialTerrain = "pinhead-island";
 
         // If true, send terrain patch updates to clients based on their view distance
@@ -238,6 +244,10 @@ namespace OpenSim.Region.CoreModules.World.Terrain
             {
                 m_InitialTerrain = terrainConfig.GetString("InitialTerrain", m_InitialTerrain);
                 m_sendTerrainUpdatesByViewDistance = terrainConfig.GetBoolean("SendTerrainUpdatesByViewDistance",m_sendTerrainUpdatesByViewDistance);
+                float configuredMultiplier = terrainConfig.GetFloat("OglTerrainBrushStrengthMultiplier", 2.0f);
+                m_oglTerrainBrushStrengthMultiplier = float.IsFinite(configuredMultiplier)
+                    ? Math.Clamp(configuredMultiplier, 1.0f, 4.0f)
+                    : 2.0f;
             }
         }
 
@@ -981,6 +991,8 @@ namespace OpenSim.Region.CoreModules.World.Terrain
             }
             lock (m_perClientPatchUpdates)
                 m_perClientPatchUpdates.Remove(client);
+            lock (m_terrainEditLock)
+                m_nextTerrainEditByResident.Remove(client);
         }
 
         /// <summary>
@@ -1314,18 +1326,29 @@ namespace OpenSim.Region.CoreModules.World.Terrain
             return ret;
         }
 
-        private double NextModifyTerrainTime = double.MinValue;
-
         private void client_OnModifyTerrain(UUID user, float height, float seconds, float brushSize, byte action,
                                             float north, float west, float south, float east, int parcelLocalID)
         {
-            double now = Util.GetTimeStamp();
-            if(now < NextModifyTerrainTime)
+            // A malformed viewer packet must never poison the terrain with NaNs
+            // or turn an oversized brush into a full-region edit.
+            if (!float.IsFinite(height) || !float.IsFinite(seconds) ||
+                !float.IsFinite(brushSize) ||
+                // Selected-area (flood) actions do not use brush radius and
+                // some viewers legitimately send 0 for it.
+                (north == south && east == west && brushSize <= 0.0f) ||
+                !float.IsFinite(north) || !float.IsFinite(west) ||
+                !float.IsFinite(south) || !float.IsFinite(east))
                 return;
 
-            try
+            brushSize = Math.Min(brushSize, 64.0f);
+            float effectiveStrength = Math.Clamp(seconds * m_oglTerrainBrushStrengthMultiplier, 0.0f, 4.0f);
+
+            lock (m_terrainEditLock)
             {
-                NextModifyTerrainTime = double.MaxValue; // block it
+                double now = Util.GetTimeStamp();
+                if (m_nextTerrainEditByResident.TryGetValue(user, out double nextAllowed) && now < nextAllowed)
+                    return;
+                m_nextTerrainEditByResident[user] = now + 0.02; // independent 20ms per avatar
 
                 //m_log.DebugFormat("brushs {0} seconds {1} height {2}, parcel {3}", brushSize, seconds, height, parcelLocalID);
                 bool god = m_scene.Permissions.IsGod(user);
@@ -1370,7 +1393,7 @@ namespace OpenSim.Region.CoreModules.World.Terrain
                         {
                             StoreUndoState();
                             m_painteffects[(StandardTerrainEffects) action].PaintEffect(
-                                m_channel, allowMask, west, south, height, brushSize, seconds,
+                                m_channel, allowMask, west, south, height, brushSize, effectiveStrength,
                                 startX, endX, startY, endY);
 
                             //block changes outside estate limits
@@ -1475,10 +1498,6 @@ namespace OpenSim.Region.CoreModules.World.Terrain
                         m_log.Debug("Unknown terrain flood type " + action);
                     }
                 }
-            }
-            finally
-            {
-                NextModifyTerrainTime = Util.GetTimeStamp() + 0.02; // 20ms cooldown
             }
         }
 
