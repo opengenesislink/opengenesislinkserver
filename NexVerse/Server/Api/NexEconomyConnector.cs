@@ -174,7 +174,7 @@ namespace NexVerse.Server.Api
                 DateOnly localDate = DateOnly.FromDateTime(
                     TimeZoneInfo.ConvertTime(DateTimeOffset.UtcNow, m_DailyLoginRewardZone).DateTime);
                 var reward = Economy.CreditResidentDailyLoginBonus(
-                    residentId, displayName, localDate);
+                    residentId, displayName, localDate, m_DailyLoginRewardZone);
                 if (reward.Credited)
                 {
                     m_Log.InfoFormat(
