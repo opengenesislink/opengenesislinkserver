@@ -19,7 +19,13 @@ static void Reject<T>(Action action, string reason) where T : Exception
 }
 static XMRInstance Fake()
 {
-    return (XMRInstance)RuntimeHelpers.GetUninitializedObject(typeof(XMRInstance));
+    XMRInstance result =
+        (XMRInstance)RuntimeHelpers.GetUninitializedObject(typeof(XMRInstance));
+    // The production XMRInstance has a finalizer which expects all constructor
+    // locks to exist. These deliberately incomplete test doubles must never
+    // enter its normal disposal path during GC.
+    SetField(result, "m_disposed", true);
+    return result;
 }
 static void SetField(XMRInstance instance, string name, object value)
 {
