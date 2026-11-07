@@ -56,3 +56,37 @@ Console.WriteLine("PASS: .NET 10 OGKF serialization, legacy preservation and UDP
 
 Assert(typeof(SceneManager).GetMethod("Close", new[] { typeof(int) })!.ReturnType == typeof(bool),
     "region shutdown reports success/failure");
+
+// A malformed legacy/incomplete movement can throw while the timer holds
+// m_frames. The lock must be released even when the timer callback fails.
+KeyframeMotion broken = new KeyframeMotion(null, KeyframeMotion.PlayMode.Forward,
+    KeyframeMotion.DataFormat.Translation);
+var frameField = typeof(KeyframeMotion).GetField("m_frames",
+    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
+var groupField = typeof(KeyframeMotion).GetField("m_group",
+    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
+var stoppedField = typeof(KeyframeMotion).GetField("m_timerStopped",
+    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
+object frameMutex = frameField.GetValue(broken)!;
+// Deliberately corrupt only a test instance: non-null group + absent keyframe
+// array forces GetNextList() to throw NullReferenceException.
+groupField.SetValue(broken,
+    System.Runtime.CompilerServices.RuntimeHelpers.GetUninitializedObject(typeof(SceneObjectGroup)));
+stoppedField.SetValue(broken, false);
+bool didThrow = false;
+try { broken.OnTimer(50); }
+catch (NullReferenceException) { didThrow = true; }
+Assert(didThrow, "test timer callback actually exercised exception path");
+bool releasedByOtherThread = false;
+System.Threading.Thread checkLock = new System.Threading.Thread(() =>
+{
+    if (System.Threading.Monitor.TryEnter(frameMutex, 250))
+    {
+        releasedByOtherThread = true;
+        System.Threading.Monitor.Exit(frameMutex);
+    }
+}) { IsBackground = true };
+checkLock.Start();
+Assert(checkLock.Join(3000), "timer lock probe completed");
+Assert(releasedByOtherThread, "timer exception released m_frames lock across threads");
+Console.WriteLine("PASS: KeyframeMotion timer releases frame lock after exception");

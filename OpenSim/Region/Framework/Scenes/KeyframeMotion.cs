@@ -754,11 +754,21 @@ namespace OpenSim.Region.Framework.Scenes
         {
             if (!Monitor.TryEnter(m_frames))
                 return;
-            if (m_timerStopped)
-                KeyframeTimer.Remove(this);
-            else
-                DoOnTimer(tickDuration);
-            Monitor.Exit(m_frames);
+
+            // An exception from a bad frame, region crossing or callback must
+            // never leave the frame mutex permanently owned by the timer thread.
+            // The shared KeyframeTimer catches callback errors and keeps running.
+            try
+            {
+                if (m_timerStopped)
+                    KeyframeTimer.Remove(this);
+                else
+                    DoOnTimer(tickDuration);
+            }
+            finally
+            {
+                Monitor.Exit(m_frames);
+            }
         }
 
         private void Done()

@@ -10,6 +10,8 @@ assert "new BinaryFormatter(" not in keyframes
 assert "OglLooksLikeLegacyBinaryFormatter" in keyframes
 assert "m_oglLegacyPayload" in keyframes
 assert "OglReadCount" in keyframes
+assert "try\n            {\n                if (m_timerStopped)" in keyframes
+assert "finally\n            {\n                Monitor.Exit(m_frames);" in keyframes
 assert "closeThread.Join(TimeSpan.FromSeconds(regionCloseTimeoutSeconds))" in scenes
 assert "IsBackground = true" in scenes
 assert "scene.Close();" in scenes
