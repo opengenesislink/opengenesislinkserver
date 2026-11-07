@@ -113,6 +113,11 @@ namespace NexVerse.RegionModules.NodeAgent
         private IDisposable m_GridScriptMessageSubscription;
         private IDisposable m_CrossRegionChatSubscription;
         private IDisposable m_FeaturePolicySubscription;
+        // Robust republishes signed policies on each heartbeat to refresh expiry.
+        // Only report an initial or genuinely changed policy, never renewals.
+        private readonly object m_FeaturePolicyLogSync = new();
+        private long m_LastLoggedFeaturePolicyRevision = -1;
+        private int m_LastLoggedFeaturePolicyFlags = -1;
         // A malformed own-node policy must remain visible without flooding the log.
         private long m_LastOwnFeaturePolicyWarningSeconds;
         private volatile bool m_MaintenanceMode;
@@ -1250,9 +1255,26 @@ namespace NexVerse.RegionModules.NodeAgent
             if (OglArchiveFeatureGate.Apply(node, revision, expires, flags, signature))
             {
                 Interlocked.Exchange(ref m_LastOwnFeaturePolicyWarningSeconds, 0);
-                m_Log.DebugFormat(
-                    "[OGL FEATURE CONTROL]: Eigene Richtlinie aktualisiert: Node {0}, Flags {1}.",
-                    node, flags);
+
+                // Every heartbeat carries a newly signed expiry even when the
+                // revision and access flags are unchanged. Keep applying it so
+                // archive permissions do not expire, but log only real changes.
+                bool policyChanged;
+                lock (m_FeaturePolicyLogSync)
+                {
+                    policyChanged = revision != m_LastLoggedFeaturePolicyRevision ||
+                                    flags != m_LastLoggedFeaturePolicyFlags;
+                    if (policyChanged)
+                    {
+                        m_LastLoggedFeaturePolicyRevision = revision;
+                        m_LastLoggedFeaturePolicyFlags = flags;
+                    }
+                }
+
+                if (policyChanged)
+                    m_Log.InfoFormat(
+                        "[OGL FEATURE CONTROL]: Eigene Richtlinie gesetzt/geändert: Node {0}, Revision {1}, Flags {2}.",
+                        node, revision, flags);
             }
             else
             {

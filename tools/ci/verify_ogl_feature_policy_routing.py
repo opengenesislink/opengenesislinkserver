@@ -24,6 +24,16 @@ policy = agent.split("private void HandleFeaturePolicy(", 1)[1].split(
 assert policy.index("IsForConfiguredNode(node)") < policy.index("OglArchiveFeatureGate.Apply(")
 assert "Ungültige, fremde oder abgelaufene Richtlinie verworfen." not in policy
 assert "m_Log.WarnFormat(" in policy
-assert "m_Log.DebugFormat(" in policy
 assert "m_LastOwnFeaturePolicyWarningSeconds" in policy
+# Valid signed renewals still reach Apply, but log only first activation or a
+# changed revision/permission bitmask. Repeated successful heartbeats are quiet.
+assert "m_FeaturePolicyLogSync" in agent
+assert "m_LastLoggedFeaturePolicyRevision = -1" in agent
+assert "m_LastLoggedFeaturePolicyFlags = -1" in agent
+assert "lock (m_FeaturePolicyLogSync)" in policy
+assert "policyChanged = revision != m_LastLoggedFeaturePolicyRevision ||" in policy
+assert "flags != m_LastLoggedFeaturePolicyFlags" in policy
+assert policy.index("OglArchiveFeatureGate.Apply(") < policy.index("if (policyChanged)")
+assert "if (policyChanged)\n                    m_Log.InfoFormat(" in policy
+assert "Eigene Richtlinie aktualisiert:" not in policy
 print("Feature policy node routing and warning throttling: OK")
