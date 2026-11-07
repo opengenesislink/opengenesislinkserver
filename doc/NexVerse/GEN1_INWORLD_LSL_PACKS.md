@@ -133,6 +133,29 @@ Wettervorhersagen**, keine Live-DWD-Wetterwerte. Standard-Firestorm zeigt
 Regentropfen/Schnee über serververwaltete Partikel-Emitter, der native
 OGL-Viewer-Renderer bleibt ein separates Entwicklungsziel.
 
+### OSSL-Berechtigung für dynamische Wetteranzeigen
+
+Die Texturtafeln (inklusive eigener Skripte, die `osSetDynamicTextureData`
+verwenden) benötigen eine explizite Freigabe. Die tatsächlich zuletzt
+geladene `bin/config-include/osslEnable.ini` setzt unter `[OSSL]`
+`Allow_osSetDynamicTextureData = true`. `bin/OpenSim.ini` bindet über
+`osslDefaultEnable.ini` diese abschließende Override-Datei ein.
+Die Freigabe genügt sowohl für
+`osSetDynamicTextureData` als auch für `osSetDynamicTextureDataFace`,
+weil beide im aktuellen Server denselben Berechtigungsnamen prüfen.
+Das globale `OSFunctionThreatLevel` wird **nicht erhöht**.
+
+Diese einzelne Freigabe gilt allerdings **für alle Skriptbesitzer auf dem
+Simulator** und kann bei übermäßiger Verwendung CPU/Assets belasten.
+Auf restriktiven oder öffentlich bebau- und skriptbaren Regionen kann
+statt `true` eine Liste vertrauenswürdiger **Objektbesitzer-UUIDs**
+verwendet werden. Die Freigabe ist kein Ersatz für Script-/Objekt-Limits.
+
+Nach dem Konfigurationsupdate ist der **Regionssimulator neu zu starten**.
+Anschließend muss ein wegen `OSSL Permission Error` deaktiviertes
+YEngine-Skript im Viewer manuell über **Reset Scripts** zurückgesetzt
+werden. Ein Neustart allein aktiviert das deaktivierte Skript nicht zwingend.
+
 ## Grenzen und Abnahme
 
 Alle Skripte prüfen die bisherige Server-Wire-Version, den jeweiligen
