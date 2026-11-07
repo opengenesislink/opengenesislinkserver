@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-"""Offline integration smoke: launch 3 real OpenSim regions and close via console.
+"""Offline integration smoke: launch multiple real OpenSim regions and close via console.
 
 This uses isolated SQLite files and a temporary regions directory; no production
 grid, NAS, database or credentials are contacted.
 """
 from __future__ import annotations
+import argparse
 import os
 from pathlib import Path
 import pty
@@ -23,15 +24,13 @@ COMMON_TEMPLATE = ROOT / "tools/ci/NexLoginPlacement/StandaloneCommon.ini"
 INI_TEMPLATE = BIN / "OpenSim.NexVerseLoginPlacement.Tests.ini"
 REGION_TEMPLATE = ROOT / "tools/ci/NexLoginPlacement/Regions/NexVerse-CI.ini"
 ESTATES = ROOT / "tools/ci/NexLoginPlacement/Estates"
-NAMES = [f"OGL Shutdown CI {n}" for n in range(1, 4)]
-
-
-def run_smoke(workdir: Path) -> None:
+def run_smoke(workdir: Path, region_count: int) -> None:
+    names = [f"OGL Shutdown CI {n}" for n in range(1, region_count + 1)]
     orig_common = COMMON.read_bytes() if COMMON.exists() else None
     state = workdir / "state"
     regions = workdir / "regions"
     regions.mkdir()
-    for i, name in enumerate(NAMES, 1):
+    for i, name in enumerate(names, 1):
         code = REGION_TEMPLATE.read_text()
         code = code.replace("NexVerse CI Landing", name)
         code = code.replace(
@@ -91,15 +90,15 @@ def run_smoke(workdir: Path) -> None:
                 elif stop_if and stop_if(logs):
                     return
 
-        capture(120, lambda output: all(
-            "INITIALIZATION COMPLETE FOR " + name in output for name in NAMES))
-        if not all("INITIALIZATION COMPLETE FOR " + name in logs for name in NAMES):
-            raise AssertionError("Simulator did not initialize all three shutdown regions")
+        capture(max(120, region_count * 20), lambda output: all(
+            "INITIALIZATION COMPLETE FOR " + name in output for name in names))
+        if not all("INITIALIZATION COMPLETE FOR " + name in logs for name in names):
+            raise AssertionError(f"Simulator did not initialize all {region_count} shutdown regions")
 
         # Give the foreground console time to open its interactive prompt.
         capture(1)
         os.write(master, b"shutdown\r")
-        capture(90)
+        capture(max(90, region_count * 8))
         # Environment.Exit closes the PTY before Popen.poll() necessarily sees
         # the process exit. Reap the process instead of racing its final close.
         try:
@@ -110,12 +109,12 @@ def run_smoke(workdir: Path) -> None:
             ) from exc
         if proc.returncode != 0:
             raise AssertionError(f"Simulator exit status was {proc.returncode}")
-        for name in NAMES:
+        for name in names:
             if f"Region {name} closed in" not in logs:
                 raise AssertionError("Missing clean close confirmation for " + name)
-        if "All 3 region close operations completed" not in logs:
+        if f"All {region_count} region close operations completed" not in logs:
             raise AssertionError("Missing complete shutdown summary")
-        print("PASS: 3 real regions started, console shutdown completed, exit code 0")
+        print(f"PASS: {region_count} real regions started, console shutdown completed, exit code 0")
     except Exception:
         print("----- Shutdown simulator output (last 160 lines) -----")
         print("\n".join(logs.splitlines()[-160:]))
@@ -138,8 +137,13 @@ def run_smoke(workdir: Path) -> None:
 
 
 def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--regions", type=int, default=3, help="number of test regions (1..42)")
+    args = parser.parse_args()
+    if not (1 <= args.regions <= 42):
+        parser.error("--regions must be between 1 and 42")
     with tempfile.TemporaryDirectory(prefix="ogl-g1-shutdown-ci-") as path:
-        run_smoke(Path(path))
+        run_smoke(Path(path), args.regions)
 
 
 if __name__ == "__main__":
