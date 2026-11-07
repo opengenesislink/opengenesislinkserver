@@ -667,6 +667,36 @@ namespace OpenSim.Region.CoreModules.Framework.EntityTransfer
         }
 
         /// <summary>
+        /// Notify a viewer of a failed teleport without masking the underlying
+        /// remote-agent failure when the viewer disconnects during CreateAgent.
+        /// </summary>
+        private void SendTeleportFailureIfConnected(ScenePresence sp, string reason, string destination)
+        {
+            IClientAPI client = sp?.ControllingClient;
+            if (client == null || sp.IsDeleted || !client.IsActive)
+            {
+                m_log.WarnFormat(
+                    "[ENTITY TRANSFER MODULE]: Cannot notify viewer after failed teleport to {0}; client for {1} is already disconnected. Original reason: {2}",
+                    destination, sp?.Name ?? "(unknown)", reason);
+                return;
+            }
+
+            try
+            {
+                client.SendTeleportFailed(string.IsNullOrWhiteSpace(reason) ?
+                    "Destination region could not accept the teleport." : reason);
+            }
+            catch (Exception e)
+            {
+                // Client teardown may race with SendTeleportFailed. Do not hide
+                // the original simulation-service error with a secondary throw.
+                m_log.Warn(
+                    "[ENTITY TRANSFER MODULE]: Sending teleport failure to " +
+                    sp.Name + " for " + destination + " failed during disconnect. Original reason: " + reason, e);
+            }
+        }
+
+        /// <summary>
         /// Wraps DoTeleportInternal() and manages the transfer state.
         /// </summary>
         public void DoTeleport(
@@ -695,7 +725,16 @@ namespace OpenSim.Region.CoreModules.Framework.EntityTransfer
                     sp.Name, sp.AbsolutePosition, m_sceneName, position, finalDestination.RegionName,
                     e.Message, e.StackTrace);
 
-                sp.ControllingClient.SendTeleportFailed("Internal error");
+                try
+                {
+                    SendTeleportFailureIfConnected(sp, "Internal error", finalDestination.RegionName);
+                }
+                finally
+                {
+                    // A thrown error must not leave this ScenePresence stuck in
+                    // transit after the transfer state machine has been reset.
+                    sp.IsInTransit = false;
+                }
             }
             finally
             {
@@ -873,12 +912,18 @@ namespace OpenSim.Region.CoreModules.Framework.EntityTransfer
             {
                 m_interRegionTeleportFailures.Value++;
 
-                m_log.DebugFormat(
-                    "[ENTITY TRANSFER MODULE]: Teleport of {0} from {1} to {2} was refused because {3}",
+                m_log.WarnFormat(
+                    "[ENTITY TRANSFER MODULE]: CreateAgent rejected teleport of {0} from {1} to {2}: {3}",
                     sp.Name, sp.Scene.RegionInfo.RegionName, finalDestination.RegionName, reason);
 
-                sp.ControllingClient.SendTeleportFailed(reason);
-                sp.IsInTransit = false;
+                try
+                {
+                    SendTeleportFailureIfConnected(sp, reason, finalDestination.RegionName);
+                }
+                finally
+                {
+                    sp.IsInTransit = false;
+                }
                 return;
             }
 
@@ -1116,12 +1161,18 @@ namespace OpenSim.Region.CoreModules.Framework.EntityTransfer
             {
                 m_interRegionTeleportFailures.Value++;
 
-                m_log.DebugFormat(
-                    "[ENTITY TRANSFER MODULE]: Teleport of {0} from {1} to {2} was refused because {3}",
+                m_log.WarnFormat(
+                    "[ENTITY TRANSFER MODULE]: CreateAgent rejected teleport of {0} from {1} to {2}: {3}",
                     sp.Name, sp.Scene.RegionInfo.RegionName, finalDestination.RegionName, reason);
 
-                sp.ControllingClient.SendTeleportFailed(reason);
-                sp.IsInTransit = false;
+                try
+                {
+                    SendTeleportFailureIfConnected(sp, reason, finalDestination.RegionName);
+                }
+                finally
+                {
+                    sp.IsInTransit = false;
+                }
                 return;
             }
 

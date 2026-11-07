@@ -1,0 +1,21 @@
+name: OGL EntityTransfer Disconnect Regression
+
+on:
+  pull_request:
+    paths:
+      - 'OpenSim/Region/CoreModules/Framework/EntityTransfer/EntityTransferModule.cs'
+      - 'tools/ci/verify_ogl_entity_transfer_failure.py'
+      - '.github/workflows/ogl-entity-transfer-disconnect.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  entity-transfer-disconnect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify teleport failure and viewer disconnect ordering
+        run: python3 tools/ci/verify_ogl_entity_transfer_failure.py
