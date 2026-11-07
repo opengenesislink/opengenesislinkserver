@@ -1332,7 +1332,10 @@ namespace OpenSim.Region.CoreModules.World.Terrain
             // A malformed viewer packet must never poison the terrain with NaNs
             // or turn an oversized brush into a full-region edit.
             if (!float.IsFinite(height) || !float.IsFinite(seconds) ||
-                !float.IsFinite(brushSize) || brushSize <= 0.0f ||
+                !float.IsFinite(brushSize) ||
+                // Selected-area (flood) actions do not use brush radius and
+                // some viewers legitimately send 0 for it.
+                (north == south && east == west && brushSize <= 0.0f) ||
                 !float.IsFinite(north) || !float.IsFinite(west) ||
                 !float.IsFinite(south) || !float.IsFinite(east))
                 return;
