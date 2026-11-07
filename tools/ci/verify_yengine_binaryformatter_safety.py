@@ -56,11 +56,11 @@ assert "../../Directory.Build.targets" in server_targets
 # KeyframeMotion is an explicitly tracked exception while PR #396 stays
 # unmerged; its removal is tested independently in that PR.
 active_construction = re.compile(
-    r"\\bnew\\s+(?:(?:System\\.Runtime\\.Serialization\\.Formatters\\.Binary\\.)?)BinaryFormatter\\s*\\(")
+    r"\bnew\s+(?:System\.Runtime\.Serialization\.Formatters\.Binary\.)?BinaryFormatter\s*\(")
 legacy_keyframe = ROOT / "OpenSim/Region/Framework/Scenes/KeyframeMotion.cs"
 for codefile in (ROOT / "OpenSim").rglob("*.cs"):
     # Ignore legacy comments, but never ignore executable constructors.
-    source_without_comments = "\\n".join(
+    source_without_comments = "\n".join(
         line.split("//", 1)[0] for line in codefile.read_text(errors="replace").splitlines())
     if active_construction.search(source_without_comments) and codefile != legacy_keyframe:
         raise AssertionError(f"Active BinaryFormatter runtime constructor: {codefile}")
