@@ -165,6 +165,13 @@ namespace OpenSim.Region.PhysicsModule.BulletS
         public static float AvatarStepUpCorrectionFactor { get; private set; }
         public static int AvatarStepSmoothingSteps { get; private set; }
 
+        // OpenGenesisLINK: bounded, direction-aware stair assist for solid static prims and mesh stairs.
+        public static bool OglAvatarStairAssistEnabled { get; private set; }
+        public static float OglAvatarStairMaxHeight { get; private set; }
+        public static float OglAvatarStairProbeDistance { get; private set; }
+        public static float OglAvatarStairRisePerFrame { get; private set; }
+        public static float OglAvatarStairMinNormalZ { get; private set; }
+
         // Vehicle parameters
         public static float VehicleMaxLinearVelocity { get; private set; }
         public static float VehicleMaxLinearVelocitySquared { get; private set; }
@@ -681,6 +688,16 @@ namespace OpenSim.Region.PhysicsModule.BulletS
                 0.8f ),
             new ParameterDefn<int>("AvatarStepSmoothingSteps", "Number of frames after a step collision that we continue walking up stairs",
                 1 ),
+            new ParameterDefn<bool>("OglAvatarStairAssistEnabled", "Use OpenGenesisLINK direction-aware, ray-verified stair assist (false uses legacy collision stepping)",
+                true ),
+            new ParameterDefn<float>("OglAvatarStairMaxHeight", "Maximum static stair rise automatically climbed, in meters",
+                0.45f ),
+            new ParameterDefn<float>("OglAvatarStairProbeDistance", "Horizontal distance to inspect for a step in walking direction, meters",
+                0.38f ),
+            new ParameterDefn<float>("OglAvatarStairRisePerFrame", "Maximum vertical correction in one physics step, meters",
+                0.10f ),
+            new ParameterDefn<float>("OglAvatarStairMinNormalZ", "Minimum upward surface normal for a walkable stair top",
+                0.7f ),
 
             new ParameterDefn<float>("VehicleMaxLinearVelocity", "Maximum velocity magnitude that can be assigned to a vehicle",
                 1000.0f,

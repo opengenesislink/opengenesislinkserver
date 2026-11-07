@@ -302,7 +302,9 @@ namespace OpenSim.Region.PhysicsModule.BulletS
                 OMV.Vector3 moveForce = (stepVelocity - m_controllingPrim.RawVelocity) * m_controllingPrim.Mass;
     
                 // Add special movement force to allow avatars to walk up stepped surfaces.
-                moveForce += WalkUpStairs();
+                moveForce += BSParam.OglAvatarStairAssistEnabled
+                    ? OglWalkUpStairs()
+                    : WalkUpStairs();
     
                 m_physicsScene.DetailLog("{0},BSCharacter.MoveMotor,move,stepVel={1},vel={2},mass={3},moveForce={4}",
                                 m_controllingPrim.LocalID, stepVelocity, m_controllingPrim.RawVelocity, m_controllingPrim.Mass, moveForce);
@@ -322,6 +324,143 @@ namespace OpenSim.Region.PhysicsModule.BulletS
                 m_physicsScene.PE.SetTranslation(m_controllingPrim.PhysBody, entprop.Position, entprop.Rotation);
             }
     
+        }
+
+        /// <summary>
+        /// Calculate a conservative rise to a walkable stair top. This is kept
+        /// independent of Bullet so that edge cases can be regression-tested.
+        /// </summary>
+        public static bool TryComputeStairRise(
+            float footZ, float surfaceZ, float surfaceNormalZ,
+            float maximumStepHeight, float maximumRisePerFrame, float minimumNormalZ,
+            out float rise)
+        {
+            rise = 0f;
+            if (!float.IsFinite(footZ) || !float.IsFinite(surfaceZ)
+                || !float.IsFinite(surfaceNormalZ) || !float.IsFinite(maximumStepHeight)
+                || !float.IsFinite(maximumRisePerFrame) || !float.IsFinite(minimumNormalZ)
+                || maximumStepHeight <= 0f || maximumRisePerFrame <= 0f
+                || minimumNormalZ <= 0f || minimumNormalZ > 1f
+                || surfaceNormalZ < minimumNormalZ)
+                return false;
+
+            float height = surfaceZ - footZ;
+            // Reject unchanged ground, steps too tall for a normal walking
+            // movement, and surfaces with a wall-like upward normal.
+            if (height < 0.06f || height > maximumStepHeight)
+                return false;
+
+            rise = Math.Min(height * 0.8f, maximumRisePerFrame);
+            return rise > 0f;
+        }
+
+        /// <summary>
+        /// Normalize only the intended horizontal walking direction. We must
+        /// follow input velocity, not the avatar rotation: strafe/backward
+        /// movement must be able to step up as well.
+        /// </summary>
+        public static OMV.Vector3 HorizontalStairDirection(OMV.Vector3 targetVelocity)
+        {
+            float speedSq = targetVelocity.X * targetVelocity.X
+                          + targetVelocity.Y * targetVelocity.Y;
+            if (!float.IsFinite(speedSq) || speedSq < 0.015f)
+                return OMV.Vector3.Zero;
+
+            float invSpeed = 1f / (float)Math.Sqrt(speedSq);
+            return new OMV.Vector3(
+                targetVelocity.X * invSpeed,
+                targetVelocity.Y * invSpeed, 0f);
+        }
+
+        /// <summary>
+        /// OpenGenesisLINK step assist. Three short, filtered Bullet raycasts
+        /// validate a solid stationary stair top, a clear forward path above
+        /// the maximum step, and space above the landing. This executes only
+        /// for grounded avatars whose requested movement is being obstructed.
+        /// </summary>
+        private OMV.Vector3 OglWalkUpStairs()
+        {
+            if (!BSParam.UseBulletRaycast
+                || !m_controllingPrim.IsColliding
+                || m_controllingPrim.Flying
+                || m_controllingPrim.IsVolumeDetect)
+                return OMV.Vector3.Zero;
+
+            OMV.Vector3 direction = HorizontalStairDirection(m_velocityMotor.TargetValue);
+            if (direction == OMV.Vector3.Zero)
+                return OMV.Vector3.Zero;
+
+            float targetSpeedSq = m_velocityMotor.TargetValue.X * m_velocityMotor.TargetValue.X
+                                + m_velocityMotor.TargetValue.Y * m_velocityMotor.TargetValue.Y;
+            float actualSpeedSq = m_controllingPrim.RawVelocity.X * m_controllingPrim.RawVelocity.X
+                                + m_controllingPrim.RawVelocity.Y * m_controllingPrim.RawVelocity.Y;
+
+            // Do not auto-step while moving freely, jumping or falling.
+            if (actualSpeedSq > targetSpeedSq * 0.64f
+                || Math.Abs(m_controllingPrim.RawVelocity.Z) > 0.75f)
+                return OMV.Vector3.Zero;
+
+            // A maximum of 0.6m prevents misconfiguration from turning this
+            // into a wall-climbing or teleportation mechanism.
+            float maxStep = Math.Clamp(BSParam.OglAvatarStairMaxHeight, 0f, 0.6f);
+            float probeDistance = Math.Clamp(BSParam.OglAvatarStairProbeDistance, 0.2f, 0.65f);
+            float maxFrameRise = Math.Clamp(BSParam.OglAvatarStairRisePerFrame, 0f, 0.15f);
+            float minNormalZ = Math.Clamp(BSParam.OglAvatarStairMinNormalZ, 0.6f, 1f);
+            if (maxStep < 0.06f || maxFrameRise <= 0f)
+                return OMV.Vector3.Zero;
+
+            OMV.Vector3 position = m_controllingPrim.RawPosition;
+            float footZ = position.Z - m_controllingPrim.Size.Z * 0.5f
+                        - BSParam.AvatarStepGroundFudge;
+
+            // Query static geometry only. Avatars, dynamic vehicles and
+            // volume-detect volumes must never be treated as stairs.
+            uint group = BulletSimData.CollisionTypeMasks[CollisionType.Avatar].group;
+            uint mask = BulletSimData.CollisionTypeMasks[CollisionType.Static].group;
+
+            OMV.Vector3 ahead = position + direction * probeDistance;
+            float highZ = footZ + maxStep + 0.12f;
+            OMV.Vector3 clearStart = new OMV.Vector3(position.X, position.Y, highZ);
+            OMV.Vector3 clearEnd = new OMV.Vector3(ahead.X, ahead.Y, highZ);
+            RaycastHit highObstacle = m_physicsScene.PE.RayTest2(
+                m_physicsScene.World, clearStart, clearEnd, group, mask);
+            if (highObstacle.hasHit())
+                return OMV.Vector3.Zero;
+
+            // Cast down at the next foot placement, starting above the
+            // maximum step. Tall vertical walls cannot pass this test.
+            OMV.Vector3 top = new OMV.Vector3(ahead.X, ahead.Y, highZ);
+            OMV.Vector3 bottom = new OMV.Vector3(ahead.X, ahead.Y, footZ - 0.10f);
+            RaycastHit surface = m_physicsScene.PE.RayTest2(
+                m_physicsScene.World, top, bottom, group, mask);
+            if (!surface.hasHit() || surface.ID == m_controllingPrim.LocalID
+                || !m_physicsScene.PhysObjects.TryGetValue(
+                    surface.ID, out BSPhysObject stair)
+                || !stair.IsStatic || !stair.IsSolid || stair.IsVolumeDetect)
+                return OMV.Vector3.Zero;
+
+            if (!TryComputeStairRise(
+                footZ, surface.Point.Z, surface.Normal.Z,
+                maxStep, maxFrameRise, minNormalZ, out float rise))
+                return OMV.Vector3.Zero;
+
+            // Do not lift the avatar into a low ceiling. This is a point
+            // clearance check; Bullet's ordinary collision solver still
+            // enforces the full shape against nearby geometry.
+            OMV.Vector3 headFrom = new OMV.Vector3(
+                ahead.X, ahead.Y, surface.Point.Z + 0.08f);
+            OMV.Vector3 headTo = new OMV.Vector3(
+                ahead.X, ahead.Y,
+                surface.Point.Z + m_controllingPrim.Size.Z + 0.12f);
+            RaycastHit overhead = m_physicsScene.PE.RayTest2(
+                m_physicsScene.World, headFrom, headTo, group, mask);
+            if (overhead.hasHit())
+                return OMV.Vector3.Zero;
+
+            // Bounded vertical correction; never force horizontal movement
+            // through a wall, and let the native collision solver resolve it.
+            m_controllingPrim.ForcePosition = position + new OMV.Vector3(0f, 0f, rise);
+            return OMV.Vector3.Zero;
         }
 
         // Decide if the character is colliding with a low object and compute a force to pop the
