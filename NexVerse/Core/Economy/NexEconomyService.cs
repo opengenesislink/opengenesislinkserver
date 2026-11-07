@@ -2,6 +2,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
@@ -1384,6 +1385,128 @@ namespace NexVerse.Core.Economy
 
                 throw;
             }
+        }
+
+        // Daily NV$ rewards are part of the authoritative double-entry policy.
+        // Local logins only: the ROBUST subscriber supplies an authenticated
+        // local UserAccount.PrincipalID, never a viewer-supplied or HG identity.
+        // The transaction and both posting IDs are deterministic per local date
+        // and avatar. This is idempotent even across independent ROBUST nodes.
+        public (bool Credited, int Day, long Amount, Guid TransactionId)
+            CreditResidentDailyLoginBonus(Guid residentId, string displayName, DateOnly localDay,
+                TimeZoneInfo calendarZone = null)
+        {
+            if (residentId == Guid.Empty)
+                throw new ArgumentException("Local resident ID is required.", nameof(residentId));
+            if (localDay <= DateOnly.MinValue.AddDays(1))
+                throw new ArgumentOutOfRangeException(nameof(localDay));
+
+            NexLedgerAccount resident = EnsureResidentAccount(residentId, displayName);
+            Guid issuerId = DeterministicGuid("ogl:nv:daily-login:v1:system-account");
+            NexLedgerAccount issuer = EnsureSystemAccount(issuerId, "NexVerse Daily Login Rewards");
+            Guid transactionId = DailyLoginTransactionId(residentId, localDay);
+
+            NexLedgerTransaction existing = m_Ledger.GetTransaction(transactionId);
+            if (existing != null)
+            {
+                int alreadyDay = ValidateDailyLoginTransaction(existing, residentId, issuerId, localDay);
+                return (false, alreadyDay, alreadyDay == 7 ? 60L : 10L, transactionId);
+            }
+
+            DateOnly previousDay = localDay.AddDays(-1);
+            NexLedgerTransaction previous =
+                m_Ledger.GetTransaction(DailyLoginTransactionId(residentId, previousDay));
+            int streakDay = previous == null ? 1 :
+                (ValidateDailyLoginTransaction(previous, residentId, issuerId, previousDay) % 7) + 1;
+            long amount = streakDay == 7 ? 60L : 10L;
+
+            RequireNotClosed(resident.AccountId, "daily reward recipient");
+            RequireNotClosed(issuer.AccountId, "daily reward issuer");
+
+            string dayText = localDay.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+            string reason = streakDay == 7
+                ? "NexVerse Loginbonus Tag 7/7: 10 NV$ + 50 NV$ Extra"
+                : "NexVerse Loginbonus Tag " + streakDay.ToString(CultureInfo.InvariantCulture) + "/7: 10 NV$";
+            Dictionary<string, string> metadata = new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                ["actor"] = "ogl-resident-login",
+                ["reason"] = reason,
+                ["program"] = "ogl-daily-login-v1",
+                ["resident_id"] = residentId.ToString("D"),
+                ["local_day"] = dayText,
+                ["streak_day"] = streakDay.ToString(CultureInfo.InvariantCulture)
+            };
+
+            // Record the actual start of the configured local calendar day
+            // in UTC, including the correct DST offset. This is immutable
+            // and identical across all ROBUST nodes and retry attempts.
+            TimeZoneInfo zone = calendarZone ??
+                TimeZoneInfo.FindSystemTimeZoneById("Europe/Berlin");
+            DateTime midnight = new DateTime(
+                localDay.Year, localDay.Month, localDay.Day, 0, 0, 0,
+                DateTimeKind.Unspecified);
+            DateTimeOffset occurredAt = new DateTimeOffset(
+                TimeZoneInfo.ConvertTimeToUtc(midnight, zone), TimeSpan.Zero);
+            NexLedgerTransaction transaction = new NexLedgerTransaction(
+                transactionId,
+                "daily_login_bonus",
+                "OGL-LOGIN-" + residentId.ToString("N") + "-" +
+                    localDay.ToString("yyyyMMdd", CultureInfo.InvariantCulture),
+                new[]
+                {
+                    new NexLedgerPosting(
+                        DeterministicGuid("ogl:daily-login:debit:" + transactionId.ToString("N")),
+                        issuerId, NexLedgerSide.Debit, amount, reason),
+                    new NexLedgerPosting(
+                        DeterministicGuid("ogl:daily-login:credit:" + transactionId.ToString("N")),
+                        residentId, NexLedgerSide.Credit, amount, reason)
+                },
+                "ogl-daily-login-v1",
+                metadata,
+                occurredAt);
+
+            NexLedgerAppendResult result = m_Ledger.Post(transaction);
+            // On duplicate the ledger validates *all* immutable fields,
+            // including the deterministic postings and their timestamp.
+            return (result.Status == NexLedgerAppendStatus.Created,
+                streakDay, amount, transactionId);
+        }
+
+        private static Guid DailyLoginTransactionId(Guid residentId, DateOnly day) =>
+            DeterministicGuid(
+                "ogl:daily-login:v1:" + residentId.ToString("N") + ":" +
+                day.ToString("yyyyMMdd", CultureInfo.InvariantCulture));
+
+        private static int ValidateDailyLoginTransaction(
+            NexLedgerTransaction transaction, Guid residentId, Guid issuerId, DateOnly day)
+        {
+            string date = day.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+            if (transaction.Kind != "daily_login_bonus" ||
+                transaction.Postings.Count != 2 ||
+                !transaction.Metadata.TryGetValue("program", out string program) ||
+                program != "ogl-daily-login-v1" ||
+                !transaction.Metadata.TryGetValue("resident_id", out string avatar) ||
+                avatar != residentId.ToString("D") ||
+                !transaction.Metadata.TryGetValue("local_day", out string localDate) ||
+                localDate != date ||
+                !transaction.Metadata.TryGetValue("streak_day", out string streakRaw) ||
+                !int.TryParse(streakRaw, NumberStyles.None, CultureInfo.InvariantCulture, out int streak) ||
+                streak < 1 || streak > 7)
+            {
+                throw new NexLedgerConflictException("Daily login reward transaction identity mismatch.");
+            }
+
+            long expectedAmount = streak == 7 ? 60L : 10L;
+            NexLedgerPosting debit = transaction.Postings[0];
+            NexLedgerPosting credit = transaction.Postings[1];
+            if (debit.AccountId != issuerId || debit.Side != NexLedgerSide.Debit ||
+                debit.AmountMinor != expectedAmount ||
+                credit.AccountId != residentId || credit.Side != NexLedgerSide.Credit ||
+                credit.AmountMinor != expectedAmount)
+            {
+                throw new NexLedgerConflictException("Daily login reward transaction amount or postings mismatch.");
+            }
+            return streak;
         }
 
         public NexLedgerAppendResult AdministrativeAdjustment(

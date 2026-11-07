@@ -1,0 +1,44 @@
+name: OGL Daily Login Reward Regression
+on:
+  pull_request:
+    paths:
+      - 'NexVerse/Core/Economy/**'
+      - 'NexVerse/Server/Api/NexEconomyConnector.cs'
+      - 'OpenSim/Services/LLLoginService/**'
+      - 'bin/Robust*.ini*'
+      - 'tools/ci/NexEconomyPolicyRegression/**'
+      - 'tools/ci/verify_daily_login_bonus.py'
+      - '.github/workflows/ogl-daily-login-reward.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'NexVerse/Core/Economy/**'
+      - 'NexVerse/Server/Api/NexEconomyConnector.cs'
+      - 'OpenSim/Services/LLLoginService/**'
+      - 'bin/Robust*.ini*'
+      - 'tools/ci/NexEconomyPolicyRegression/**'
+      - 'tools/ci/verify_daily_login_bonus.py'
+      - '.github/workflows/ogl-daily-login-reward.yml'
+permissions:
+  contents: read
+jobs:
+  reward-ledger:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: Validate reward guards
+        run: python3 tools/ci/verify_daily_login_bonus.py
+      - name: Generate server .NET 10 project graph
+        run: |
+          chmod +x runprebuild.sh
+          ./runprebuild.sh
+      - name: Restore and build .NET 10 server
+        run: |
+          dotnet restore OpenSim.sln
+          dotnet build OpenSim.sln -c Release --no-restore
+      - name: Test seven-day reward matrix in memory and SQL
+        run: dotnet run -c Release --project tools/ci/NexEconomyPolicyRegression/NexEconomyPolicyRegression.csproj

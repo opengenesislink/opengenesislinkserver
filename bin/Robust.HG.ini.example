@@ -324,6 +324,10 @@
     ; When enabled, create/upgrade the OpenGenesisLINK ledger schema on startup.
     InitializeSchema = true
 
+    ; Optional OGL G1 7-day login reward, disabled outside Stadt NexVerse production.
+    DailyLoginRewardEnabled = false
+    DailyLoginRewardTimezone = "Europe/Berlin"
+
 [EstateDataStore]
     ; NexVerse World API Estate discovery uses the same authoritative
     ; Estate data service/database as the simulator estate subsystem.

@@ -30,6 +30,72 @@ internal static class Program
         throw new InvalidOperationException(message);
     }
 
+    private static void RunDailyLoginRewardRegression(NexEconomyService economy, string label)
+    {
+        Guid residentId = Guid.NewGuid();
+        DateOnly startDay = new DateOnly(2026, 11, 8);
+        long expectedBalance = 0;
+        for (int i = 0; i < 8; i++)
+        {
+            DateOnly date = startDay.AddDays(i);
+            int expectedDay = (i % 7) + 1;
+            long amount = expectedDay == 7 ? 60L : 10L;
+            var grant = economy.CreditResidentDailyLoginBonus(
+                residentId, label + " reward citizen", date);
+            Require(grant.Credited && grant.Day == expectedDay && grant.Amount == amount,
+                label + ": wrong daily reward on " + date);
+            expectedBalance += amount;
+            Require(economy.GetBalance(residentId) == expectedBalance,
+                label + ": daily bonus balance mismatch");
+            var retry = economy.CreditResidentDailyLoginBonus(
+                residentId, label + " reward citizen", date);
+            Require(!retry.Credited && retry.Day == expectedDay &&
+                    retry.Amount == amount && retry.TransactionId == grant.TransactionId,
+                label + ": duplicate login bonus returned a second credit");
+            Require(economy.GetBalance(residentId) == expectedBalance,
+                label + ": duplicate login bonus changed balance");
+        }
+        var reset = economy.CreditResidentDailyLoginBonus(
+            residentId, label + " reward citizen", startDay.AddDays(9));
+        Require(reset.Credited && reset.Day == 1 && reset.Amount == 10L,
+            label + ": missed calendar day did not reset streak");
+        expectedBalance += 10;
+        Require(economy.GetBalance(residentId) == expectedBalance,
+            label + ": reset bonus not in ledger");
+
+        Guid otherAvatar = Guid.NewGuid();
+        var other = economy.CreditResidentDailyLoginBonus(
+            otherAvatar, label + " other citizen", startDay);
+        Require(other.Credited && other.Day == 1 && other.Amount == 10L &&
+                economy.GetBalance(otherAvatar) == 10,
+            label + ": resident rewards not isolated");
+
+        // Both occurrences of the repeated autumn 02:30 Berlin time must
+        // belong to one calendar day and cannot create a second grant.
+        TimeZoneInfo berlin = TimeZoneInfo.FindSystemTimeZoneById("Europe/Berlin");
+        DateOnly autumnFirst = DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(
+            new DateTimeOffset(2026, 10, 25, 0, 30, 0, TimeSpan.Zero), berlin).DateTime);
+        DateOnly autumnSecond = DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(
+            new DateTimeOffset(2026, 10, 25, 1, 30, 0, TimeSpan.Zero), berlin).DateTime);
+        Require(autumnFirst == autumnSecond && autumnFirst == new DateOnly(2026, 10, 25),
+            label + ": Berlin DST fallback changed the calendar day");
+        Guid dstAvatar = Guid.NewGuid();
+        var firstDst = economy.CreditResidentDailyLoginBonus(
+            dstAvatar, label + " DST citizen", autumnFirst, berlin);
+        var secondDst = economy.CreditResidentDailyLoginBonus(
+            dstAvatar, label + " DST citizen", autumnSecond, berlin);
+        Require(firstDst.Credited && !secondDst.Credited &&
+                economy.GetBalance(dstAvatar) == 10,
+            label + ": DST fallback generated duplicate daily reward");
+
+        DateOnly springFirst = DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(
+            new DateTimeOffset(2026, 3, 29, 0, 30, 0, TimeSpan.Zero), berlin).DateTime);
+        DateOnly springSecond = DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(
+            new DateTimeOffset(2026, 3, 29, 1, 30, 0, TimeSpan.Zero), berlin).DateTime);
+        Require(springFirst == springSecond && springFirst == new DateOnly(2026, 3, 29),
+            label + ": Berlin DST spring-forward changed calendar day");
+    }
+
     private static void RunPolicyRegression(
         INexLedgerStore store,
         INexLedgerAccountStateStore stateStore,
@@ -41,6 +107,8 @@ internal static class Program
             new NexEconomyService(
                 ledger,
                 stateStore);
+
+        RunDailyLoginRewardRegression(economy, label);
 
         Guid systemId =
             Guid.NewGuid();
