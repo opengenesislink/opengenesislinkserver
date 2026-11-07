@@ -198,10 +198,7 @@ try
         SetField(incomplete, "m_RunLock", new object());
         Reject<NullReferenceException>(() => incomplete.GetExecutionState(
             new XmlDocument()), "snapshot failure injection reached MigrateOut");
-        FieldInfo suspended = typeof(XMRInstance).GetField("suspendOnCheckRunHold",
-            BindingFlags.NonPublic | BindingFlags.Instance)
-            ?? throw new Exception("Missing YEngine suspension flag");
-        Check(!(bool)suspended.GetValue(incomplete),
+        Check(!incomplete.suspendOnCheckRunHold,
             "failed snapshot released script suspension flag");
     }
 
