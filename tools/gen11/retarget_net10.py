@@ -15,6 +15,12 @@ ROOT = Path(__file__).resolve().parents[2]
 OLD = "net8.0"
 NEW = "net10.0"
 
+# The bundled prebuild.dll still generates an obsolete unsafe opt-in for
+# every project. Force it OFF on each build; this is not a blanket
+# BinaryFormatter compatibility switch for application data.
+UNSAFE_TRUE = "<EnableUnsafeBinaryFormatterSerialization>true</EnableUnsafeBinaryFormatterSerialization>"
+UNSAFE_FALSE = "<EnableUnsafeBinaryFormatterSerialization>false</EnableUnsafeBinaryFormatterSerialization>"
+
 
 def projects():
     for project in sorted(ROOT.rglob("*.csproj")):
@@ -26,7 +32,7 @@ def projects():
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--check", action="store_true",
-                        help="fail when a project still targets net8.0")
+                        help="fail on net8.0 projects or enabled unsafe BinaryFormatter")
     args = parser.parse_args()
     changed: list[str] = []
     stale: list[str] = []
@@ -34,21 +40,22 @@ def main() -> int:
     for project in projects():
         scanned += 1
         source = project.read_text(encoding="utf-8-sig")
-        if OLD not in source:
+        converted = source.replace(OLD, NEW).replace(UNSAFE_TRUE, UNSAFE_FALSE)
+        if converted == source:
             continue
         rel = str(project.relative_to(ROOT))
         stale.append(rel)
         if not args.check:
-            project.write_text(source.replace(OLD, NEW), encoding="utf-8")
+            project.write_text(converted, encoding="utf-8")
             changed.append(rel)
     if args.check:
         if stale:
             for path in stale:
-                print(f"ERROR: net8.0 project still present: {path}")
+                print(f"ERROR: net8.0 target or unsafe BinaryFormatter opt-in: {path}")
             return 1
-        print(f"G1.1 .NET 10: {scanned} project files checked, no net8.0 targets")
+        print(f"G1.1 .NET 10: {scanned} projects checked, no net8.0 or unsafe BinaryFormatter opt-in")
         return 0
-    print(f"G1.1 .NET 10: retargeted {len(changed)} of {scanned} project files")
+    print(f"G1.1 .NET 10: retargeted or secured {len(changed)} of {scanned} project files")
     return 0
 
 

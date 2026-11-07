@@ -62,3 +62,22 @@ full format. It marks valid snapshots `inspect-required`, not
 `legacy-detected`. The only valid compatibility verdict comes from a
 controlled, backed-up staging restore; **do not assume all snapshots are
 upgrade-safe because the audit succeeded.**
+
+## Runtime and build-time unsafe opt-in removed
+
+The historic Prebuild generator had an unconditional
+`EnableUnsafeBinaryFormatterSerialization=true` setting in generated
+projects. The checked-in `prebuild.dll` is older than the generator
+source; it still emits the switch when `runprebuild.sh` runs.
+
+The Generation 1.1 retarget step now **always replaces that generated
+opt-in with false** before project restore/build, and `--check` rejects
+an unsafe regenerated project. The generator source is also corrected
+for future rebuilds. Runtime config templates for ROBUST and OpenSim and
+the five checked-in application runtime configs explicitly disable unsafe
+BinaryFormatter deserialization. All of this is checked by CI, including
+a second check immediately *after* regeneration.
+
+The intentionally isolated .NET 8 fixture for legacy KeyframeMotion
+migration in PR #396 lives outside the generated project tree; its
+compatibility setting is not enabled in any .NET 10 production process.

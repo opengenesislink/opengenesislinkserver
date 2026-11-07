@@ -4,6 +4,11 @@ on:
   pull_request:
     paths:
       - 'OpenSim/Framework/Util.cs'
+      - 'OpenSim/Server/runtimeconfig.template.json'
+      - 'OpenSim/Region/Application/runtimeconfig.template.json'
+      - 'Prebuild/src/Core/Targets/VSGenericTarget.cs'
+      - 'tools/gen11/retarget_net10.py'
+      - 'bin/*.runtimeconfig.json'
       - 'OpenSim/Region/ScriptEngine/YEngine/**'
       - 'tools/ci/YEngineBinaryFormatterRegression/**'
       - 'tools/ci/verify_yengine_binaryformatter_safety.py'
@@ -30,6 +35,10 @@ jobs:
         run: |
           chmod +x runprebuild.sh
           ./runprebuild.sh
+      - name: Recheck generated projects and runtime safety configuration
+        run: |
+          python3 tools/gen11/retarget_net10.py --check
+          python3 tools/ci/verify_yengine_binaryformatter_safety.py
       - name: Build full OpenGenesisLINK G1 .NET 10 solution
         run: dotnet build OpenSim.sln -c Release
       - name: Test read-only YEngine state file audit
