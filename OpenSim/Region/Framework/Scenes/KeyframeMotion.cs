@@ -38,8 +38,6 @@ using OpenSim.Framework;
 using OpenSim.Region.Framework.Interfaces;
 using OpenSim.Region.PhysicsModules.SharedBase;
 using OpenSim.Region.Framework.Scenes.Serialization;
-using System.Runtime.Serialization.Formatters.Binary;
-using System.Runtime.Serialization;
 using Timer = System.Timers.Timer;
 using log4net;
 
@@ -209,6 +207,92 @@ namespace OpenSim.Region.Framework.Scenes
             public Vector3 StartPosition;
         };
 
+
+        // OGKF v1 is an explicit, bounded data-only format. It does not invoke
+        // BinaryFormatter or instantiate types supplied by serialized bytes.
+        private static readonly byte[] OglKeyframeMagic = { 0x4f, 0x47, 0x4b, 0x46 };
+        private const int OglMaxKeyframes = 8192;
+        private const int OglMaxSerializedBytes = 4 * 1024 * 1024;
+        [NonSerialized]
+        private byte[] m_oglLegacyPayload;
+
+        /// <summary>
+        /// A pre-.NET 9 BinaryFormatter record has been retained byte-for-byte,
+        /// but its movement is deliberately inactive until an offline migration.
+        /// </summary>
+        public bool HasLegacySerialization => m_oglLegacyPayload != null;
+
+        private static bool OglLooksLikeLegacyBinaryFormatter(byte[] bytes)
+        {
+            // BinaryFormatter SerializedStreamHeader (record 0, root ID 1).
+            return bytes.Length >= 9 && bytes[0] == 0 && bytes[1] == 1 &&
+                   bytes[2] == 0 && bytes[3] == 0 && bytes[4] == 0;
+        }
+
+        private static void OglWriteVector(BinaryWriter writer, Vector3 value)
+        {
+            writer.Write(value.X); writer.Write(value.Y); writer.Write(value.Z);
+        }
+
+        private static void OglWriteRotation(BinaryWriter writer, Quaternion value)
+        {
+            writer.Write(value.X); writer.Write(value.Y);
+            writer.Write(value.Z); writer.Write(value.W);
+        }
+
+        private static float OglReadFinite(BinaryReader reader)
+        {
+            float value = reader.ReadSingle();
+            if (!float.IsFinite(value))
+                throw new InvalidDataException("Non-finite keyframe component");
+            return value;
+        }
+
+        private static Vector3 OglReadVector(BinaryReader reader)
+        {
+            return new Vector3(OglReadFinite(reader), OglReadFinite(reader), OglReadFinite(reader));
+        }
+
+        private static Quaternion OglReadRotation(BinaryReader reader)
+        {
+            return new Quaternion(OglReadFinite(reader), OglReadFinite(reader),
+                                  OglReadFinite(reader), OglReadFinite(reader));
+        }
+
+        private static void OglWriteFrame(BinaryWriter writer, Keyframe frame)
+        {
+            writer.Write(frame.Position.HasValue);
+            if (frame.Position.HasValue) OglWriteVector(writer, frame.Position.Value);
+            writer.Write(frame.Rotation.HasValue);
+            if (frame.Rotation.HasValue) OglWriteRotation(writer, frame.Rotation.Value);
+            OglWriteRotation(writer, frame.StartRotation);
+            writer.Write(frame.TimeMS);
+            writer.Write(frame.TimeTotal);
+            OglWriteVector(writer, frame.AngularVelocity);
+            OglWriteVector(writer, frame.StartPosition);
+        }
+
+        private static Keyframe OglReadFrame(BinaryReader reader)
+        {
+            Keyframe frame = new Keyframe();
+            if (reader.ReadBoolean()) frame.Position = OglReadVector(reader);
+            if (reader.ReadBoolean()) frame.Rotation = OglReadRotation(reader);
+            frame.StartRotation = OglReadRotation(reader);
+            frame.TimeMS = reader.ReadInt32();
+            frame.TimeTotal = reader.ReadInt32();
+            frame.AngularVelocity = OglReadVector(reader);
+            frame.StartPosition = OglReadVector(reader);
+            return frame;
+        }
+
+        private static int OglReadCount(BinaryReader reader, bool nullable)
+        {
+            int count = reader.ReadInt32();
+            if (count > OglMaxKeyframes || count < (nullable ? -1 : 0))
+                throw new InvalidDataException("Invalid keyframe count");
+            return count;
+        }
+
         private Vector3 m_serializedPosition;
         private Vector3 m_basePosition;
         private Quaternion m_baseRotation;
@@ -308,36 +392,71 @@ namespace OpenSim.Region.Framework.Scenes
 
         public static KeyframeMotion FromData(SceneObjectGroup grp, Byte[] data)
         {
-            KeyframeMotion newMotion = null;
+            if (data == null || data.Length == 0 || data.Length > OglMaxSerializedBytes)
+                return null;
+
+            // Never execute a legacy BinaryFormatter payload inside .NET 10.
+            // Preserve a bounded original record so normal object saves cannot
+            // silently erase keyframe motion before an offline .NET 8 migration.
+            if (!data.AsSpan(0, Math.Min(data.Length, OglKeyframeMagic.Length))
+                     .SequenceEqual(OglKeyframeMagic))
+            {
+                if (!OglLooksLikeLegacyBinaryFormatter(data))
+                    return null;
+
+                KeyframeMotion legacy = new KeyframeMotion(grp, PlayMode.Forward,
+                    DataFormat.Translation | DataFormat.Rotation);
+                legacy.m_oglLegacyPayload = (byte[])data.Clone();
+                // A legacy movement is inert; preserving it is safer than
+                // reading an arbitrary .NET object graph or deleting it.
+                return legacy;
+            }
 
             try
             {
-                using (MemoryStream ms = new MemoryStream(data))
+                using MemoryStream stream = new MemoryStream(data, false);
+                using BinaryReader reader = new BinaryReader(stream);
+                if (!reader.ReadBytes(4).AsSpan().SequenceEqual(OglKeyframeMagic))
+                    return null;
+                if (reader.ReadByte() != 1)
+                    return null;
+
+                int modeValue = reader.ReadInt32();
+                int flagsValue = reader.ReadInt32();
+                if (!Enum.IsDefined(typeof(PlayMode), modeValue) || (flagsValue & ~3) != 0)
+                    return null;
+                KeyframeMotion motion = new KeyframeMotion(grp, (PlayMode)modeValue, (DataFormat)flagsValue);
+                motion.m_serializedPosition = OglReadVector(reader);
+                motion.m_basePosition = OglReadVector(reader);
+                motion.m_baseRotation = OglReadRotation(reader);
+                motion.m_running = reader.ReadBoolean();
+                motion.m_iterations = reader.ReadInt32();
+                motion.m_skipLoops = reader.ReadInt32();
+                motion.m_currentFrame = OglReadFrame(reader);
+
+                int count = OglReadCount(reader, true);
+                if (count >= 0)
                 {
-                    BinaryFormatter fmt = new BinaryFormatter();
-                    newMotion = (KeyframeMotion)fmt.Deserialize(ms);
+                    motion.m_keyframes = new Keyframe[count];
+                    for (int i = 0; i < count; i++)
+                        motion.m_keyframes[i] = OglReadFrame(reader);
                 }
 
-                newMotion.m_group = grp;
+                count = OglReadCount(reader, false);
+                for (int i = 0; i < count; i++)
+                    motion.m_frames.Add(OglReadFrame(reader));
 
-                if (grp != null)
-                {
-                    newMotion.m_scene = grp.Scene;
-                    if (grp.IsSelected)
-                        newMotion.m_selected = true;
-                }
-
-//                newMotion.m_timerStopped = false;
-//                newMotion.m_running = true;
-                newMotion.m_isCrossing = false;
-                newMotion.m_waitingCrossing = false;
+                // Reject appended payloads and unsupported extensions.
+                return stream.Position == stream.Length ? motion : null;
             }
-            catch
+            catch (Exception e) when (e is EndOfStreamException ||
+                                      e is InvalidDataException ||
+                                      e is IOException ||
+                                      e is ArgumentException ||
+                                      e is OverflowException)
             {
-                newMotion = null;
+                return null;
             }
-
-            return newMotion;
         }
 
         public void UpdateSceneObject(SceneObjectGroup grp)
@@ -398,6 +517,8 @@ namespace OpenSim.Region.Framework.Scenes
 
         public void SetKeyframes(Keyframe[] frames)
         {
+            // A newly supplied movement supersedes any inert legacy payload.
+            m_oglLegacyPayload = null;
             m_keyframes = frames;
         }
 
@@ -409,6 +530,8 @@ namespace OpenSim.Region.Framework.Scenes
 
             newmotion.m_group = newgrp;
             newmotion.m_scene = newgrp.Scene;
+            if (m_oglLegacyPayload != null)
+                newmotion.m_oglLegacyPayload = (byte[])m_oglLegacyPayload.Clone();
 
             if (m_keyframes != null)
             {
@@ -631,11 +754,21 @@ namespace OpenSim.Region.Framework.Scenes
         {
             if (!Monitor.TryEnter(m_frames))
                 return;
-            if (m_timerStopped)
-                KeyframeTimer.Remove(this);
-            else
-                DoOnTimer(tickDuration);
-            Monitor.Exit(m_frames);
+
+            // An exception from a bad frame, region crossing or callback must
+            // never leave the frame mutex permanently owned by the timer thread.
+            // The shared KeyframeTimer catches callback errors and keeps running.
+            try
+            {
+                if (m_timerStopped)
+                    KeyframeTimer.Remove(this);
+                else
+                    DoOnTimer(tickDuration);
+            }
+            finally
+            {
+                Monitor.Exit(m_frames);
+            }
         }
 
         private void Done()
@@ -824,27 +957,56 @@ namespace OpenSim.Region.Framework.Scenes
 
         public Byte[] Serialize()
         {
+            if (m_oglLegacyPayload != null)
+                return (byte[])m_oglLegacyPayload.Clone();
+
             bool timerWasStopped;
             lock (m_frames)
-            {
                 timerWasStopped = m_timerStopped;
-            }
             StopTimer();
 
-            SceneObjectGroup tmp = m_group;
-            m_group = null;
-
-            using (MemoryStream ms = new MemoryStream())
+            try
             {
-                BinaryFormatter fmt = new BinaryFormatter();
-                if (!m_selected && tmp != null)
-                    m_serializedPosition = tmp.AbsolutePosition;
-                fmt.Serialize(ms, this);
-                m_group = tmp;
+                lock (m_frames)
+                {
+                    if (!m_selected && m_group != null)
+                        m_serializedPosition = m_group.AbsolutePosition;
+                    if (m_frames.Count > OglMaxKeyframes ||
+                        (m_keyframes != null && m_keyframes.Length > OglMaxKeyframes))
+                        throw new InvalidDataException("Keyframe count exceeds safe limit");
+
+                    using MemoryStream stream = new MemoryStream();
+                    using (BinaryWriter writer = new BinaryWriter(stream, System.Text.Encoding.UTF8, true))
+                    {
+                        writer.Write(OglKeyframeMagic);
+                        writer.Write((byte)1);
+                        writer.Write((int)m_mode);
+                        writer.Write((int)m_data);
+                        OglWriteVector(writer, m_serializedPosition);
+                        OglWriteVector(writer, m_basePosition);
+                        OglWriteRotation(writer, m_baseRotation);
+                        writer.Write(m_running);
+                        writer.Write(m_iterations);
+                        writer.Write(m_skipLoops);
+                        OglWriteFrame(writer, m_currentFrame);
+
+                        writer.Write(m_keyframes == null ? -1 : m_keyframes.Length);
+                        if (m_keyframes != null)
+                            foreach (Keyframe keyframe in m_keyframes) OglWriteFrame(writer, keyframe);
+
+                        writer.Write(m_frames.Count);
+                        foreach (Keyframe frame in m_frames) OglWriteFrame(writer, frame);
+                    }
+
+                    if (stream.Length > OglMaxSerializedBytes)
+                        throw new InvalidDataException("Keyframe payload exceeds safe size");
+                    return stream.ToArray();
+                }
+            }
+            finally
+            {
                 if (!timerWasStopped && m_running && !m_waitingCrossing)
                     StartTimer();
-
-                return ms.ToArray();
             }
         }
 

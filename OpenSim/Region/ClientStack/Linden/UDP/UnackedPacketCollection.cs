@@ -76,10 +76,13 @@ namespace OpenSim.Region.ClientStack.LindenUDP
         private uint m_older;
         public void Clear()
         {
-            m_packets.Clear();
-            m_pendingAdds = null;
-            m_pendingAcknowledgements = null;
-            m_pendingRemoves = null;
+            // Outgoing callbacks can still be unwinding when an avatar disconnects.
+            // Swapping to empty collections avoids a null dereference in Count(),
+            // Acknowledge() and Add() while the disconnect completes.
+            m_packets = new SortedDictionary<uint, OutgoingPacket>();
+            m_pendingAdds = new LocklessQueue<OutgoingPacket>();
+            m_pendingAcknowledgements = new LocklessQueue<PendingAck>();
+            m_pendingRemoves = new LocklessQueue<uint>();
             m_older = 0;
         }
 
