@@ -8,7 +8,6 @@ from __future__ import annotations
 import os
 from pathlib import Path
 import pty
-import re
 import select
 import shutil
 import signal
@@ -44,7 +43,7 @@ def run_smoke(workdir: Path) -> None:
         (regions / f"shutdown-{i}.ini").write_text(code)
 
     ini = INI_TEMPLATE.read_text()
-    ini = re.sub(r"background\\s*=\\s*true", "background = false", ini)
+    ini = ini.replace("background = true", "background = false")
     ini = ini.replace('regionload_regionsdir = "../tools/ci/NexLoginPlacement/Regions"',
                       f'regionload_regionsdir = "{regions}"')
     ini = ini.replace('regionload_estatesdir = "../tools/ci/NexLoginPlacement/Estates"',
