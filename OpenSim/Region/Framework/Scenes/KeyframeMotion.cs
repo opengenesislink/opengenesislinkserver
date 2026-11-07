@@ -450,6 +450,7 @@ namespace OpenSim.Region.Framework.Scenes
                 return stream.Position == stream.Length ? motion : null;
             }
             catch (Exception e) when (e is EndOfStreamException ||
+                                      e is InvalidDataException ||
                                       e is IOException ||
                                       e is ArgumentException ||
                                       e is OverflowException)
