@@ -7,6 +7,8 @@ on:
       - 'OpenSim/Server/runtimeconfig.template.json'
       - 'OpenSim/Region/Application/runtimeconfig.template.json'
       - 'Prebuild/src/Core/Targets/VSGenericTarget.cs'
+      - 'Directory.Build.targets'
+      - 'OpenSim/Server/Directory.Build.targets'
       - 'tools/gen11/retarget_net10.py'
       - 'bin/*.runtimeconfig.json'
       - 'OpenSim/Region/ScriptEngine/YEngine/**'
@@ -35,10 +37,20 @@ jobs:
         run: |
           chmod +x runprebuild.sh
           ./runprebuild.sh
-      - name: Recheck generated projects and runtime safety configuration
+      - name: Recheck generated projects, runtime and actual MSBuild security properties
         run: |
           python3 tools/gen11/retarget_net10.py --check
           python3 tools/ci/verify_yengine_binaryformatter_safety.py
+          for project in \
+              OpenSim/Region/Application/OpenSim.csproj \
+              OpenSim/Server/Robust.csproj \
+              OpenSim/Region/ScriptEngine/YEngine/OpenSim.Region.ScriptEngine.YEngine.csproj; do
+            actual="$(dotnet msbuild "$project" -getProperty:EnableUnsafeBinaryFormatterSerialization -nologo)"
+            if [ "$actual" != "false" ]; then
+              echo "Unsafe BinaryFormatter setting for $project: $actual" >&2
+              exit 1
+            fi
+          done
       - name: Build full OpenGenesisLINK G1 .NET 10 solution
         run: dotnet build OpenSim.sln -c Release
       - name: Test read-only YEngine state file audit

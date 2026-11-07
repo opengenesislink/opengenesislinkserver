@@ -81,3 +81,11 @@ a second check immediately *after* regeneration.
 The intentionally isolated .NET 8 fixture for legacy KeyframeMotion
 migration in PR #396 lives outside the generated project tree; its
 compatibility setting is not enabled in any .NET 10 production process.
+
+### Direct-build defense in depth
+
+A repository-level `Directory.Build.targets` overrides stale checked-in
+`.csproj` files when an operator runs `dotnet build` directly, bypassing
+`runprebuild.sh`. ROBUST uses a nested `OpenSim/Server/Directory.Build.targets`;
+that nested file now imports the root security policy. CI queries the *effective*
+MSBuild property of OpenSim, ROBUST and YEngine after the Prebuild step.

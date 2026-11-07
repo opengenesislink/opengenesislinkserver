@@ -41,7 +41,14 @@ runtime_paths = [
 ]
 for runtime_path in runtime_paths:
     config = json.loads(runtime_path.read_text())
-    enabled = config["runtimeOptions"].get("configProperties", {}).get(
+    # runtimeconfig.template.json uses configProperties at the document root.
+    # Built runtimeconfig.json puts the same fields under runtimeOptions.
+    enabled = config.get("runtimeOptions", config).get("configProperties", {}).get(
         "System.Runtime.Serialization.EnableUnsafeBinaryFormatterSerialization", False)
     assert enabled is not True, f"Unsafe BinaryFormatter runtime opt-in: {runtime_path}"
+root_targets = (ROOT / "Directory.Build.targets").read_text()
+assert '<EnableUnsafeBinaryFormatterSerialization>false</EnableUnsafeBinaryFormatterSerialization>' in root_targets
+assert "'$(TargetFramework)' == 'net10.0'" in root_targets
+server_targets = (ROOT / "OpenSim/Server/Directory.Build.targets").read_text()
+assert "../../Directory.Build.targets" in server_targets
 print("PASS: no BinaryFormatter activation, unsafe build opt-ins or runtime opt-ins; state preserved")
