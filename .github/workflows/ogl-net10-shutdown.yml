@@ -11,6 +11,7 @@ on:
       - 'OpenSim/Region/Application/OpenSimBackground.cs'
       - 'tools/ci/Net10ShutdownRegression/**'
       - 'tools/ci/verify_net10_shutdown.py'
+      - 'tools/ci/verify_avatar_evacuation.py'
       - '.github/workflows/ogl-net10-shutdown.yml'
   workflow_dispatch:
 

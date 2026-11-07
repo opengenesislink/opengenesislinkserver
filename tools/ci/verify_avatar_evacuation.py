@@ -10,6 +10,9 @@ server=load("OpenSim/Region/Application/OpenSimBase.cs")
 managed=load("NexVerse/RegionModules/NodeAgent/NexVerseManagedRegionHostPlugin.cs")
 project=load("OpenSim/Region/Framework/OpenSim.Region.Framework.csproj")
 config=load("bin/OpenSim.ini")
+shutdown_close = ("SceneManager.Close(regionCloseTimeoutSeconds)"
+                  if "SceneManager.Close(regionCloseTimeoutSeconds)" in server
+                  else "SceneManager.Close();")
 checks={
     "in-process scene lifecycle":
         ('NexVerseAvatarEvacuation.Evacuate(this' in scene and
@@ -19,7 +22,7 @@ checks={
     "process-wide before shutdown":
         ('NexVerseAvatarEvacuation.EvacuateInstance(' in server and
          server.index('NexVerseAvatarEvacuation.EvacuateInstance(') <
-         server.index('SceneManager.Close();',server.index('protected override void ShutdownSpecific()'))),
+         server.index(shutdown_close,server.index('protected override void ShutdownSpecific()'))),
     "every local region excluded":
         ('scenes.Where(s => s != null).Select(s => s.RegionInfo.RegionID)' in evac and
          'excluded.Contains(region.RegionID)' in evac),
