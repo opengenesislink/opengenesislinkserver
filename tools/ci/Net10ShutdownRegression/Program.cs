@@ -53,3 +53,6 @@ ack.Remove(123);
 ack.Clear();
 Assert(ack.Count() == 0, "ACK queue tolerates late callback and repeated close");
 Console.WriteLine("PASS: .NET 10 OGKF serialization, legacy preservation and UDP teardown regression");
+
+Assert(typeof(SceneManager).GetMethod("Close", new[] { typeof(int) })!.ReturnType == typeof(bool),
+    "region shutdown reports success/failure");

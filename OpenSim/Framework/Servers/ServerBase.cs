@@ -51,6 +51,13 @@ namespace OpenSim.Framework.Servers
 
         public IConfigSource Config { get; protected set; }
 
+        private int m_shutdownRequested;
+
+        /// <summary>
+        /// Used by the host console to stop prompting after quit/shutdown.
+        /// </summary>
+        public bool ShutdownRequested => Volatile.Read(ref m_shutdownRequested) != 0;
+
         /// <summary>
         /// Console to be used for any command line output.  Can be null, in which case there should be no output.
         /// </summary>
@@ -977,6 +984,7 @@ namespace OpenSim.Framework.Servers
 
         public virtual void Shutdown()
         {
+            Interlocked.Exchange(ref m_shutdownRequested, 1);
             m_serverStatsCollector.Close();
             ShutdownSpecific();
         }

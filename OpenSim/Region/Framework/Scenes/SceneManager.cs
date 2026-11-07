@@ -148,7 +148,7 @@ namespace OpenSim.Region.Framework.Scenes
         /// continues closing on a background thread and its unsaved state may be lost
         /// when the process exits. Use systemd's stop timeout as a second watchdog.
         /// </summary>
-        public void Close(int regionCloseTimeoutSeconds = 0)
+        public bool Close(int regionCloseTimeoutSeconds = 0)
         {
             List<Scene> localScenes;
             lock (m_localScenes)
@@ -207,6 +207,8 @@ namespace OpenSim.Region.Framework.Scenes
                 m_log.ErrorFormat("[OGL SHUTDOWN]: {0} of {1} region close operations failed or timed out; check backups before restarting.", failed, localScenes.Count);
             else
                 m_log.InfoFormat("[OGL SHUTDOWN]: All {0} region close operations completed.", localScenes.Count);
+
+            return failed == 0;
         }
 
         public void Close(Scene cscene)

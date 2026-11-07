@@ -1006,10 +1006,12 @@ namespace OpenSim
                 Config?.Configs["OGLShutdown"]?.GetInt("RegionCloseTimeoutSeconds", 180) ?? 180, 0, 3600);
             try
             {
-                SceneManager.Close(regionCloseTimeoutSeconds);
+                if (!SceneManager.Close(regionCloseTimeoutSeconds))
+                    ShutdownExitCode = 1;
             }
             catch (Exception e)
             {
+                ShutdownExitCode = 1;
                 m_log.Error("[OGL SHUTDOWN]: Scene manager failed; attempting plugin cleanup regardless.", e);
             }
 
@@ -1018,6 +1020,7 @@ namespace OpenSim
                 try { plugin.Dispose(); }
                 catch (Exception e)
                 {
+                    ShutdownExitCode = 1;
                     m_log.Error("[OGL SHUTDOWN]: Failed to dispose plugin " + plugin.GetType().FullName, e);
                 }
             }

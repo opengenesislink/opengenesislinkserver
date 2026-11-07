@@ -15,6 +15,15 @@ assert "IsBackground = true" in scenes
 assert "scene.Close();" in scenes
 assert "plugin.Dispose()" in base
 assert "SceneManager.Close(regionCloseTimeoutSeconds)" in base
+assert "if (!SceneManager.Close(regionCloseTimeoutSeconds))" in base
+assert "ShutdownExitCode = 1;" in base
+assert "return failed == 0;" in scenes
+server = (root / "OpenSim/Framework/Servers/BaseOpenSimServer.cs").read_text()
+assert "Environment.Exit(ShutdownExitCode)" in server
+host = (root / "OpenSim/Framework/Servers/ServerBase.cs").read_text()
+app = (root / "OpenSim/Region/Application/Application.cs").read_text()
+assert "public bool ShutdownRequested" in host
+assert "while (!m_sim.ShutdownRequested)" in app
 background = (root / "OpenSim/Region/Application/OpenSimBackground.cs").read_text()
 shutdown = background.split("public override void Shutdown()", 1)[1]
 assert shutdown.index("base.Shutdown();") < shutdown.index("WorldHasComeToAnEnd.Set();")

@@ -52,3 +52,14 @@ still needs an in-world high-churn stress test.
 base shutdown completed. The completion event is now signalled from a
 `finally` block **after** application cleanup, preventing the main
 thread from treating an in-progress shutdown as completed.
+
+## Shutdown service exit status and console loop
+
+`SceneManager.Close(int)` now reports a boolean result. A scene timeout,
+exception or plugin-disposal failure marks the simulator's exit status nonzero
+instead of falsely reporting success to systemd. This does not recover unsaved
+data; operators must inspect failed region names before restarting.
+
+The console command loop stops requesting new prompts after a shutdown
+request. The normal process still exits through the inherited server shutdown
+handler after cleanup.
