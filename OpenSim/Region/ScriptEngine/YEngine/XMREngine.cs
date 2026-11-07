@@ -1164,13 +1164,16 @@ namespace OpenSim.Region.ScriptEngine.Yengine
         // the script is instantiated.
         public bool SetXMLState(UUID itemID, string xml)
         {
-            XmlDocument doc = new();
-
+            XmlDocument doc;
             try
             {
-                doc.LoadXml(xml);
+                // OARs, inventory restores and region crossings may contain
+                // foreign state; apply the same bounded DTD-free XML parser
+                // used for regular .state file loading.
+                doc = XMRInstance.ParsePersistedStateXml(xml);
             }
-            catch
+            catch (Exception error) when (error is XmlException or InvalidDataException
+                or ArgumentException or System.IO.IOException)
             {
                 return false;
             }
@@ -1205,19 +1208,48 @@ namespace OpenSim.Region.ScriptEngine.Yengine
                     return false;
             }
 
-            XmlAttribute assetA = doc.CreateAttribute("", "Asset", "");
-            assetA.Value = stateN.GetAttribute("Asset");
-            scriptStateN.Attributes.Append(assetA);
+            string assetId = stateN.GetAttribute("Asset");
+            if (string.IsNullOrEmpty(assetId))
+                return false;
 
-            // Write out the .state file with the <ScriptState ...>...</ScriptState> XML text
-            string statePath = XMRInstance.GetStateFileName(m_ScriptBasePath, itemID);
-            using (FileStream ss = File.Create(statePath))
+            if (!isX)
             {
-                using (StreamWriter sw = new(ss))
-                    sw.Write(scriptStateN.OuterXml);
+                // Do not replace a valid existing script state with malformed
+                // base64 from a foreign region/OAR. XEngine uses Variables
+                // instead of YEngine Snapshot and remains supported.
+                XmlElement snapshotN = (XmlElement)scriptStateN.SelectSingleNode("Snapshot");
+                if (snapshotN is null || snapshotN.InnerText.Length == 0 ||
+                    snapshotN.InnerText.Length > XMRInstance.MaxPersistedStateXmlBytes)
+                    return false;
+                try
+                {
+                    Convert.FromBase64String(snapshotN.InnerText);
+                }
+                catch (FormatException)
+                {
+                    return false;
+                }
             }
 
-            return true;
+            XmlAttribute assetA = doc.CreateAttribute("", "Asset", "");
+            assetA.Value = assetId;
+            scriptStateN.Attributes.Append(assetA);
+
+            // Never File.Create() over the last known-good state, including
+            // during imports/crossings. Validate and replace atomically.
+            string statePath = XMRInstance.GetStateFileName(m_ScriptBasePath, itemID);
+            try
+            {
+                XMRInstance.WriteStateFileAtomically(statePath, scriptStateN.OuterXml);
+                return true;
+            }
+            catch (Exception error) when (error is InvalidDataException or ArgumentException
+                or System.IO.IOException or UnauthorizedAccessException)
+            {
+                m_log.WarnFormat("[YEngine]: Refusing invalid/failed state import for {0}: {1}",
+                    itemID, error.Message);
+                return false;
+            }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

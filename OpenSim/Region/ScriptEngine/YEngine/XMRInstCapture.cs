@@ -82,8 +82,10 @@ namespace OpenSim.Region.ScriptEngine.Yengine
             // stable.  Setting suspendOnCheckRun tells CheckRun() to suspend
             // and return out so RunOne() will release the lock asap.
             suspendOnCheckRunHold = true;
-            lock(m_RunLock)
+            try
             {
+                lock(m_RunLock)
+                {
                 //m_RunOnePhase = "GetExecutionState enter";
                 //CheckRunLockInvariants(true);
 
@@ -184,10 +186,14 @@ namespace OpenSim.Region.ScriptEngine.Yengine
                 scriptStateN.AppendChild(plugins);
                 //m_RunOnePhase = "GetExecutionState H";
 
-                // Let script run again.
-                suspendOnCheckRunHold = false;
-
                 //m_RunOnePhase = "GetExecutionState leave";
+                }
+            }
+            finally
+            {
+                // Unsafe/unsupported legacy state can throw during MigrateOut.
+                // Never leave a running script frozen after a failed snapshot.
+                suspendOnCheckRunHold = false;
             }
 
             // scriptStateN represents the contents of the .state file so

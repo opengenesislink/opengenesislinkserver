@@ -503,13 +503,14 @@ namespace OpenSim.Region.ScriptEngine.Yengine
             XmlElement doGblInitN = (XmlElement)scriptStateN.SelectSingleNode("DoGblInit");
             doGblInit = bool.Parse(doGblInitN.InnerText);
 
+            // A corrupt/legacy migration snapshot must fail before any timer
+            // is reprogrammed on the partially constructed script instance.
+            double? restoredScriptTime = null;
             if (m_XMRLSLApi != null)
             {
                 XmlElement scpttimeN = (XmlElement)scriptStateN.SelectSingleNode("scrpTime");
                 if (scpttimeN != null && Double.TryParse(scpttimeN.InnerText, out double t))
-                {
-                    m_XMRLSLApi.SetLSLTimer(Util.GetTimeStampMS() - t);
-                }
+                    restoredScriptTime = t;
             }
 
             double minEventDelay = 0.0;
@@ -537,6 +538,9 @@ namespace OpenSim.Region.ScriptEngine.Yengine
                 ms.Seek(0, SeekOrigin.Begin);
                 MigrateInEventHandler(ms);
             }
+
+            if (restoredScriptTime.HasValue)
+                m_XMRLSLApi.SetLSLTimer(Util.GetTimeStampMS() - restoredScriptTime.Value);
 
             XmlElement permissionsN = (XmlElement)scriptStateN.SelectSingleNode("Permissions");
             m_Item.PermsGranter = new UUID(permissionsN.GetAttribute("granter"));

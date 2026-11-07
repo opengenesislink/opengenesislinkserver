@@ -89,3 +89,20 @@ A repository-level `Directory.Build.targets` overrides stale checked-in
 `runprebuild.sh`. ROBUST uses a nested `OpenSim/Server/Directory.Build.targets`;
 that nested file now imports the root security policy. CI queries the *effective*
 MSBuild property of OpenSim, ROBUST and YEngine after the Prebuild step.
+
+## Additional safety: failed YEngine snapshots and OAR imports
+
+A snapshot failure while `suspendOnCheckRunHold` was set could leave
+a running script stuck. `XMRInstance.GetExecutionState` now clears
+this suspension flag via `finally`, including errors from unsupported
+historic objects and oversized state.
+
+`Yengine.SetXMLState` (used for OAR/import/region-crossing state) previously
+used unbounded `XmlDocument.LoadXml` and `File.Create`, which could
+truncate a last known-good `.state` file before successfully writing the
+replacement. It now uses the same DTD-free 8 MiB XML reader as ordinary
+state restore, checks the YEngine base64 snapshot, and writes atomically.
+Legacy XEngine imports retain their distinct Variables-based format.
+
+Script timers are not changed until the YEngine binary snapshot was
+decoded successfully. No automatic historic graph execution is enabled.

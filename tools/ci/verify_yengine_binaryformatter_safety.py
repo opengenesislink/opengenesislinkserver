@@ -27,6 +27,14 @@ assert "File.Delete(m_StateFileName)" not in ctor.split("private void LoadInitia
     "private static EventParams", 1)[0]
 assert "ReadPersistedStateXmlFile(m_StateFileName)" in ctor
 assert "WriteStateFileAtomically(m_StateFileName, scriptStateN.OuterXml)" in capture
+assert "finally\n            {\n                // Unsafe/unsupported legacy state" in capture
+assert "suspendOnCheckRunHold = false;" in capture
+engine = (ROOT / "OpenSim/Region/ScriptEngine/YEngine/XMREngine.cs").read_text()
+assert "doc = XMRInstance.ParsePersistedStateXml(xml)" in engine
+assert "XMRInstance.WriteStateFileAtomically(statePath, scriptStateN.OuterXml)" in engine
+assert "using (FileStream ss = File.Create(statePath))" not in engine
+assert "Convert.FromBase64String(snapshotN.InnerText)" in engine
+assert "restoredScriptTime.HasValue" in ctor
 assert "DtdProcessing = DtdProcessing.Prohibit" in capture
 assert "File.Move(temporary, statePath, overwrite: true)" in capture
 generator = (ROOT / "Prebuild/src/Core/Targets/VSGenericTarget.cs").read_text()
