@@ -1,0 +1,22 @@
+name: OGL Terrain Editor Responsiveness
+on:
+  pull_request:
+    paths:
+      - 'OpenSim/Region/CoreModules/World/Terrain/**'
+      - 'bin/OpenSimDefaults.ini'
+      - 'tools/ci/verify_ogl_terrain_editing.py'
+      - '.github/workflows/ogl-terrain-editor.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'OpenSim/Region/CoreModules/World/Terrain/**'
+      - 'bin/OpenSimDefaults.ini'
+      - 'tools/ci/verify_ogl_terrain_editing.py'
+      - '.github/workflows/ogl-terrain-editor.yml'
+jobs:
+  source-guards:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate terrain throttling, permissions and defaults
+        run: python3 tools/ci/verify_ogl_terrain_editing.py
