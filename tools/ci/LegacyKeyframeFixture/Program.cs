@@ -6,6 +6,10 @@ using System.Collections.Generic;
 using System.Runtime.Serialization.Formatters.Binary;
 
 if (args.Length != 1) throw new ArgumentException("Expected output fixture path.");
+Console.WriteLine("CI-only legacy fixture runtime: " +
+    System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription);
+// .NET 8 requires explicit opt-in; this never affects the .NET 10 server.
+AppContext.SetSwitch("System.Runtime.Serialization.EnableUnsafeBinaryFormatterSerialization", true);
 var frame = new OpenSim.Region.Framework.Scenes.KeyframeMotion.Keyframe
 {
     Position = new OpenMetaverse.Vector3 { X = 1.25f, Y = 2.5f, Z = 3.75f },
