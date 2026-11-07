@@ -18,6 +18,7 @@ on:
       - 'doc/NexVerse/KEYFRAME_LEGACY_MIGRATION.md'
       - 'tools/ci/verify_net10_shutdown.py'
       - 'tools/ci/smoke_g1_multi_region_shutdown.py'
+      - 'tools/ci/inject_shutdown_hang_ci_only.py'
       - 'tools/ci/verify_avatar_evacuation.py'
       - '.github/workflows/ogl-net10-shutdown.yml'
   workflow_dispatch:
@@ -64,3 +65,11 @@ jobs:
           dotnet run --project tools/ci/Net10ShutdownRegression/Net10ShutdownRegression.csproj -c Release -- /tmp/ogl-keyframe-ci.ogkf
       - name: Stop a real multi-region .NET 10 simulator using its console
         run: python3 tools/ci/smoke_g1_multi_region_shutdown.py --regions 12
+      - name: Inject test-only blocked region close in CI checkout
+        env:
+          OGL_CI_INJECT_HANG: '1'
+        run: python3 tools/ci/inject_shutdown_hang_ci_only.py
+      - name: Rebuild the throwaway fault-injected simulator
+        run: dotnet build OpenSim.sln -c Release
+      - name: Verify timeout continues other regions and exits nonzero
+        run: python3 tools/ci/smoke_g1_multi_region_shutdown.py --regions 3 --expect-timeout

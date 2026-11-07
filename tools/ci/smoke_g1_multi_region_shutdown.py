@@ -24,7 +24,7 @@ COMMON_TEMPLATE = ROOT / "tools/ci/NexLoginPlacement/StandaloneCommon.ini"
 INI_TEMPLATE = BIN / "OpenSim.NexVerseLoginPlacement.Tests.ini"
 REGION_TEMPLATE = ROOT / "tools/ci/NexLoginPlacement/Regions/NexVerse-CI.ini"
 ESTATES = ROOT / "tools/ci/NexLoginPlacement/Estates"
-def run_smoke(workdir: Path, region_count: int) -> None:
+def run_smoke(workdir: Path, region_count: int, expect_timeout: bool = False) -> None:
     names = [f"OGL Shutdown CI {n}" for n in range(1, region_count + 1)]
     orig_common = COMMON.read_bytes() if COMMON.exists() else None
     state = workdir / "state"
@@ -48,7 +48,8 @@ def run_smoke(workdir: Path, region_count: int) -> None:
     ini = ini.replace('regionload_estatesdir = "../tools/ci/NexLoginPlacement/Estates"',
                       f'regionload_estatesdir = "{ESTATES}"')
     ini = ini.replace("19100", "19210").replace("19102", "19212")
-    ini += "\n[OGLShutdown]\nRegionCloseTimeoutSeconds = 30\n"
+    ini += ("\n[OGLShutdown]\nRegionCloseTimeoutSeconds = "
+            + ("1" if expect_timeout else "30") + "\n")
     # OpenSim resolves includes relative to its own bin/config directory.
     config = BIN / "OpenSim.OglShutdownSmoke.Tests.ini"
     config.write_text(ini)
@@ -107,14 +108,27 @@ def run_smoke(workdir: Path, region_count: int) -> None:
             raise AssertionError(
                 "All region close callbacks may have finished, but OpenSim process did not exit"
             ) from exc
-        if proc.returncode != 0:
-            raise AssertionError(f"Simulator exit status was {proc.returncode}")
-        for name in names:
-            if f"Region {name} closed in" not in logs:
-                raise AssertionError("Missing clean close confirmation for " + name)
-        if f"All {region_count} region close operations completed" not in logs:
-            raise AssertionError("Missing complete shutdown summary")
-        print(f"PASS: {region_count} real regions started, console shutdown completed, exit code 0")
+        if expect_timeout:
+            if proc.returncode == 0:
+                raise AssertionError("Timed-out region incorrectly reported successful shutdown")
+            if "[OGL SHUTDOWN]: TIMEOUT" not in logs or "OGL Shutdown CI 2" not in logs:
+                raise AssertionError("Expected stuck region timeout log not found")
+            if f"Region OGL Shutdown CI 1 closed in" not in logs or (
+                    f"Region OGL Shutdown CI 3 closed in" not in logs):
+                raise AssertionError("Other regions did not finish closing after one timeout")
+            if "region close operations failed or timed out" not in logs:
+                raise AssertionError("Nonzero failure summary not found")
+            print("PASS: injected blocked region reported timeout, other regions"
+                  " closed, OpenSim exited nonzero")
+        else:
+            if proc.returncode != 0:
+                raise AssertionError(f"Simulator exit status was {proc.returncode}")
+            for name in names:
+                if f"Region {name} closed in" not in logs:
+                    raise AssertionError("Missing clean close confirmation for " + name)
+            if f"All {region_count} region close operations completed" not in logs:
+                raise AssertionError("Missing complete shutdown summary")
+            print(f"PASS: {region_count} real regions started, console shutdown completed, exit code 0")
     except Exception:
         print("----- Shutdown simulator output (last 160 lines) -----")
         print("\n".join(logs.splitlines()[-160:]))
@@ -139,11 +153,15 @@ def run_smoke(workdir: Path, region_count: int) -> None:
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--regions", type=int, default=3, help="number of test regions (1..42)")
+    parser.add_argument("--expect-timeout", action="store_true",
+                        help="expect CI-injected region 2 close hang and nonzero exit")
     args = parser.parse_args()
+    if args.expect_timeout and args.regions < 3:
+        parser.error("--expect-timeout requires at least three regions")
     if not (1 <= args.regions <= 42):
         parser.error("--regions must be between 1 and 42")
     with tempfile.TemporaryDirectory(prefix="ogl-g1-shutdown-ci-") as path:
-        run_smoke(Path(path), args.regions)
+        run_smoke(Path(path), args.regions, args.expect_timeout)
 
 
 if __name__ == "__main__":
