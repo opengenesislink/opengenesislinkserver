@@ -14,6 +14,7 @@ on:
       - 'OpenSim/Region/Application/OpenSimBackground.cs'
       - 'tools/ci/Net10ShutdownRegression/**'
       - 'tools/ci/LegacyKeyframeFixture/**'
+      - 'tools/ci/test_ogl_keyframe_batch.py'
       - 'tools/migration/KeyframeLegacyConverter/**'
       - 'doc/NexVerse/KEYFRAME_LEGACY_MIGRATION.md'
       - 'tools/ci/verify_net10_shutdown.py'
@@ -63,6 +64,8 @@ jobs:
         run: |
           dotnet run --project tools/migration/KeyframeLegacyConverter/KeyframeLegacyConverter.csproj -c Release -- /tmp/ogl-legacy-ci.bin /tmp/ogl-keyframe-ci.ogkf
           dotnet run --project tools/ci/Net10ShutdownRegression/Net10ShutdownRegression.csproj -c Release -- /tmp/ogl-keyframe-ci.ogkf
+      - name: Verify read-only batch export and all-or-nothing rollback
+        run: python3 tools/ci/test_ogl_keyframe_batch.py /tmp/ogl-legacy-ci.bin
       - name: Stop a real multi-region .NET 10 simulator using its console
         run: python3 tools/ci/smoke_g1_multi_region_shutdown.py --regions 12
       - name: Inject test-only blocked region close in CI checkout

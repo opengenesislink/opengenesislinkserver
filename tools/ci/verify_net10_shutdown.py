@@ -37,4 +37,7 @@ assert "NrbfDecoder.DecodeClassRecord(" in converter
 assert "new BinaryFormatter(" not in converter
 assert "FileMode.CreateNew" in converter
 assert "KeyframeMotion.FromData(null, converted)" in converter
+assert "ConvertBatch(" in converter
+assert "SHA256.HashData(original)" in converter
+assert "File.Move(temporary, output)" in converter
 print("PASS: shutdown isolation, byte-only keyframe migration and ACK queue lifetime")

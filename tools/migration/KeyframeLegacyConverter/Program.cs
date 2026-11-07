@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Formats.Nrbf;
 using System.IO;
+using System.Security.Cryptography;
 using OpenMetaverse;
 using OpenSim.Region.Framework.Scenes;
 
@@ -15,6 +16,9 @@ internal static class Program
 
     private static int Main(string[] args)
     {
+        if (args.Length == 3 && args[0] == "--batch-hex")
+            return ConvertBatch(args[1], args[2]);
+
         if (args.Length != 2 || args[0] is "-h" or "--help")
         {
             Console.Error.WriteLine("Usage: dotnet run --project tools/migration/KeyframeLegacyConverter -- legacy.bin migrated.ogkf");
@@ -32,14 +36,7 @@ internal static class Program
             if (!input.Exists || input.Length == 0 || input.Length > MaxBytes)
                 throw new InvalidDataException("Input size must be within 1..4 MiB.");
             byte[] legacy = File.ReadAllBytes(source);
-            byte[] converted = Convert(legacy);
-
-            // The target runtime itself must accept the output; never store an
-            // unvalidated conversion as a replacement for a region's record.
-            KeyframeMotion? tested = KeyframeMotion.FromData(null, converted);
-            if (tested is null || tested.HasLegacySerialization ||
-                !converted.AsSpan().SequenceEqual(tested.Serialize()))
-                throw new InvalidDataException("Generated OGKF payload failed runtime validation.");
+            byte[] converted = ConvertVerified(legacy);
 
             using FileStream target = new FileStream(destination, FileMode.CreateNew,
                 FileAccess.Write, FileShare.None);
@@ -56,6 +53,114 @@ internal static class Program
             Console.Error.WriteLine("Legacy keyframe migration rejected: " + error.Message);
             return 1;
         }
+    }
+
+    // Read-only MariaDB/MySQL export path: a TSV of UUID and HEX(KeyframeMotion)
+    // becomes a TSV of UUID, original SHA-256 and verified OGKF HEX. The source
+    // database is never contacted. Neither input nor output is overwritten.
+    // A malformed or unsupported row aborts the WHOLE batch and emits no file.
+    private static int ConvertBatch(string inputPath, string outputPath)
+    {
+        string input = Path.GetFullPath(inputPath);
+        string output = Path.GetFullPath(outputPath);
+        if (string.Equals(input, output, StringComparison.Ordinal))
+        {
+            Console.Error.WriteLine("Batch input and output must be different.");
+            return 1;
+        }
+
+        string? directory = Path.GetDirectoryName(output);
+        if (directory is null || !Directory.Exists(directory) || File.Exists(output))
+        {
+            Console.Error.WriteLine("Batch output directory must exist and output must not exist.");
+            return 1;
+        }
+
+        string temporary = Path.Combine(directory, "." + Path.GetFileName(output) +
+            "." + Guid.NewGuid().ToString("N") + ".tmp");
+        try
+        {
+            HashSet<Guid> seen = new HashSet<Guid>();
+            int count = 0;
+            using (FileStream file = new FileStream(temporary, FileMode.CreateNew,
+                       FileAccess.Write, FileShare.None))
+            using (StreamWriter writer = new StreamWriter(file))
+            using (StreamReader reader = new StreamReader(input))
+            {
+                string? line;
+                while ((line = reader.ReadLine()) is not null)
+                {
+                    count++;
+                    if (count > 100000)
+                        throw new InvalidDataException("More than 100000 records in keyframe batch.");
+
+                    string[] columns = line.Split('\t');
+                    if (columns.Length != 2 ||
+                        !Guid.TryParseExact(columns[0], "D", out Guid objectId) ||
+                        !seen.Add(objectId))
+                        throw new InvalidDataException("Invalid or duplicate object UUID at line " + count);
+
+                    string hex = columns[1];
+                    if (hex.Length < 18 || hex.Length % 2 != 0 ||
+                        hex.Length > MaxBytes * 2)
+                        throw new InvalidDataException("Invalid BLOB length at line " + count);
+
+                    byte[] original;
+                    try { original = System.Convert.FromHexString(hex); }
+                    catch (FormatException error)
+                    {
+                        throw new InvalidDataException("Invalid exported HEX at line " + count, error);
+                    }
+
+                    byte[] converted;
+                    try { converted = ConvertVerified(original); }
+                    catch (Exception error) when (error is InvalidDataException or
+                        InvalidOperationException or ArgumentException or NotSupportedException)
+                    {
+                        throw new InvalidDataException("Invalid NRBF movement at line " + count, error);
+                    }
+
+                    writer.Write(objectId.ToString("D"));
+                    writer.Write('\t');
+                    writer.Write(System.Convert.ToHexString(SHA256.HashData(original)));
+                    writer.Write('\t');
+                    writer.WriteLine(System.Convert.ToHexString(converted));
+                }
+                if (count == 0)
+                    throw new InvalidDataException("Batch export is empty.");
+                writer.Flush();
+                file.Flush(true);
+            }
+            File.Move(temporary, output); // will not overwrite an existing file
+            Console.WriteLine("PASS: converted " + count + " legacy keyframes, hashes retained.");
+            Console.WriteLine("Input retained: " + input);
+            Console.WriteLine("Output (UUID, original SHA-256, verified OGKF HEX): " + output);
+            return 0;
+        }
+        catch (Exception error) when (error is IOException or InvalidDataException or
+            InvalidOperationException or ArgumentException or NotSupportedException)
+        {
+            Console.Error.WriteLine("Legacy keyframe batch rejected; no output installed: " +
+                error.Message);
+            return 1;
+        }
+        finally
+        {
+            if (File.Exists(temporary))
+                File.Delete(temporary);
+        }
+    }
+
+    private static byte[] ConvertVerified(byte[] legacy)
+    {
+        byte[] converted = Convert(legacy);
+        // The target runtime itself must accept the output; never store an
+        // unvalidated conversion as a replacement for a region's record.
+        KeyframeMotion? tested = KeyframeMotion.FromData(null, converted);
+        if (tested is null || tested.HasLegacySerialization ||
+            !converted.AsSpan().SequenceEqual(tested.Serialize()))
+            throw new InvalidDataException("Generated OGKF payload failed runtime validation.");
+        return converted;
     }
 
     private static byte[] Convert(byte[] bytes)
