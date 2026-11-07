@@ -27,6 +27,8 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.Threading;
 using System.Net;
 using System.Reflection;
 using OpenMetaverse;
@@ -138,19 +140,75 @@ namespace OpenSim.Region.Framework.Scenes
             m_localScenes = new DoubleDictionary<UUID, string, Scene>();
         }
 
-        public void Close()
+        /// <summary>
+        /// Close each scene independently. A hung network/script/map callback must not
+        /// prevent subsequent regions from attempting their own persistence.
+        /// Zero timeout preserves the original unbounded, fully synchronous behavior.
+        /// A nonzero timeout is a LAST-RESORT shutdown policy: the timed-out scene
+        /// continues closing on a background thread and its unsaved state may be lost
+        /// when the process exits. Use systemd's stop timeout as a second watchdog.
+        /// </summary>
+        public bool Close(int regionCloseTimeoutSeconds = 0)
         {
-            List<Scene> localScenes = null;
-
+            List<Scene> localScenes;
             lock (m_localScenes)
-            {
                 localScenes = Scenes;
+
+            int failed = 0;
+            foreach (Scene scene in localScenes)
+            {
+                Stopwatch elapsed = Stopwatch.StartNew();
+                m_log.InfoFormat("[OGL SHUTDOWN]: Starting region close: {0}", scene.Name);
+                Exception closeException = null;
+                try
+                {
+                    if (regionCloseTimeoutSeconds <= 0)
+                    {
+                        scene.Close();
+                    }
+                    else
+                    {
+                        // Thread.Join returns after the timeout without interrupting a
+                        // potentially active database write or physics disposal.
+                        Thread closeThread = new Thread(() =>
+                        {
+                            try { scene.Close(); }
+                            catch (Exception e) { closeException = e; }
+                        })
+                        {
+                            IsBackground = true,
+                            Name = "OGL Shutdown " + scene.Name
+                        };
+                        closeThread.Start();
+                        if (!closeThread.Join(TimeSpan.FromSeconds(regionCloseTimeoutSeconds)))
+                        {
+                            failed++;
+                            m_log.ErrorFormat(
+                                "[OGL SHUTDOWN]: TIMEOUT after {0}s closing {1}; " +
+                                "background cleanup may still run; state may not be persisted. " +
+                                "Continuing to the next region. Do not restart the region on another process until the old process exits.",
+                                regionCloseTimeoutSeconds, scene.Name);
+                            continue;
+                        }
+
+                        if (closeException != null)
+                            throw closeException;
+                    }
+                    m_log.InfoFormat("[OGL SHUTDOWN]: Region {0} closed in {1}ms", scene.Name, elapsed.ElapsedMilliseconds);
+                }
+                catch (Exception e)
+                {
+                    failed++;
+                    m_log.Error("[OGL SHUTDOWN]: Region close failed for " + scene.Name + "; continuing with other regions", e);
+                }
             }
 
-            for (int i = 0; i < localScenes.Count; i++)
-            {
-                localScenes[i].Close();
-            }
+            if (failed != 0)
+                m_log.ErrorFormat("[OGL SHUTDOWN]: {0} of {1} region close operations failed or timed out; check backups before restarting.", failed, localScenes.Count);
+            else
+                m_log.InfoFormat("[OGL SHUTDOWN]: All {0} region close operations completed.", localScenes.Count);
+
+            return failed == 0;
         }
 
         public void Close(Scene cscene)

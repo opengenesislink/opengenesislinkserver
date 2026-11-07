@@ -303,7 +303,7 @@ namespace OpenSim
 
                 m_sim.Startup();
 
-                while (true)
+                while (!m_sim.ShutdownRequested)
                 {
                     try
                     {

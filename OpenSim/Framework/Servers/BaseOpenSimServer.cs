@@ -58,6 +58,12 @@ namespace OpenSim.Framework.Servers
         public bool SuppressExit { get; set; }
 
         /// <summary>
+        /// Allows region hosts to report incomplete persistence and failed cleanup
+        /// as a nonzero exit to systemd, instead of always signaling success.
+        /// </summary>
+        protected int ShutdownExitCode { get; set; }
+
+        /// <summary>
         /// This will control a periodic log printout of the current 'show stats' (if they are active) for this
         /// server.
         /// </summary>
@@ -145,7 +151,7 @@ namespace OpenSim.Framework.Servers
             m_log.Info("[SHUTDOWN]: Shutdown processing on main thread complete.  Exiting...");
 
            if (!SuppressExit)
-                Environment.Exit(0);
+                Environment.Exit(ShutdownExitCode);
         }
 
         /// <summary>
