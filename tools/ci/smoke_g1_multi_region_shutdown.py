@@ -50,7 +50,8 @@ def run_smoke(workdir: Path) -> None:
                       f'regionload_estatesdir = "{ESTATES}"')
     ini = ini.replace("19100", "19210").replace("19102", "19212")
     ini += "\n[OGLShutdown]\nRegionCloseTimeoutSeconds = 30\n"
-    config = workdir / "OpenSim.ShutdownSmoke.ini"
+    # OpenSim resolves includes relative to its own bin/config directory.
+    config = BIN / "OpenSim.OglShutdownSmoke.Tests.ini"
     config.write_text(ini)
 
     proc = None
@@ -63,7 +64,7 @@ def run_smoke(workdir: Path) -> None:
         env = dict(os.environ, TERM="xterm")
         try:
             proc = subprocess.Popen(
-                ["dotnet", "OpenSim.dll", "-inifile", str(config)],
+                ["dotnet", "OpenSim.dll", "-inifile", config.name],
                 cwd=BIN, stdin=slave, stdout=slave, stderr=slave,
                 start_new_session=True, close_fds=True, env=env,
             )
@@ -127,6 +128,7 @@ def run_smoke(workdir: Path) -> None:
             COMMON.unlink(missing_ok=True)
         else:
             COMMON.write_bytes(orig_common)
+        config.unlink(missing_ok=True)
 
 
 def main():
