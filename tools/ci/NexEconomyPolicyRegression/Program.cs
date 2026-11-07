@@ -69,6 +69,31 @@ internal static class Program
         Require(other.Credited && other.Day == 1 && other.Amount == 10L &&
                 economy.GetBalance(otherAvatar) == 10,
             label + ": resident rewards not isolated");
+
+        // Both occurrences of the repeated autumn 02:30 Berlin time must
+        // belong to one calendar day and cannot create a second grant.
+        TimeZoneInfo berlin = TimeZoneInfo.FindSystemTimeZoneById("Europe/Berlin");
+        DateOnly autumnFirst = DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(
+            new DateTimeOffset(2026, 10, 25, 0, 30, 0, TimeSpan.Zero), berlin).DateTime);
+        DateOnly autumnSecond = DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(
+            new DateTimeOffset(2026, 10, 25, 1, 30, 0, TimeSpan.Zero), berlin).DateTime);
+        Require(autumnFirst == autumnSecond && autumnFirst == new DateOnly(2026, 10, 25),
+            label + ": Berlin DST fallback changed the calendar day");
+        Guid dstAvatar = Guid.NewGuid();
+        var firstDst = economy.CreditResidentDailyLoginBonus(
+            dstAvatar, label + " DST citizen", autumnFirst, berlin);
+        var secondDst = economy.CreditResidentDailyLoginBonus(
+            dstAvatar, label + " DST citizen", autumnSecond, berlin);
+        Require(firstDst.Credited && !secondDst.Credited &&
+                economy.GetBalance(dstAvatar) == 10,
+            label + ": DST fallback generated duplicate daily reward");
+
+        DateOnly springFirst = DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(
+            new DateTimeOffset(2026, 3, 29, 0, 30, 0, TimeSpan.Zero), berlin).DateTime);
+        DateOnly springSecond = DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(
+            new DateTimeOffset(2026, 3, 29, 1, 30, 0, TimeSpan.Zero), berlin).DateTime);
+        Require(springFirst == springSecond && springFirst == new DateOnly(2026, 3, 29),
+            label + ": Berlin DST spring-forward changed calendar day");
     }
 
     private static void RunPolicyRegression(
