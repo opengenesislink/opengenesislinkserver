@@ -1393,7 +1393,8 @@ namespace NexVerse.Core.Economy
         // The transaction and both posting IDs are deterministic per local date
         // and avatar. This is idempotent even across independent ROBUST nodes.
         public (bool Credited, int Day, long Amount, Guid TransactionId)
-            CreditResidentDailyLoginBonus(Guid residentId, string displayName, DateOnly localDay)
+            CreditResidentDailyLoginBonus(Guid residentId, string displayName, DateOnly localDay,
+                TimeZoneInfo calendarZone = null)
         {
             if (residentId == Guid.Empty)
                 throw new ArgumentException("Local resident ID is required.", nameof(residentId));
@@ -1436,11 +1437,16 @@ namespace NexVerse.Core.Economy
                 ["streak_day"] = streakDay.ToString(CultureInfo.InvariantCulture)
             };
 
-            // Stable UTC timestamp represents the *Berlin calendar day* as a
-            // ledger key; payout eligibility uses TimeZoneInfo in ROBUST.
-            // Using a stable timestamp also preserves exact duplicate equality.
+            // Record the actual start of the configured local calendar day
+            // in UTC, including the correct DST offset. This is immutable
+            // and identical across all ROBUST nodes and retry attempts.
+            TimeZoneInfo zone = calendarZone ??
+                TimeZoneInfo.FindSystemTimeZoneById("Europe/Berlin");
+            DateTime midnight = new DateTime(
+                localDay.Year, localDay.Month, localDay.Day, 0, 0, 0,
+                DateTimeKind.Unspecified);
             DateTimeOffset occurredAt = new DateTimeOffset(
-                localDay.Year, localDay.Month, localDay.Day, 0, 0, 0, TimeSpan.Zero);
+                TimeZoneInfo.ConvertTimeToUtc(midnight, zone), TimeSpan.Zero);
             NexLedgerTransaction transaction = new NexLedgerTransaction(
                 transactionId,
                 "daily_login_bonus",
