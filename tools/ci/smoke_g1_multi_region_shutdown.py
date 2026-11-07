@@ -110,7 +110,7 @@ def run_smoke(workdir: Path, region_count: int, expect_timeout: bool = False) ->
                 "All region close callbacks may have finished, but OpenSim process did not exit"
             ) from exc
         # Region log output is ANSI-colored when the simulator owns a PTY.
-        plain_logs = re.sub(r"\\x1b\\[[0-9;?]*[A-Za-z]", "", logs)
+        plain_logs = re.sub(r"\x1b\[[0-9;?]*[A-Za-z]", "", logs)
         if expect_timeout:
             if proc.returncode == 0:
                 raise AssertionError("Timed-out region incorrectly reported successful shutdown")
