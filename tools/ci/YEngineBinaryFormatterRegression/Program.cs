@@ -23,10 +23,20 @@ static XMRInstance Fake()
 }
 static void SetField(XMRInstance instance, string name, object value)
 {
-    FieldInfo field = typeof(XMRInstance).GetField(name,
-        BindingFlags.Instance | BindingFlags.NonPublic)
-        ?? throw new Exception("Missing YEngine field " + name);
-    field.SetValue(instance, value);
+    // Runtime fields belong to the private base XMRInstAbstract, not the
+    // concrete XMRInstance. Reflection must explicitly walk the hierarchy.
+    for (Type type = typeof(XMRInstance); type != null; type = type.BaseType)
+    {
+        FieldInfo field = type.GetField(name,
+            BindingFlags.Instance | BindingFlags.NonPublic |
+            BindingFlags.DeclaredOnly);
+        if (field != null)
+        {
+            field.SetValue(instance, value);
+            return;
+        }
+    }
+    throw new Exception("Missing YEngine field " + name);
 }
 static byte[] WriteStateValue(object value)
 {
