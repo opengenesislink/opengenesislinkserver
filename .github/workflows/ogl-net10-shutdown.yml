@@ -31,6 +31,10 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '10.0.x'
+      - name: Install native VectorRender dependency
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends libgdiplus
       - name: Static shutdown and migration guards
         run: python3 tools/ci/verify_net10_shutdown.py
       - name: Generate OpenSim project graph
