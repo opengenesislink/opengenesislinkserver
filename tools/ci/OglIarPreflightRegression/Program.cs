@@ -51,7 +51,24 @@ internal static class Program
         using (GZipStream gz = new(file, CompressionLevel.Fastest))
         {
             for (int i = 0; i < entries.Length; i++)
-                WriteEntry(gz, entries[i], corruptChecksum && i == 0);
+            {
+                Entry item = entries[i];
+                if (item.Path.Length > 100)
+                {
+                    // Reproduce OpenSim TarArchiveWriter.WriteFile:
+                    // GNU LongName metadata, followed by the first 100
+                    // ASCII bytes of the real header's filename.
+                    WriteEntry(gz, new Entry(
+                        "././@LongLink", Encoding.ASCII.GetBytes(item.Path), (byte)'L'));
+                    WriteEntry(gz, new Entry(
+                        item.Path.Substring(0, 100), item.Payload, item.Type),
+                        corruptChecksum && i == 0);
+                }
+                else
+                {
+                    WriteEntry(gz, item, corruptChecksum && i == 0);
+                }
+            }
             gz.Write(new byte[1024]);
         }
         return destination;
@@ -74,6 +91,56 @@ internal static class Program
         var inventory = new Entry("inventory/Test/item.xml", Encoding.UTF8.GetBytes("<InventoryItem/>"));
         var asset = new Entry("assets/01234567-89ab-cdef-0123-456789abcdef_texture.jp2", new byte[] { 1, 2, 3 });
         Evaluate(true, "valid IAR", new[] { xml, inventory, asset });
+
+        // Regression for the production incident: long inventory paths
+        // produced by OpenSim are introduced with GNU TAR type 'L'.
+        string longPath = "inventory/" + new string('n', 145) + "/item.xml";
+        var longInventory = new Entry(longPath, Encoding.UTF8.GetBytes("<InventoryItem/>"));
+        Evaluate(true, "OpenSim GNU LongName inventory path",
+            new[] { xml, longInventory, asset });
+        var longDirectory = new Entry("inventory/" + new string('d', 139) + "/", Array.Empty<byte>(), (byte)'5');
+        Evaluate(true, "OpenSim GNU LongName directory",
+            new[] { xml, longDirectory, longInventory, asset });
+        Evaluate(true, "several GNU LongName paths",
+            new[] { xml, longInventory,
+                new Entry("inventory/" + new string('q', 137) + "/second.xml", new byte[] { 5 }),
+                asset });
+
+        // Real links, PAX, sparse formats and malformed GNU long-name
+        // metadata must remain prohibited; no import path traversal.
+        Evaluate(false, "GNU long link target K is not LongName",
+            new[] { xml, new Entry("././@LongLink", Encoding.ASCII.GetBytes(longPath), (byte)'K'), inventory });
+        Evaluate(false, "PAX extended header is not permitted",
+            new[] { xml, new Entry("paxhdr", new byte[] { 0 }, (byte)'x'), inventory });
+        Evaluate(false, "GNU sparse entry is not permitted",
+            new[] { xml, new Entry("inventory/sparse", Array.Empty<byte>(), (byte)'S'), inventory });
+        Evaluate(false, "hard link entry is not permitted",
+            new[] { xml, new Entry("inventory/hardlink", Array.Empty<byte>(), (byte)'1'), inventory });
+        Evaluate(false, "GNU LongName wrong metadata header path",
+            new[] { xml, new Entry("fake-longname", Encoding.ASCII.GetBytes(longPath), (byte)'L'), inventory });
+        Evaluate(false, "GNU LongName without following header",
+            new[] { xml, inventory, new Entry("././@LongLink", Encoding.ASCII.GetBytes(longPath), (byte)'L') });
+        Evaluate(false, "GNU LongName truncated path mismatch",
+            new[] { xml,
+                new Entry("././@LongLink", Encoding.ASCII.GetBytes(longPath), (byte)'L'),
+                new Entry("inventory/mismatched.xml", new byte[] { 1 }), inventory });
+        Evaluate(false, "GNU LongName traversal",
+            new[] { xml, new Entry("././@LongLink",
+                Encoding.ASCII.GetBytes("inventory/../" + new string('r', 130)), (byte)'L'), inventory });
+        Evaluate(false, "GNU LongName too long",
+            new[] { xml, new Entry("././@LongLink",
+                Encoding.ASCII.GetBytes("inventory/" + new string('r', 510)), (byte)'L'), inventory });
+        Evaluate(false, "GNU LongName NUL byte",
+            new[] { xml, new Entry("././@LongLink",
+                Encoding.ASCII.GetBytes(longPath + "\0"), (byte)'L'), inventory });
+        Evaluate(false, "GNU LongName double metadata",
+            new[] { xml,
+                new Entry("././@LongLink", Encoding.ASCII.GetBytes(longPath), (byte)'L'),
+                new Entry("././@LongLink", Encoding.ASCII.GetBytes(longPath), (byte)'L'),
+                inventory });
+        Evaluate(false, "GNU LongName may not hide symlink",
+            new[] { xml, new Entry("././@LongLink", Encoding.ASCII.GetBytes(longPath), (byte)'L'),
+                new Entry(longPath.Substring(0, 100), Array.Empty<byte>(), (byte)'2'), inventory });
 
         // Legacy OpenSim wrote UTF-8 bytes under an XML declaration that
         // incorrectly said UTF-16 (StringWriter + TarArchiveWriter).
@@ -129,7 +196,7 @@ internal static class Program
             "10 GiB compressed archive permitted");
         Assert(!OglIarInspector.IsAllowedCompressedSize(tenGiB + 1),
             "compressed IAR beyond 10 GiB rejected");
-        Console.WriteLine("OGL IAR bounded preflight: PASS (16 fixtures + size boundaries)");
+        Console.WriteLine("OGL IAR bounded preflight: PASS (GNU LongName acceptance, unsafe TAR rejection, size boundaries)");
         return 0;
     }
 }
