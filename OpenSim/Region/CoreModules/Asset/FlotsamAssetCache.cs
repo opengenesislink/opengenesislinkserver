@@ -170,9 +170,9 @@ namespace OpenSim.Region.CoreModules.Asset
                     else
                     {
                         m_FileCacheEnabled = assetConfig.GetBoolean("FileCacheEnabled", m_FileCacheEnabled);
-                        m_FileWriteConcurrency = Math.Clamp(
+                        m_FileWriteConcurrency = OglPerformanceWorkerPolicy.SelectIndependentIoWorkers(
                             assetConfig.GetInt("FileWriteConcurrency", m_FileWriteConcurrency),
-                            1, Math.Max(1, Math.Min(Environment.ProcessorCount, 8)));
+                            Environment.ProcessorCount);
                         m_MaxPendingFileWrites = Math.Clamp(
                             assetConfig.GetInt("MaxPendingFileWrites", m_MaxPendingFileWrites),
                             0, 65536);
