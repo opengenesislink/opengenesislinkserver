@@ -432,7 +432,19 @@ namespace OpenSim.Region.CoreModules.Asset
                     {
                         TimeSpan interval = TimeSpan.FromSeconds(m_WeakReferencePruneSeconds);
                         m_WeakReferencePruneTimer = new System.Threading.Timer(
-                            _ => PruneDeadWeakReferences(), null, interval, interval);
+                            _ =>
+                            {
+                                try
+                                {
+                                    PruneDeadWeakReferences();
+                                }
+                                catch (Exception error)
+                                {
+                                    // Optional maintenance must never crash a simulator.
+                                    m_log.Warn("[FLOTSAM ASSET CACHE]: Weak-ref sweep skipped: " +
+                                        error.Message);
+                                }
+                            }, null, interval, interval);
                     }
 
                     // Region membership may be changing while optional
