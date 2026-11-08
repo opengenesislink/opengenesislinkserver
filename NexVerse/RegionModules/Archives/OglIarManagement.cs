@@ -35,6 +35,10 @@ namespace NexVerse.RegionModules.Archives
         public const long MaxFileBytes = 64L * 1024 * 1024;
         public const int MaxEntries = 100000;
         private const int MaxControlBytes = 65536;
+        // OpenSim's TarArchiveWriter emits a GNU ././@LongLink (type 'L')
+        // for inventory paths over 100 characters. This is *metadata* for
+        // the immediately following regular file or directory, not a link.
+        private const int MaxGnuLongNameBytes = 512;
 
         public static bool IsAllowedCompressedSize(long sizeBytes) =>
             sizeBytes >= 128 && sizeBytes <= MaxCompressedBytes;
@@ -64,20 +68,14 @@ namespace NexVerse.RegionModules.Archives
                 HashSet<string> visitedFiles = new(StringComparer.Ordinal);
                 long expandedBytes = 0;
                 bool assetsStarted = false;
+                string pendingLongName = null;
                 using FileStream input = File.OpenRead(archivePath);
                 using GZipStream gzip = new(input, CompressionMode.Decompress);
                 using BinaryReader tar = new(gzip, Encoding.UTF8, leaveOpen: true);
 
                 while (OglTarReader.TryReadEntry(tar, out string path, out long size, out byte type))
                 {
-                    bool directory = type == (byte)'5';
-                    if (type != 0 && type != (byte)'0' && !directory)
-                        throw new InvalidDataException("IAR enthaelt unerlaubte TAR-Typen (Links/PAX/Sparse).");
-
-                    ValidatePath(path);
-                    if (directory && size != 0)
-                        throw new InvalidDataException("IAR-Ordner darf keinen Dateninhalt haben.");
-
+                    // Count and bound *all* TAR records, including GNU metadata.
                     if (++result.Entries > MaxEntries)
                         throw new InvalidDataException("IAR enthaelt zu viele Eintraege.");
                     if (size > MaxFileBytes)
@@ -86,6 +84,53 @@ namespace NexVerse.RegionModules.Archives
                     expandedBytes = checked(expandedBytes + 512L + padded);
                     if (expandedBytes > MaxExpandedBytes)
                         throw new InvalidDataException("IAR expandiert ueber das Gesamtlimit.");
+
+                    // The legacy OpenSim writer uses ././@LongLink as a GNU
+                    // long *filename* marker. Only this narrowly defined
+                    // record is accepted. GNU long link targets ('K'),
+                    // symlinks/hardlinks, PAX and sparse records stay blocked.
+                    if (type == (byte)'L')
+                    {
+                        if (pendingLongName != null ||
+                            path != "././@LongLink" ||
+                            size <= 100 || size > MaxGnuLongNameBytes)
+                            throw new InvalidDataException("Ungueltiger GNU-TAR-LongName-Eintrag.");
+
+                        byte[] longNameBytes = OglTarReader.ReadPayload(tar, size);
+                        // TarArchiveWriter uses ASCII without a terminal NUL.
+                        // Keep this strict: its import reader also does not
+                        // strip NUL terminators from GNU long names.
+                        foreach (byte ch in longNameBytes)
+                        {
+                            if (ch < 32 || ch > 126)
+                                throw new InvalidDataException("GNU-TAR-LongName enthaelt ungueltige Zeichen.");
+                        }
+                        pendingLongName = Encoding.ASCII.GetString(longNameBytes);
+                        ValidatePath(pendingLongName);
+                        OglTarReader.SkipPadding(tar, size);
+                        continue;
+                    }
+
+                    bool directory = type == (byte)'5';
+                    if (type != 0 && type != (byte)'0' && !directory)
+                        throw new InvalidDataException("IAR enthaelt unerlaubte TAR-Typen (Links/PAX/Sparse).");
+
+                    if (pendingLongName != null)
+                    {
+                        // OpenSim writes the first 100 ASCII characters into
+                        // the subsequent header; the LongName is authoritative.
+                        // Reject mismatches rather than trusting a forged
+                        // metadata record for an unrelated payload.
+                        if (!string.Equals(
+                            path, pendingLongName.Substring(0, 100).Trim(),
+                            StringComparison.Ordinal))
+                            throw new InvalidDataException("GNU-TAR-LongName passt nicht zum folgenden Dateikopf.");
+                        path = pendingLongName;
+                        pendingLongName = null;
+                    }
+                    ValidatePath(path);
+                    if (directory && size != 0)
+                        throw new InvalidDataException("IAR-Ordner darf keinen Dateninhalt haben.");
 
                     if (!directory)
                     {
@@ -118,6 +163,9 @@ namespace NexVerse.RegionModules.Archives
                     }
                     OglTarReader.SkipPayload(tar, size);
                 }
+
+                if (pendingLongName != null)
+                    throw new InvalidDataException("GNU-TAR-LongName ohne nachfolgenden Dateieintrag.");
 
                 // Consume the rest of the compressed stream so gzip CRC and
                 // truncated trailers are checked. TAR permits zero padding.
