@@ -125,7 +125,7 @@ namespace OpenSim.Region.OptionalModules
             Vector3 objectPosition = sog.AbsolutePosition;
             ILandObject lo = m_scene.LandChannel.GetLandObject(objectPosition.X, objectPosition.Y);
 
-            string response = DoCommonChecks(sog.PrimCount, sp.UUID, lo);
+            string response = DoCommonChecks(GetLandImpact(sog), sp.UUID, lo);
 
             if (response != null)
             {
@@ -159,7 +159,7 @@ namespace OpenSim.Region.OptionalModules
                     return true;
             }
 
-            int objectCount = sog.PrimCount;
+            int objectCount = GetLandImpact(sog);
 
             // TODO: Add Special Case here for temporary prims
 
@@ -182,7 +182,7 @@ namespace OpenSim.Region.OptionalModules
             if (newParcel == null)
                 return true;
 
-            int objectCount = sog.PrimCount;
+            int objectCount = GetLandImpact(sog);
 
             // TODO: Add Special Case here for temporary prims
 
@@ -192,6 +192,12 @@ namespace OpenSim.Region.OptionalModules
                 return false;
 
             return true;
+        }
+
+        private int GetLandImpact(SceneObjectGroup objectGroup)
+        {
+            return m_scene.RequestModuleInterface<IPrimCountModule>()
+                ?.GetObjectLandImpact(objectGroup) ?? objectGroup.PrimCount;
         }
 
         private string DoCommonChecks(int objectCount, UUID ownerID, ILandObject lo)
