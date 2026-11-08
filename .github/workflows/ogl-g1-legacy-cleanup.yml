@@ -1,0 +1,28 @@
+name: OGL G1 Legacy Cleanup
+on:
+  pull_request:
+    paths:
+      - 'OpenSim/Tools/pCampBot/**'
+      - 'bin/pCampBot*'
+      - 'prebuild.xml'
+      - 'OpenSim.sln'
+      - 'tools/ci/verify_ogl_legacy_cleanup.py'
+      - '.github/workflows/ogl-g1-legacy-cleanup.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'OpenSim/Tools/pCampBot/**'
+      - 'bin/pCampBot*'
+      - 'prebuild.xml'
+      - 'OpenSim.sln'
+      - 'tools/ci/verify_ogl_legacy_cleanup.py'
+      - '.github/workflows/ogl-g1-legacy-cleanup.yml'
+permissions:
+  contents: read
+jobs:
+  retired-bot-guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify retired load bot and project graph
+        run: python3 tools/ci/verify_ogl_legacy_cleanup.py
