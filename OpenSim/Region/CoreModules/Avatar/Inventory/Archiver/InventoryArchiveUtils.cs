@@ -431,8 +431,15 @@ namespace OpenSim.Region.CoreModules.Avatar.Inventory.Archiver
         /// <returns></returns>
         public static string EscapeArchivePath(string path)
         {
-            // Only encode ampersands (for escaping anything) and / (since this is used as general dir separator).
-            return path.Replace("&", "&amp;").Replace("/", "&#47;");
+            // The IAR is a virtual inventory tree, but TAR entry names must
+            // remain safe on both Unix and Windows. Preserve normal avatar
+            // names containing ':' or '\\' by escaping them in the archive
+            // path; the inventory item XML keeps the original display name.
+            // Always escape ampersand FIRST to prevent entity aliasing.
+            return path.Replace("&", "&amp;")
+                .Replace("/", "&#47;")
+                .Replace("\\", "&#92;")
+                .Replace(":", "&#58;");
         }
 
         /// <summary>
@@ -442,7 +449,13 @@ namespace OpenSim.Region.CoreModules.Avatar.Inventory.Archiver
         /// <returns></returns>
         public static string UnescapeArchivePath(string path)
         {
-            return path.Replace("&#47;", "/").Replace("&amp;", "&");
+            // Decode our archive-only escaping before &amp; so literal
+            // inventory names such as "&#58;" are not double-decoded.
+            // Backward compatible with IAR archives that only escaped / and &.
+            return path.Replace("&#47;", "/")
+                .Replace("&#92;", "\\")
+                .Replace("&#58;", ":")
+                .Replace("&amp;", "&");
         }
     }
 }

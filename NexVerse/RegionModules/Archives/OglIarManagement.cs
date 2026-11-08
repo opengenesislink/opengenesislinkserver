@@ -38,7 +38,10 @@ namespace NexVerse.RegionModules.Archives
         // OpenSim's TarArchiveWriter emits a GNU ././@LongLink (type 'L')
         // for inventory paths over 100 characters. This is *metadata* for
         // the immediately following regular file or directory, not a link.
-        private const int MaxGnuLongNameBytes = 512;
+        // Nested UUID-qualified inventory folders routinely exceed 512
+        // characters. Bound GNU filename metadata separately from payloads.
+        private const int MaxIarPathChars = 4096;
+        private const int MaxGnuLongNameBytes = MaxIarPathChars;
 
         public static bool IsAllowedCompressedSize(long sizeBytes) =>
             sizeBytes >= 128 && sizeBytes <= MaxCompressedBytes;
@@ -194,11 +197,21 @@ namespace NexVerse.RegionModules.Archives
 
         private static void ValidatePath(string path)
         {
-            if (string.IsNullOrEmpty(path) || path.Length > 512 ||
-                path.StartsWith("/", StringComparison.Ordinal) ||
-                path.IndexOf('\\') >= 0 || path.IndexOf(':') >= 0 ||
-                path.IndexOf('\0') >= 0)
-                throw new InvalidDataException("Unsicherer IAR-Pfad.");
+            // TAR paths are not filesystem paths in the native importer.
+            // Reject rooted, traversal and Windows-unsafe names, while the
+            // inventory writer now encodes ':' and '\\' as archive entities.
+            if (string.IsNullOrEmpty(path))
+                throw new InvalidDataException("Unsicherer IAR-Pfad: leer.");
+            if (path.Length > MaxIarPathChars)
+                throw new InvalidDataException("IAR-Pfad ueberschreitet das sichere Laengenlimit.");
+            if (path.StartsWith("/", StringComparison.Ordinal))
+                throw new InvalidDataException("Unsicherer IAR-Pfad: absoluter Pfad.");
+            if (path.IndexOf('\\') >= 0)
+                throw new InvalidDataException("Unsicherer IAR-Pfad: Backslash im TAR-Pfad.");
+            if (path.IndexOf(':') >= 0)
+                throw new InvalidDataException("Unsicherer IAR-Pfad: Doppelpunkt im TAR-Pfad.");
+            if (path.IndexOf('\0') >= 0)
+                throw new InvalidDataException("Unsicherer IAR-Pfad: Nullzeichen.");
 
             foreach (string segment in path.Split('/'))
                 if (segment == "." || segment == "..")
