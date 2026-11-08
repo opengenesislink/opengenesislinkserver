@@ -1092,6 +1092,11 @@ namespace OpenSim.Region.Framework.Scenes
             set
             {
                 m_shape = value;
+                // A mesh/sculpt/prim shape switch can change LI even when
+                // the number of linked parts remains constant.
+                if (ParentGroup?.Scene is Scene scene &&
+                    scene.RequestModuleInterface<IPrimCountModule>()?.MeshLandImpactEnabled == true)
+                    scene.EventManager.TriggerParcelPrimCountTainted();
             }
         }
 
@@ -1107,6 +1112,12 @@ namespace OpenSim.Region.Framework.Scenes
                 {
                     Vector3 oldscale = m_shape.Scale;
                     m_shape.Scale = value;
+                    // Streaming LI depends on the physical size. The old
+                    // PrimCount-only path did not need a recount on scaling.
+                    if ((value - oldscale).LengthSquared() > 0.000001f &&
+                        ParentGroup?.Scene is Scene scene &&
+                        scene.RequestModuleInterface<IPrimCountModule>()?.MeshLandImpactEnabled == true)
+                        scene.EventManager.TriggerParcelPrimCountTainted();
                     if (ParentGroup is not null && ((value - oldscale).LengthSquared() >1.0f))
                         ParentGroup.InvalidBoundsRadius();
                     PhysicsActor actor = PhysActor;
