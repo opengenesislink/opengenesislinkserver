@@ -77,6 +77,15 @@ namespace OpenSim.Region.CoreModules.World.LightShare
 
         private double m_framets;
 
+        // OGL Shared Day/Night is opt-in per simulator. Its only job is to
+        // synchronize the shared region EEP day cycle with the configured
+        // server civil time. No personal environment or parcel EEP is changed.
+        private bool m_oglSharedDayNightEnabled;
+        private bool m_oglSharedDayNightUpdating;
+        private bool m_oglSharedDayNightWarnedStatic;
+        private TimeZoneInfo m_oglSharedDayNightTimeZone;
+        private long m_oglSharedDayNightLastCheck;
+
         #region INonSharedRegionModule
         public void Initialise(IConfigSource source)
         {
@@ -93,6 +102,46 @@ namespace OpenSim.Region.CoreModules.World.LightShare
 
             Enabled = true;
 
+            // The timezone is deliberately resolved on the simulator host
+            // rather than assumed from the viewer PC or hardcoded to PST.
+            // When LoginService is configured in this process it is the
+            // default. In a separate ROBUST/region setup, explicitly set
+            // OGLSharedDayNight.TimeZone to the same DSTZone as ROBUST.
+            IConfig dayNight = source.Configs["OGLSharedDayNight"];
+            if (dayNight != null && dayNight.GetBoolean("Enabled", false))
+            {
+                string configuredZone = dayNight.GetString("TimeZone", "").Trim();
+                if (configuredZone.Length == 0)
+                {
+                    IConfig loginService = source.Configs["LoginService"];
+                    configuredZone = loginService?.GetString("DSTZone", "")?.Trim() ?? "";
+                }
+                foreach (string candidate in configuredZone.Split(';'))
+                {
+                    string name = candidate.Trim();
+                    if (name.Length == 0)
+                        continue;
+                    try
+                    {
+                        m_oglSharedDayNightTimeZone = TimeZoneInfo.FindSystemTimeZoneById(name);
+                        break;
+                    }
+                    catch (TimeZoneNotFoundException) { }
+                    catch (InvalidTimeZoneException) { }
+                }
+
+                if (m_oglSharedDayNightTimeZone == null)
+                {
+                    m_log.Error("[OGL SHARED DAY/NIGHT]: Enabled but no valid TimeZone or LoginService.DSTZone; " +
+                        "region environment will not be changed.");
+                }
+                else
+                {
+                    m_oglSharedDayNightEnabled = true;
+                    m_log.InfoFormat("[OGL SHARED DAY/NIGHT]: Using server zone {0} for 24-hour region EEP cycle",
+                        m_oglSharedDayNightTimeZone.Id);
+                }
+            }
 
             m_log.InfoFormat("[{0}]: Module is enabled.", Name);
         }
@@ -915,13 +964,96 @@ namespace OpenSim.Region.CoreModules.World.LightShare
              m_eventQueue.WindlightRefreshEvent(1, client.AgentId);
         }
 
+        /// <summary>
+        /// Align the region's SHARED EEP day cycle to the configured ROBUST
+        /// civil time. The viewer already animates EEP using DayLength and
+        /// DayOffset, so it needs no local rendering override or clock hack.
+        ///
+        /// DayFraction = ((UTCUnixSeconds + currentUtcOffsetSeconds) % 86400)
+        ///                 / 86400.
+        ///
+        /// Periodic rechecking ensures a Berlin clock jumps between UTC+1
+        /// and UTC+2 at the correct European DST transition. Store only on a
+        /// change, so the environment DB and viewer are not spammed.
+        /// </summary>
+        private void UpdateOglSharedDayNight()
+        {
+            if (!m_oglSharedDayNightEnabled || m_oglSharedDayNightUpdating ||
+                m_scene == null)
+                return;
+
+            long nowSeconds = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+            if (m_oglSharedDayNightLastCheck != 0 &&
+                nowSeconds >= m_oglSharedDayNightLastCheck &&
+                nowSeconds - m_oglSharedDayNightLastCheck < 60)
+                return;
+            m_oglSharedDayNightLastCheck = nowSeconds;
+
+            ViewerEnvironment shared = GetRegionEnvironment();
+            if (shared == null)
+                return;
+
+            // A single fixed-sky frame cannot become night by changing the
+            // clock alone. Preserve the owner's setting and point them to a
+            // real EEP day cycle with separate day/night sky frames.
+            OSDMap descriptor = shared.ToOSD() as OSDMap;
+            OSDMap cycle = descriptor?["day_cycle"] as OSDMap;
+            OSDArray tracks = cycle?["tracks"] as OSDArray;
+            OSDArray groundSky = tracks != null && tracks.Count > 1
+                ? tracks[1] as OSDArray : null;
+            if (groundSky == null || groundSky.Count < 2)
+            {
+                if (!m_oglSharedDayNightWarnedStatic)
+                {
+                    m_oglSharedDayNightWarnedStatic = true;
+                    m_log.WarnFormat("[OGL SHARED DAY/NIGHT]: Region {0} has a static or empty EEP sky. " +
+                        "Assign a day/night EEP day cycle in Region Environment; existing settings preserved.",
+                        m_scene.Name);
+                }
+                return;
+            }
+            m_oglSharedDayNightWarnedStatic = false;
+
+            TimeSpan offset = m_oglSharedDayNightTimeZone.GetUtcOffset(DateTimeOffset.UtcNow);
+            const int secondsPerDay = 24 * 60 * 60;
+            int offsetSeconds = (int)offset.TotalSeconds;
+            int dayOffset = ((offsetSeconds % secondsPerDay) + secondsPerDay) % secondsPerDay;
+            if (shared.DayLength == secondsPerDay && shared.DayOffset == dayOffset)
+                return;
+
+            ViewerEnvironment updated = shared.Clone();
+            updated.DayLength = secondsPerDay;
+            updated.DayOffset = dayOffset;
+            m_oglSharedDayNightUpdating = true;
+            try
+            {
+                StoreOnRegion(updated);
+                // EEP region settings version increments and all root avatars
+                // are asked to refresh their shared environment. Personal and
+                // parcel-local overrides remain unchanged.
+                WindlightRefresh(0);
+                m_log.InfoFormat("[OGL SHARED DAY/NIGHT]: Region {0}: EEP synchronized " +
+                    "to {1}, UTC offset {2}s, day length {3}s",
+                    m_scene.Name, m_oglSharedDayNightTimeZone.Id,
+                    offsetSeconds, secondsPerDay);
+            }
+            finally
+            {
+                m_oglSharedDayNightUpdating = false;
+            }
+        }
+
         private void UpdateEnvTime()
         {
+            if (m_oglSharedDayNightUpdating)
+                return;
+
             double now = Util.GetTimeStamp();
             if (now - m_framets < 2.5) // this will be a conf option
                 return;
 
             m_framets = now;
+            UpdateOglSharedDayNight();
             UpdateClientsSunTime();
         }
 
