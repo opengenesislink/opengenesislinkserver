@@ -91,6 +91,10 @@ namespace OpenSim.Region.CoreModules.Asset
 
         private ExpiringCacheOS<string, AssetBase> m_MemoryCache;
         private bool m_MemoryCacheEnabled = false;
+        // Optional RAM byte/entry budget. Without it, preserve legacy TTL cache.
+        private OglBudgetedLruCache<string, AssetBase> m_BudgetedMemoryCache;
+        private int m_MemoryCacheMaxMiB = 0;
+        private int m_MemoryCacheMaxEntries = 8192;
 
         private ExpiringKey<string> m_negativeCache;
         private bool m_negativeCacheEnabled = true;
@@ -171,6 +175,10 @@ namespace OpenSim.Region.CoreModules.Asset
                         m_CacheDirectory = Path.GetFullPath(m_CacheDirectory);
 
                         m_MemoryCacheEnabled = assetConfig.GetBoolean("MemoryCacheEnabled", m_MemoryCacheEnabled);
+                        m_MemoryCacheMaxMiB = Math.Clamp(
+                            assetConfig.GetInt("MemoryCacheMaxMiB", m_MemoryCacheMaxMiB), 0, 16384);
+                        m_MemoryCacheMaxEntries = Math.Clamp(
+                            assetConfig.GetInt("MemoryCacheMaxEntries", m_MemoryCacheMaxEntries), 1, 65536);
                         m_MemoryExpiration = assetConfig.GetDouble("MemoryCacheTimeout", m_MemoryExpiration);
                         m_MemoryExpiration *= 3600.0; // config in hours to seconds
 
@@ -196,8 +204,21 @@ namespace OpenSim.Region.CoreModules.Asset
                     if(m_updateFileTimeOnCacheHit)
                         m_lastFileAccessTimeChange = new ExpiringKey<string>(300000);
 
-                    if(m_MemoryCacheEnabled)
-                        m_MemoryCache = new ExpiringCacheOS<string, AssetBase>((int)m_MemoryExpiration * 500);
+                    if (m_MemoryCacheEnabled)
+                    {
+                        if (m_MemoryCacheMaxMiB > 0)
+                        {
+                            m_BudgetedMemoryCache = new OglBudgetedLruCache<string, AssetBase>(
+                                (long)m_MemoryCacheMaxMiB * 1024 * 1024,
+                                m_MemoryCacheMaxEntries,
+                                asset => (long)(asset.Data?.LongLength ?? 0) + 1024L);
+                            m_log.InfoFormat(
+                                "[FLOTSAM ASSET CACHE]: Memory cache LRU budget {0} MiB, {1} entries",
+                                m_MemoryCacheMaxMiB, m_MemoryCacheMaxEntries);
+                        }
+                        else
+                            m_MemoryCache = new ExpiringCacheOS<string, AssetBase>((int)m_MemoryExpiration * 500);
+                    }
 
                     m_log.Info($"[FLOTSAM ASSET CACHE]: Cache Directory {m_CacheDirectory}");
 
@@ -377,7 +398,11 @@ namespace OpenSim.Region.CoreModules.Asset
 
         private void UpdateMemoryCache(string key, AssetBase asset)
         {
-            m_MemoryCache.AddOrUpdate(key, asset, m_MemoryExpiration);
+            if (m_BudgetedMemoryCache != null)
+                m_BudgetedMemoryCache.AddOrUpdate(
+                    key, asset, TimeSpan.FromSeconds(m_MemoryExpiration));
+            else
+                m_MemoryCache.AddOrUpdate(key, asset, m_MemoryExpiration);
         }
 
         private void UpdateFileCache(string key, AssetBase asset, bool replace = false)
@@ -510,7 +535,11 @@ namespace OpenSim.Region.CoreModules.Asset
         /// <returns></returns>
         private AssetBase GetFromMemoryCache(string id)
         {
-            if (m_MemoryCache.TryGetValue(id, out AssetBase asset))
+            AssetBase asset;
+            bool found = m_BudgetedMemoryCache != null
+                ? m_BudgetedMemoryCache.TryGetValue(id, out asset)
+                : m_MemoryCache.TryGetValue(id, out asset);
+            if (found)
             {
                 m_MemoryHits++;
                 return asset;
@@ -520,7 +549,9 @@ namespace OpenSim.Region.CoreModules.Asset
 
         private bool CheckFromMemoryCache(string id)
         {
-            return m_MemoryCache.Contains(id);
+            return m_BudgetedMemoryCache != null
+                ? m_BudgetedMemoryCache.Contains(id)
+                : m_MemoryCache.Contains(id);
         }
 
         /// <summary>
@@ -763,7 +794,12 @@ namespace OpenSim.Region.CoreModules.Asset
                     weakAssetReferences.Remove(id);
 
                 if (m_MemoryCacheEnabled)
-                    m_MemoryCache.Remove(id);
+                {
+                    if (m_BudgetedMemoryCache != null)
+                        m_BudgetedMemoryCache.Remove(id);
+                    else
+                        m_MemoryCache.Remove(id);
+                }
 
                 if (m_negativeCacheEnabled)
                     m_negativeCache.Remove(id);
@@ -797,8 +833,13 @@ namespace OpenSim.Region.CoreModules.Asset
 
             if (m_MemoryCacheEnabled)
             {
-                m_MemoryCache.Dispose();
-                m_MemoryCache = new ExpiringCacheOS<string, AssetBase>((int)m_MemoryExpiration * 500);
+                if (m_BudgetedMemoryCache != null)
+                    m_BudgetedMemoryCache.Clear();
+                else
+                {
+                    m_MemoryCache.Dispose();
+                    m_MemoryCache = new ExpiringCacheOS<string, AssetBase>((int)m_MemoryExpiration * 500);
+                }
             }
             if (m_negativeCacheEnabled)
             {
@@ -1367,7 +1408,13 @@ namespace OpenSim.Region.CoreModules.Asset
                     {
                         WorkManager.RunInThreadPool(delegate
                         {
-                            if (m_MemoryCacheEnabled)
+                            if (m_MemoryCacheEnabled && m_BudgetedMemoryCache != null)
+                                con.Output(
+                                    "[FLOTSAM ASSET CACHE] Memory Cache (LRU): {0} assets / ~{1} MiB; budget {2} MiB",
+                                    m_BudgetedMemoryCache.Count,
+                                    m_BudgetedMemoryCache.EstimatedBytes / (1024 * 1024),
+                                    m_MemoryCacheMaxMiB);
+                            else if (m_MemoryCacheEnabled)
                                 con.Output("[FLOTSAM ASSET CACHE] Memory Cache: {0} assets", m_MemoryCache.Count);
                             else
                                 con.Output("[FLOTSAM ASSET CACHE] Memory cache disabled");
@@ -1443,7 +1490,10 @@ namespace OpenSim.Region.CoreModules.Asset
                         {
                             if (m_MemoryCacheEnabled)
                             {
-                                m_MemoryCache.Clear();
+                                if (m_BudgetedMemoryCache != null)
+                                    m_BudgetedMemoryCache.Clear();
+                                else
+                                    m_MemoryCache.Clear();
                                 con.Output("Memory cache cleared.");
                             }
                             else
