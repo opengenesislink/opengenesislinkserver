@@ -40,6 +40,9 @@ jobs:
       - name: Regression-test .NET 10 Flotsam disk-cache serialization
         run: dotnet run --configuration Release --project tools/ci/FlotsamCacheNet10Regression/FlotsamCacheNet10Regression.csproj
 
+      - name: Regression-test G1 performance sampling and bounded multicore job queue
+        run: dotnet run --configuration Release --project tools/ci/OglPerformanceEngineRegression/OglPerformanceEngineRegression.csproj
+
       - name: Verify isolated .NET 10 ROBUST runtime on Linux x64
         run: |
           python3 tools/gen11/robust_runtime_smoke.py
@@ -77,6 +80,10 @@ jobs:
       - name: Regression-test .NET 10 Flotsam disk-cache serialization on Windows
         shell: pwsh
         run: dotnet run --configuration Release --project tools/ci/FlotsamCacheNet10Regression/FlotsamCacheNet10Regression.csproj
+
+      - name: Regression-test G1 performance sampling and queue on Windows
+        shell: pwsh
+        run: dotnet run --configuration Release --project tools/ci/OglPerformanceEngineRegression/OglPerformanceEngineRegression.csproj
 
       - name: Runtime smoke - boot real ROBUST .NET 10 on Windows x64
         shell: pwsh
