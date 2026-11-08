@@ -85,6 +85,9 @@ namespace OpenSim.Region.CoreModules.Asset
         private static HashSet<string> m_defaultAssets = new();
 
         private bool m_FileCacheEnabled = true;
+        // File-cache I/O is independent of region-scene mutation. Defaults preserve G1 behavior.
+        private int m_FileWriteConcurrency = 1;
+        private int m_MaxPendingFileWrites = 0;
 
         private ExpiringCacheOS<string, AssetBase> m_MemoryCache;
         private bool m_MemoryCacheEnabled = false;
@@ -158,6 +161,12 @@ namespace OpenSim.Region.CoreModules.Asset
                     else
                     {
                         m_FileCacheEnabled = assetConfig.GetBoolean("FileCacheEnabled", m_FileCacheEnabled);
+                        m_FileWriteConcurrency = Math.Clamp(
+                            assetConfig.GetInt("FileWriteConcurrency", m_FileWriteConcurrency),
+                            1, Math.Max(1, Math.Min(Environment.ProcessorCount, 8)));
+                        m_MaxPendingFileWrites = Math.Clamp(
+                            assetConfig.GetInt("MaxPendingFileWrites", m_MaxPendingFileWrites),
+                            0, 65536);
                         m_CacheDirectory = assetConfig.GetString("CacheDirectory", m_CacheDirectory);
                         m_CacheDirectory = Path.GetFullPath(m_CacheDirectory);
 
@@ -311,7 +320,12 @@ namespace OpenSim.Region.CoreModules.Asset
 
                     if (m_FileCacheEnabled && m_assetFileWriteWorker == null)
                     {
-                        m_assetFileWriteWorker = new ObjectJobEngine(ProcessWrites, "FloatsamCacheWriter", 1000, 1);
+                        m_assetFileWriteWorker = new ObjectJobEngine(
+                            ProcessWrites, "FlotsamCacheWriter", 1000,
+                            m_FileWriteConcurrency, m_MaxPendingFileWrites);
+                        m_log.InfoFormat(
+                            "[FLOTSAM ASSET CACHE]: File writers={0}, pending cache queue cap={1} (0=legacy unbounded)",
+                            m_FileWriteConcurrency, m_MaxPendingFileWrites);
                     }
 
                     if (!string.IsNullOrWhiteSpace(m_assetLoader) && scene.RegionInfo.RegionID == m_Scenes[0].RegionInfo.RegionID)
@@ -368,36 +382,46 @@ namespace OpenSim.Region.CoreModules.Asset
 
         private void UpdateFileCache(string key, AssetBase asset, bool replace = false)
         {
-            if(m_assetFileWriteWorker is null)
+            if (m_assetFileWriteWorker is null)
                 return;
 
             string filename = GetFileName(key);
+            bool registered = false;
+            bool queued = false;
 
             try
             {
-                // Once we start writing, make sure we flag that we're writing
-                // that object to the cache so that we don't try to write the
-                // same file multiple times.
+                // Avoid duplicate writes even with multiple independent disk workers.
                 lock (m_CurrentlyWriting)
                 {
                     if (!m_CurrentlyWriting.Add(filename))
                         return;
+                    registered = true;
                 }
 
-                if (m_assetFileWriteWorker is not null)
+                WriteAssetInfo wai = new()
                 {
-                    WriteAssetInfo wai = new()
-                    {
-                        filename = filename,
-                        asset = asset,
-                        replace = replace
-                    };
-                    m_assetFileWriteWorker.Enqueue(wai);
-                }
+                    filename = filename,
+                    asset = asset,
+                    replace = replace
+                };
+                // Saturation drops only an optional disk-cache write; the asset
+                // is already available from the authoritative asset service.
+                queued = m_assetFileWriteWorker?.Enqueue(wai) == true;
             }
             catch (Exception e)
             {
-                m_log.Warn($"[FLOTSAM ASSET CACHE]: Failed to update cache for asset {asset.ID}: {e.Message}");
+                m_log.Warn($"[FLOTSAM ASSET CACHE]: Failed to queue asset cache write for {asset.ID}: {e.Message}");
+            }
+            finally
+            {
+                // A rejected/disposed queue must not leave the filename in
+                // CurrentlyWriting indefinitely. Accepted jobs clear it after I/O.
+                if (registered && !queued)
+                {
+                    lock (m_CurrentlyWriting)
+                        m_CurrentlyWriting.Remove(filename);
+                }
             }
         }
 
@@ -510,10 +534,13 @@ namespace OpenSim.Region.CoreModules.Asset
 
             // Track how often we have the problem that an asset is requested while
             // it is still being downloaded by a previous request.
-            if (m_CurrentlyWriting.Contains(filename))
+            lock (m_CurrentlyWriting)
             {
-                m_RequestsForInprogress++;
-                return null;
+                if (m_CurrentlyWriting.Contains(filename))
+                {
+                    m_RequestsForInprogress++;
+                    return null;
+                }
             }
 
             AssetBase asset = null;
