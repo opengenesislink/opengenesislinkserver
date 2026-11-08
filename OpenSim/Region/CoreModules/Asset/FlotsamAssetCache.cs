@@ -82,6 +82,7 @@ namespace OpenSim.Region.CoreModules.Asset
 
         private static readonly HashSet<string> m_CurrentlyWriting = new();
         private static ObjectJobEngine m_assetFileWriteWorker = null;
+        private static long m_CacheWritesRejected;
         private static HashSet<string> m_defaultAssets = new();
 
         private bool m_FileCacheEnabled = true;
@@ -444,6 +445,7 @@ namespace OpenSim.Region.CoreModules.Asset
                 // CurrentlyWriting indefinitely. Accepted jobs clear it after I/O.
                 if (registered && !queued)
                 {
+                    Interlocked.Increment(ref m_CacheWritesRejected);
                     lock (m_CurrentlyWriting)
                         m_CurrentlyWriting.Remove(filename);
                 }
@@ -1421,6 +1423,10 @@ namespace OpenSim.Region.CoreModules.Asset
 
                             if (m_FileCacheEnabled)
                             {
+                                con.Output(
+                                    "[FLOTSAM ASSET CACHE] Disk writer queue: {0} pending; {1} cache writes rejected since start",
+                                    m_assetFileWriteWorker?.Count ?? 0,
+                                    Interlocked.Read(ref m_CacheWritesRejected));
                                 bool doingscan;
                                 lock (timerLock)
                                 {
