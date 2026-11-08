@@ -30,6 +30,8 @@ using System.Collections.Generic;
 using System.IO;
 using System.Net;
 using System.Reflection;
+using System.Security.Cryptography;
+using System.Text;
 using System.Xml;
 
 using OpenSim.Framework;
@@ -49,12 +51,12 @@ namespace OpenSim.Region.CoreModules.World.Estate
 
         protected EstateModule m_EstateModule;
         protected Object m_RequestLock = new Object();
-        private string token;
+        private readonly byte[] tokenBytes;
 
         public EstateSimpleRequestHandler(EstateModule fmodule, string _token) : base("/estate")
         {
             m_EstateModule = fmodule;
-            token = _token;
+            tokenBytes = Encoding.UTF8.GetBytes(_token);
         }
 
         protected override void ProcessRequest(IOSHttpRequest httpRequest, IOSHttpResponse httpResponse)
@@ -90,9 +92,10 @@ namespace OpenSim.Region.CoreModules.World.Estate
                         if (!request.ContainsKey("TOKEN"))
                             break;
 
-                        string reqToken = request["TOKEN"].ToString();
-
-                        if(token != reqToken)
+                        string reqToken = request["TOKEN"]?.ToString();
+                        if (string.IsNullOrEmpty(reqToken)
+                            || !CryptographicOperations.FixedTimeEquals(
+                                tokenBytes, Encoding.UTF8.GetBytes(reqToken)))
                             break;
 
                         fail = false;
