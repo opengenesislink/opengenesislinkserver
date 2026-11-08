@@ -248,12 +248,38 @@ namespace OpenSim.Framework
             }
             finally
             {
+                bool restartFailed = false;
                 lock (m_mainLock)
                 {
                     --m_numberThreads;
+
+                    // A producer may have queued work after an idle worker
+                    // decided to exit but before this decrement. Never strand
+                    // that work with zero available workers.
+                    if (m_isRunning && m_jobQueue != null &&
+                        m_jobQueue.Count > 0 && m_numberThreads == 0)
+                    {
+                        ++m_numberThreads;
+                        try
+                        {
+                            Util.FireAndForget(ProcessRequests, null, m_name, false);
+                        }
+                        catch (Exception e)
+                        {
+                            --m_numberThreads;
+                            restartFailed = true;
+                            m_log.ErrorFormat(
+                                "[ObjectJob {0}]: Unable to restart idle worker: {1}",
+                                m_name, e);
+                        }
+                    }
+
                     if (m_stopRequested && m_numberThreads == 0)
                         ReleaseResourcesLocked();
                 }
+
+                if (restartFailed)
+                    Stop();
             }
         }
     }
