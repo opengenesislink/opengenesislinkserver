@@ -6,6 +6,13 @@
 ; Active overrides only. Defaults in OpenSimDefaults.ini / config-include/*.ini.
 ; Runtime secrets and instance state must not be committed.
 
+; OGL Performance Engine 1.0 - baseline telemetry, off until node rollout.
+; Read-only CPU quota/core, GC, RAM, threadpool and per-region heartbeat samples
+; are attached to authenticated NexBus heartbeats. No FPS or physics changes.
+; In the operator deployment enable only after reviewing data/visibility policy.
+[OGLPerformance]
+    Enabled = false
+
 [NexVerseNodeAgent]
     Enabled = true
     NodeId = ""
