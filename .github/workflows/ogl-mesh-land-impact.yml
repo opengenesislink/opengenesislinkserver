@@ -1,0 +1,46 @@
+name: OGL G1 Mesh Land Impact
+on:
+  pull_request:
+    paths:
+      - 'OpenSim/Region/CoreModules/World/Land/**'
+      - 'OpenSim/Region/CoreModules/OpenSim.Region.CoreModules.csproj'
+      - 'OpenSim/Region/Framework/Interfaces/IPrimCountModule.cs'
+      - 'OpenSim/Region/Framework/Scenes/SceneObjectGroup.cs'
+      - 'OpenSim/Region/Framework/Scenes/Scene.Inventory.cs'
+      - 'OpenSim/Region/OptionalModules/PrimLimitsModule/PrimLimitsModule.cs'
+      - 'OpenSim/Region/OptionalModules/Scripting/JsonStore/JsonStoreScriptModule.cs'
+      - 'OpenSim/Region/CoreModules/Framework/InventoryAccess/InventoryAccessModule.cs'
+      - 'bin/OpenSim*.ini*'
+      - 'tools/ci/OglMeshLandImpactRegression/**'
+      - 'tools/ci/verify_ogl_mesh_land_impact.py'
+      - '.github/workflows/ogl-mesh-land-impact.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'OpenSim/Region/CoreModules/World/Land/**'
+      - 'OpenSim/Region/CoreModules/OpenSim.Region.CoreModules.csproj'
+      - 'OpenSim/Region/Framework/Interfaces/IPrimCountModule.cs'
+      - 'OpenSim/Region/Framework/Scenes/SceneObjectGroup.cs'
+      - 'OpenSim/Region/Framework/Scenes/Scene.Inventory.cs'
+      - 'OpenSim/Region/OptionalModules/PrimLimitsModule/PrimLimitsModule.cs'
+      - 'OpenSim/Region/OptionalModules/Scripting/JsonStore/JsonStoreScriptModule.cs'
+      - 'OpenSim/Region/CoreModules/Framework/InventoryAccess/InventoryAccessModule.cs'
+      - 'bin/OpenSim*.ini*'
+      - 'tools/ci/OglMeshLandImpactRegression/**'
+      - 'tools/ci/verify_ogl_mesh_land_impact.py'
+      - '.github/workflows/ogl-mesh-land-impact.yml'
+permissions:
+  contents: read
+jobs:
+  land-impact-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: Validate mesh land impact module wiring
+        run: python3 tools/ci/verify_ogl_mesh_land_impact.py
+      - name: Regression test linked mesh land-impact arithmetic
+        run: dotnet run --configuration Release --project tools/ci/OglMeshLandImpactRegression/OglMeshLandImpactRegression.csproj
