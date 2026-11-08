@@ -52,6 +52,15 @@
     PrivURL = ${Const|BaseURL}
     PrivatePort = "8003"
 
+; OpenGenesisLINK G1 Mesh Land Impact (per-simulator).
+; Classic prim linksets keep their original counts. Mesh linksets use
+; the maximum of LOD streaming, convex physics and server weights.
+; The number of editable linked parts and LSL link numbers never change.
+; This is an OGL approximation of Second Life LI, not the proprietary
+; Linden Lab implementation. Staging validation is recommended.
+[OGLMeshLandImpact]
+    Enabled = false
+
 [Startup]
     ; OGL 0.9.3.13: erweiterte Sicht auf mehr als das bisherige 3x3-Raster.
     ; Opt-in: angepasste Defaults MaxDrawDistance=1024 und
