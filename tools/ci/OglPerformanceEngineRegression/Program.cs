@@ -110,6 +110,21 @@ static class Program
                 "parallel inserts exceeded LRU limits");
         }
 
+        // Idle regions still release expired RAM assets. This test never
+        // queries the cache until the timer's eviction counter has changed.
+        using (var idleCache = new OglBudgetedLruCache<string, byte[]>(
+                   4096, 16, value => value.LongLength,
+                   TimeSpan.FromMilliseconds(20)))
+        {
+            Require(idleCache.AddOrUpdate("idle-expiry", new byte[512],
+                TimeSpan.FromMilliseconds(40)), "idle RAM asset was not cached");
+            Require(SpinWait.SpinUntil(() => idleCache.ExpiredEvictions >= 1,
+                TimeSpan.FromSeconds(3)),
+                "idle sweep failed to release expired asset without a viewer request");
+            Require(idleCache.EstimatedBytes == 0 && idleCache.Count == 0,
+                "idle cache retained expired RAM payloads after sweep");
+        }
+
         Require(OglPerformanceWorkerPolicy.SelectIndependentIoWorkers(0, 1) == 1,
             "auto worker policy must not oversubscribe a single core");
         Require(OglPerformanceWorkerPolicy.SelectIndependentIoWorkers(0, 2) == 1,
