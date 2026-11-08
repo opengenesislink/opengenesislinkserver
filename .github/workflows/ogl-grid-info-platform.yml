@@ -1,0 +1,26 @@
+name: OGL Legacy GridInfo Platform
+on:
+  pull_request:
+    paths:
+      - 'OpenSim/Server/Handlers/Grid/GridInfoHandlers.cs'
+      - 'OpenSim/Server/Handlers/Grid/GridInfoServerInConnector.cs'
+      - 'tools/ci/verify_ogl_grid_info_platform.py'
+      - '.github/workflows/ogl-grid-info-platform.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'OpenSim/Server/Handlers/Grid/GridInfoHandlers.cs'
+      - 'OpenSim/Server/Handlers/Grid/GridInfoServerInConnector.cs'
+      - 'tools/ci/verify_ogl_grid_info_platform.py'
+      - '.github/workflows/ogl-grid-info-platform.yml'
+permissions:
+  contents: read
+jobs:
+  gridinfo-identity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check shared XML, JSON and XML-RPC platform identity
+        run: python3 tools/ci/verify_ogl_grid_info_platform.py
+      - name: Retain OGL viewer-clock protocol validation
+        run: python3 tools/ci/verify_ogl_viewer_clock.py
