@@ -13,8 +13,9 @@ assert source.index(mark) > source.index('IConfig gridCfg = configSource.Configs
 )
 for method in ("XmlRpcGridInfoMethod", "RestGetGridInfoMethod", "JsonGetGridInfoMethod"):
     assert method in source, method
-assert source.count("foreach (KeyValuePair<string, string> k in _info)") >= 2
-assert re.search(r"foreach \(KeyValuePair<string, string>\s+k in _info\)", source)
+assert len(re.findall(r"foreach \(KeyValuePair<string, string>\s+k in _info\)", source)) >= 3, (
+    "XML, JSON and XML-RPC must all publish the same GridInfo dictionary"
+)
 assert '"/get_grid_info"' in connector and '"/json_grid_info"' in connector
 assert 'clock = BuildViewerClock()' in source, "Do not disturb OGL viewer clock"
 assert 'org.opengenesislink.viewer.grid-info.v1' in source, "Do not disturb OGL native discovery"
