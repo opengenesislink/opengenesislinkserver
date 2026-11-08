@@ -18,6 +18,7 @@ Status values:
 | IRC bridge | **REMOVED** | No longer part of the NexVerse communications architecture. |
 | Generated `obj/` trees | **REMOVED** | Build intermediates are excluded through `.gitignore`. |
 | OptionalModules example modules | **REMOVED** | BareBones and WebSocket echo sample modules are not part of the production NexVerse source line. |
+| pCampBot / PhysicsCamperbot | **REMOVED** | Unmaintained stand-alone multi-login stress bot; 16 source and 7 bin files, prebuild and solution references deleted. |
 | LSL XML-RPC RemoteData | **COMPAT** | Must remain while required for LSL RemoteData compatibility. It is not RemoteAdmin. |
 | LLLogin / viewer login protocol | **KEEP** | Required for compatible viewers including Firestorm. |
 | LLUDP / viewer protocol stack | **KEEP** | Required for viewer compatibility. |
@@ -53,3 +54,40 @@ Completed source cleanup:
 - non-production BareBones/WebSocketEcho example modules removed.
 
 Build and runtime verification remains required before NEXJAST is considered complete.
+
+## G1 cleanup audit – 2026-11-08 (OpenGenesisLINK)
+
+The following is a **source/configuration inventory**, not proof of which
+optional services are enabled on all production nodes. Only pCampBot is
+approved for removal in this change. Delete no other components without
+checking staging, compatibility and test dependencies.
+
+| Component / path | Current G1 evidence | Recommended action | Removal gate |
+| --- | --- | --- | --- |
+| `OpenSim/Tools/pCampBot/`, `bin/pCampBot*` | Legacy independent login-stress program; explicitly compiles in main solution; includes tracked old executable, DLL, PDB and config. | **REMOVED in this cleanup** | Full simulator, ROBUST and generated-solution CI must remain green. |
+| `OpenSim/Tools/LaunchSLClient/` | Standalone Windows Forms launcher; old `secondlife` executable lookup, Nant / VS2008 / .NET 3.5 scripts; not part of root `prebuild.xml` / root `OpenSim.sln`. | **HIGH – candidate for next cleanup** | Check operator usage; it is unrelated to the active TrixieStorm Viewer repository. |
+| `bin/LaunchSLClient.ini` | Legacy launcher configuration includes outdated DeepGrid, OpenlifeGrid and Linden Lab shortcuts instead of Stadt NexVerse. | **HIGH – candidate for next cleanup** | Confirm no separate operator uses the legacy Windows Forms launcher. |
+| `OpenSim/Tools/classaudit.pl` | One-off 2007 Perl script for namespace/class scanning; hard-coded relative source path. | **LOW RISK – candidate for next cleanup** | Verify no CI or local audit workflow calls the script; replace with modern linting if still needed. |
+| `OpenSim/Region/CoreModules/World/LegacyMap/` | Alternate `MapImageModule` legacy terrain renderer; currently configured map renderer is `Warp3DImageModule`. | **MEDIUM – candidate, NOT removed** | Verify static image fallback, world-map compatibility, migrations and custom region overrides. |
+| `OpenSim/Region/PhysicsModules/POS/` | Older optional `POS` physics engine; G1 runtime profile uses `BulletSim`. | **MEDIUM – candidate, NOT removed** | Scan deployed region INIs and test basic physics / simulator compatibility. |
+| `OpenSim/Region/PhysicsModules/BasicPhysics/` | Incomplete minimal physics engine; its own comments cite regression-test usage. | **MEDIUM – candidate, NOT removed** | Identify test references and provide a replacement test fixture before deletion. |
+| `OpenSim/Region/PhysicsModules/ubOde/` and `ubOdeMeshing/` | Alternative engine / mesher not selected by the default G1 profile. | **HIGH IMPACT – keep pending migration audit** | Verify *all* participating/federated region configs, physics behavior and release target requirements. |
+| `bin/OpenSimDefaults.ini` `[XEngine]` / historic engine comments | Default runtime engine is `YEngine` but descriptions still claim XEngine-only support. | **LOW RISK – documentation cleanup candidate** | Update comments only; preserve legacy script-state/import compatibility until separately tested. |
+| `OpenSim/Region/OptionalModules/Scripting/JsonStore/` | Older JSON state feature; current NEXJAST inventory already marks it **REPLACE**. | **COMPAT – retain** | Audit OSSL/LSL integrations and migrate state/scripts before replacing. |
+| `OpenSim/Region/OptionalModules/DataSnapshot/` and legacy search modules | Historic search / DataSnapshot API, legacy dependencies may remain. | **REPLACE – examine** | Confirm the replacement search API and viewer/Hypergrid consumption. |
+| `OpenSim/Addons/OfflineIM/`, `OpenSim/Addons/Groups/` | Existing IM/group implementations may still be required for viewer and Hypergrid compatibility. | **KEEP / REPLACE LATER** | Replacement must pass IM, group, inventory and HG regressions. |
+| `addons/OGLWeather/OglWeatherLegacyEmitters.cs` | Runtime weather particles for legacy Firestorm viewers, explicitly used for compatibility. | **KEEP** | Only retire when all supported viewers can render replacement weather state. |
+| `bin/` compiled tracked artifacts beyond pCampBot | Many checked-in runtime binaries, native libraries and .pdb files; not all are obsolete. | **AUDIT ONLY** | Establish full dependency/SBOM inventory and reproducible builds before individual removals. |
+| `tools/ci/LegacyKeyframeFixture/`, `tools/migration/KeyframeLegacyConverter/` | Migration / regression utilities, not ordinary runtime services. | **KEEP FOR NOW** | Retire only after all migrated assets/states and downgrade scenarios are validated. |
+
+### Scope and safety
+
+- Removed: only the pCampBot standalone tool, its tracked binaries and
+  its two root build integrations.
+- Deliberately not removed: OpenSim / Hypergrid protocols, LLUDP, YEngine,
+  Firestorm compatibility, FSAssets, OGLWeather legacy viewers, region modules,
+  optional physics fallback implementations and migration fixtures.
+- Local deployments are **not** updated by source removal. A stale
+  `/opt/robust/bin/pCampBot*` may remain after `git pull` if deployment
+  copies files rather than synchronizing/deleting them; check explicitly.
+- The follow-up candidates above require distinct PRs and CI/simulator tests.
