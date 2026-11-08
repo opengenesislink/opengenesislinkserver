@@ -288,11 +288,15 @@ namespace OpenSim.Region.CoreModules.Asset
 
         public void Close()
         {
-            if(m_Scenes.Count <= 0)
+            lock (timerLock)
             {
-                lock (timerLock)
-                {
-                    m_cleanupRunning = false;
+                bool noRegions;
+                lock (m_Scenes)
+                    noRegions = m_Scenes.Count == 0;
+                if (!noRegions)
+                    return;
+
+                m_cleanupRunning = false;
                     if (m_timerRunning)
                     {
                         m_timerRunning = false;
@@ -304,7 +308,6 @@ namespace OpenSim.Region.CoreModules.Asset
                         m_assetFileWriteWorker.Dispose();
                         m_assetFileWriteWorker = null;
                     }
-                }
                 // Stop all opt-in background sampling on final close.
                 m_AdaptiveFileWriteTimer?.Dispose();
                 m_AdaptiveFileWriteTimer = null;
@@ -332,7 +335,10 @@ namespace OpenSim.Region.CoreModules.Asset
                     m_Scenes.Remove(scene);
                 lock(timerLock)
                 {
-                    if(m_Scenes.Count <= 0)
+                    bool noRegions;
+                    lock (m_Scenes)
+                        noRegions = m_Scenes.Count == 0;
+                    if (noRegions)
                     {
                         m_cleanupRunning = false;
                         if (m_timerRunning)
@@ -408,7 +414,13 @@ namespace OpenSim.Region.CoreModules.Asset
                             SampleAdaptiveFileWritePressure, null, interval, interval);
                     }
 
-                    if (!string.IsNullOrWhiteSpace(m_assetLoader) && scene.RegionInfo.RegionID == m_Scenes[0].RegionInfo.RegionID)
+                    // Region membership may be changing while optional
+                    // asset-loader initialization is running on another thread.
+                    bool firstRegion;
+                    lock (m_Scenes)
+                        firstRegion = m_Scenes.Count > 0 &&
+                            scene.RegionInfo.RegionID == m_Scenes[0].RegionInfo.RegionID;
+                    if (!string.IsNullOrWhiteSpace(m_assetLoader) && firstRegion)
                     {
                         IAssetLoader assetLoader = ServerUtils.LoadPlugin<IAssetLoader>(m_assetLoader, Array.Empty<object>());
                         if (assetLoader is not null)
