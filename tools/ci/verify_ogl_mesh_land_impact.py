@@ -32,6 +32,7 @@ assert "GetObjectLandImpact(obj)" in land
 assert "GetLandImpact(sog)" in limits
 assert "m_scene?.RequestModuleInterface<IPrimCountModule>()" in group
 assert "TriggerParcelPrimCountTainted" in group
+assert "TriggerParcelPrimCountTainted" in read("OpenSim/Region/Framework/Scenes/SceneObjectPart.cs")
 assert "GetObjectLandImpact(group)" in read("OpenSim/Region/Framework/Scenes/Scene.Inventory.cs")
 assert "GetObjectLandImpact(g)" in read("OpenSim/Region/CoreModules/Framework/InventoryAccess/InventoryAccessModule.cs")
 assert "GetObjectLandImpact(grp)" in read("OpenSim/Region/ClientStack/Linden/Caps/ObjectCaps/UploadObjectAssetModule.cs")
