@@ -253,6 +253,12 @@ namespace OpenSim.Region.Framework.Scenes
                 }
                 m_hasGroupChanged = value;
 
+                // Resizes, physics changes and script changes can change mesh
+                // costs. Recalculate lazily on the next land quota query.
+                if (value && m_scene is not null &&
+                    m_scene.RequestModuleInterface<IPrimCountModule>()?.MeshLandImpactEnabled == true)
+                    m_scene.EventManager.TriggerParcelPrimCountTainted();
+
                 //m_log.DebugFormat(
                 //    "[SCENE OBJECT GROUP]: HasGroupChanged set to {0} for {1} {2}", m_hasGroupChanged, Name, LocalId);
             }
@@ -1826,6 +1832,22 @@ namespace OpenSim.Region.Framework.Scenes
         public void GetResourcesCosts(SceneObjectPart apart,
             out float linksetResCost, out float linksetPhysCost, out float partCost, out float partPhysCost)
         {
+            // Mesh LI is calculated for the complete linked object. Report
+            // the exact rounded quota cost through the viewer ObjectCost CAPS.
+            IPrimCountModule landImpactModule =
+                m_scene?.RequestModuleInterface<IPrimCountModule>();
+            if (landImpactModule?.MeshLandImpactEnabled == true)
+            {
+                landImpactModule.GetObjectLandImpactWeights(this,
+                    out _, out float physicsWeight, out _);
+                linksetResCost = landImpactModule.GetObjectLandImpact(this);
+                linksetPhysCost = physicsWeight;
+                int count = Math.Max(1, PrimCount);
+                partCost = apart is null ? 0 : linksetResCost / count;
+                partPhysCost = apart is null ? 0 : physicsWeight / count;
+                return;
+            }
+
             // this information may need to be cached
 
             float cost;
@@ -1883,6 +1905,15 @@ namespace OpenSim.Region.Framework.Scenes
 
         public void GetSelectedCosts(out float PhysCost, out float StreamCost, out float SimulCost)
         {
+            IPrimCountModule landImpactModule =
+                m_scene?.RequestModuleInterface<IPrimCountModule>();
+            if (landImpactModule?.MeshLandImpactEnabled == true)
+            {
+                landImpactModule.GetObjectLandImpactWeights(this,
+                    out StreamCost, out PhysCost, out SimulCost);
+                return;
+            }
+
             SceneObjectPart p;
             SceneObjectPart[] parts = m_parts.GetArray();
 
