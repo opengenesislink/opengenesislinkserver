@@ -69,7 +69,11 @@ namespace OpenSim.Framework
                 };
                 m_Entries.Add(key, entry);
                 m_Bytes += estimatedBytes;
-                PruneExpired(now);
+                // Keep the hot insertion path O(1). Expired non-tail entries
+                // are removed lazily on access, eviction, or status inspection.
+                while (m_Lru.Last != null &&
+                       m_Entries[m_Lru.Last.Value].ExpiresAt <= now)
+                    RemoveCore(m_Lru.Last.Value);
                 while (m_Entries.Count > m_MaxEntries || m_Bytes > m_MaxBytes)
                 {
                     if (m_Lru.Last == null) break;
