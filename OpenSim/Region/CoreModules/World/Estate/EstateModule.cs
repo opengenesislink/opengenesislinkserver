@@ -95,8 +95,10 @@ namespace OpenSim.Region.CoreModules.World.Estate
             if (string.IsNullOrWhiteSpace(configuredToken)
                 || configuredToken.Length < 32)
             {
-                m_enabled = false;
-                m_log.Error("[ESTATE MODULE]: Estate inter-simulator communications disabled: configure the same strong OGL_ESTATE_SHARED_TOKEN (at least 32 characters) on every simulator, or a private [Estates] Token. No public fallback token is permitted.");
+                // Preserve local estate callbacks and intra-process updates, but
+                // do not register /estate or send remote requests without a secret.
+                m_EstateConnector = new EstateConnector(this, string.Empty, port);
+                m_log.Error("[ESTATE MODULE]: Remote estate HTTP disabled: configure the same strong OGL_ESTATE_SHARED_TOKEN (at least 32 characters) on every simulator, or a private [Estates] Token. Local estate operations remain available. No public fallback token is permitted.");
                 return;
             }
 
