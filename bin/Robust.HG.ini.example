@@ -1,3 +1,6 @@
+; OpenGenesisLINK Generation 1 – Hypergrid Installationsvorlage.
+; Nicht ueber die aktive ROBUST-Ini kopieren. Domains, TLS, DB und HMAC
+; muessen pro Deployment konsistent sein. Siehe G1_CONFIG_AUDIT.md.
 ; * Run
 ; * $ Robust.exe -inifile Robust.HG.ini
 ; *
@@ -224,19 +227,21 @@
     ;ConsolePort = 0
 
 [Hypergrid]
+    ; KRITISCH: HomeURI/GatekeeperURI sind die Hypergrid-Identitaet.
+    ; Dieser generische Beispielwert muss mit dem realen Proxy/Port passen.
     ;# {HomeURI} {Hypergrid} {The Home URL of this grid} {}
     ;; This is the address of the external robust server that
     ;; runs the UserAgentsService, possibly this server.
     ;; For example http://myworld.com:8002
     ;; This is a default that can be overwritten in some sections.
-    ; HomeURI = "${Const|BaseURL}:${Const|PublicPort}"
+    HomeURI = "${Const|BaseURL}:${Const|PublicPort}"
 
     ;# {GatekeeperURI} {Hypergrid} {The URL of the gatekeeper of this grid} {}
     ;; This is the address of the external robust server
     ;; that runs the Gatekeeper service, possibly this server.
     ;; For example http://myworld.com:8002
     ;; This is a default that can be overwritten in some sections.
-    ; GatekeeperURI = "${Const|BaseURL}:${Const|PublicPort}"
+    GatekeeperURI = "${Const|BaseURL}:${Const|PublicPort}"
 
     ;# {GatekeeperURIAlias} {Hypergrid} {alternative hostnames (FQDN), or IPs of the gatekeeper of this grid and port (default 80 or 443 if alias starts with https://)} {}
     ;; comma separated list,
