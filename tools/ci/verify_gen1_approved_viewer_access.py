@@ -19,6 +19,7 @@ for marker in (
     '"Firestorm", "OpenGenesisLINK", "OGL Viewer", "Radegast-ng", "Radegast",',
     '"WolfViewer-Release"',
     '"Frivolin Viewer"',
+    '"TrixieStorm Viewer"',
     '"Darkstorm", "Hydrastorm", "Copybot"',
     "StartsWithApprovedName",
     "ContainsKnownCopybotName",

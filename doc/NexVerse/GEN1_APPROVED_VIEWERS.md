@@ -8,7 +8,8 @@
 - **OpenGenesisLINK Viewer** – `OpenGenesisLINK` und der projektinterne Name `OGL Viewer`
 - **Radegast-ng** – `Radegast-ng` und kompatibler Alias `Radegast`
 - **WolfViewer-Release** – exakt dieser Viewer-Familienpräfix (auch mit nachgestellter Versionsnummer), für lokalen Login, Hypergrid und Regionseintritt
-- **Frivolin Viewer** – als neue zugelassene Viewer-Familie, auch mit Versionsnummer und Channel-Zusatz wie `Frivolin Viewer-Release`
+- **Frivolin Viewer** – als zugelassene Viewer-Familie, auch mit Versionsnummer und Channel-Zusatz wie `Frivolin Viewer-Release`
+- **TrixieStorm Viewer** – hauseigener OpenGenesisLINK-Viewer, auch mit Versionsnummer sowie Channel-Zusatz wie `TrixieStorm Viewer-Release`
 
 Andere selbst gemeldete Viewernamen – einschließlich **Darkstorm**, **Hydrastorm**, Alchemy, Singularity, Cool VL und unbekannter Clients – sind nicht zugelassen.
 
@@ -32,6 +33,8 @@ Das gilt sowohl für ROBUST (LoginService **und** GatekeeperService) als auch f�
 
 Bisherige `AllowedClients`/`DeniedClients`-Regeln werden weiterhin angewandt; diese dürfen die zugelassenen Viewer nicht zusätzlich ungewollt ausschließen. Die bestehende OGL Viewer Advisor-Empfehlung ist unabhängig davon und bleibt deaktiviert.
 
+**TrixieStorm-Kompatibilität:** Die Whitelist erwartet als Viewer-Version oder Channel den exakten Familiennamen `TrixieStorm Viewer` (gegebenenfalls mit `-Release`, `_Dev` oder Versionszusatz). Meldet sich der Viewer mit einem abweichenden Namen, muss dessen tatsächlich übertragenes Login-Feld kontrolliert werden. Es werden keine Copybot-Sperren oder Prüfungen für andere Clients deaktiviert.
+
 ## Hypergrid und Marketplace bleiben offen
 
 ```ini
@@ -52,7 +55,7 @@ Ebenso ist ein öffentlicher Hypergrid-Asset-HTTP-Endpunkt nicht automatisch ein
 
 ## Tests vor Produktivbetrieb
 
-- Anmelden lokal: Firestorm, OpenGenesisLINK (auch interne Aliaskennung), Radegast-ng, WolfViewer-Release und Frivolin Viewer erfolgreich.
+- Anmelden lokal: Firestorm, OpenGenesisLINK (auch interne Aliaskennung), Radegast-ng, WolfViewer-Release, Frivolin Viewer und TrixieStorm Viewer erfolgreich.
 - Ablehnen lokal: Darkstorm, Hydrastorm, nicht freigegebene/fehlende Kennungen und bekannte Spoof-Kombinationen.
 - Gatekeeper: Firestorm-Gast darf hinein, Darkstorm/Hydrastorm sowie unbekannte Gäste werden vor Präsenzanlage abgelehnt.
 - Regionen: Zugelassene lokale/HG-Avatare können teleportieren und Regionen wechseln; sonstige werden abgewiesen.
