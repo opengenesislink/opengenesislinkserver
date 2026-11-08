@@ -1010,8 +1010,10 @@ namespace OpenSim.Region.CoreModules.Framework.InventoryAccess
             }
             else
             {
+                IPrimCountModule landImpactModule =
+                    m_Scene.RequestModuleInterface<IPrimCountModule>();
                 foreach (SceneObjectGroup g in objlist)
-                    primcount += g.PrimCount;
+                    primcount += landImpactModule?.GetObjectLandImpact(g) ?? g.PrimCount;
             }
 
             if (!m_Scene.Permissions.CanRezObject(primcount, remoteClient.AgentId, pos) && !attachment)
@@ -1172,7 +1174,9 @@ namespace OpenSim.Region.CoreModules.Framework.InventoryAccess
                 SceneObjectGroup g = objlist[i];
 
                 if (!m_Scene.Permissions.CanRezObject(
-                    g.PrimCount, remoteClient.AgentId, pos + veclist[i])
+                    m_Scene.RequestModuleInterface<IPrimCountModule>()
+                        ?.GetObjectLandImpact(g) ?? g.PrimCount,
+                    remoteClient.AgentId, pos + veclist[i])
                     && !isAttachment)
                 {
                     // The client operates in no fail mode. It will
