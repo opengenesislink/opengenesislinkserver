@@ -17,6 +17,7 @@ using log4net;
 using Mono.Addins;
 using NexVerse.Core.Archives;
 using NexVerse.Core.Messaging;
+using NexVerse.Core.Observability;
 using NexVerse.RegionModules.Archives;
 using Nini.Config;
 using OpenMetaverse;
@@ -60,6 +61,8 @@ namespace NexVerse.RegionModules.NodeAgent
         private string m_SharedKey = string.Empty;
         private string m_InboundPath = "/internal/nexbus/v1/events";
         private int m_HeartbeatSeconds = 30;
+        // Opt-in read-only G1 resource sampler; no direct mutation of region threads.
+        private OglPerformanceSampler m_PerformanceSampler;
         private bool m_ObjectMessagingEnabled;
         private bool m_EstateScriptMessagingEnabled = true;
         // An opt-in, manager/owner-only cross-estate channel; never public by default.
@@ -177,6 +180,9 @@ namespace NexVerse.RegionModules.NodeAgent
                 "InboundPath",
                 "/internal/nexbus/v1/events").Trim();
             m_HeartbeatSeconds = Math.Max(5, config.GetInt("HeartbeatSeconds", 30));
+            IConfig performanceConfig = source.Configs["OGLPerformance"];
+            if (performanceConfig?.GetBoolean("Enabled", false) == true)
+                m_PerformanceSampler = new OglPerformanceSampler();
             m_ObjectMessagingEnabled =
                 config.GetBoolean(
                     "CrossRegionObjectMessaging",
@@ -1415,7 +1421,7 @@ namespace NexVerse.RegionModules.NodeAgent
             using Process process = Process.GetCurrentProcess();
             DriveInfo drive = new DriveInfo(Path.GetPathRoot(AppContext.BaseDirectory) ?? "/");
 
-            return new Dictionary<string, string>
+            Dictionary<string, string> data = new Dictionary<string, string>
             {
                 ["node_id"] = m_NodeId,
                 ["hostname"] = Environment.MachineName,
@@ -1466,6 +1472,28 @@ namespace NexVerse.RegionModules.NodeAgent
                         .OrderBy(x => x.RegionInfo.RegionName, StringComparer.OrdinalIgnoreCase)
                         .Select(x => x.RegionInfo.RegionID + "|" + x.RegionInfo.RegionName))
             };
+
+            if (m_PerformanceSampler != null)
+            {
+                try
+                {
+                    OglRegionFrame[] frames = scenes
+                        .OrderBy(x => x.RegionInfo.RegionID.ToString(), StringComparer.Ordinal)
+                        .Select(x => new OglRegionFrame(
+                            x.RegionInfo.RegionID.ToString(), x.Frame, x.FrameTime))
+                        .ToArray();
+                    foreach (KeyValuePair<string, string> sample in m_PerformanceSampler.Capture(frames))
+                        data[sample.Key] = sample.Value;
+                }
+                catch (Exception error)
+                {
+                    // Never let optional diagnostics interrupt the signed NexBus heartbeat.
+                    m_Log.Warn("[OGL PERFORMANCE]: Resource sample unavailable: " +
+                        error.GetType().Name);
+                }
+            }
+
+            return data;
         }
 
         private LunaTextureNodeSummary CollectLunaTextureDiagnostics(
