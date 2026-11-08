@@ -64,6 +64,18 @@
     ; Set to false for no file cache
     FileCacheEnabled = true
 
+    ; OGL Performance Engine 1.0: independent disk-cache writes may use more CPU
+    ; and I/O bandwidth. Set 1 for historical serial behavior (safe default).
+    ; Never set higher than 8 or your process-visible CPU core count.
+    ; Enable 2-4 only after comparing region frame times and disk latency.
+    FileWriteConcurrency = 1
+
+    ; Optional RAM backpressure for the disposable disk-write queue. 0 means
+    ; legacy unbounded queue; 512-2048 bounds asset buffers retained in memory.
+    ; When saturated, the cache write is skipped (the authoritative asset remains
+    ; available). This is NOT a limit on Flotsam's memory asset cache.
+    MaxPendingFileWrites = 0
+
     ; How long {in hours} to keep assets cached in memory, .5 == 30 minutes
     ; even a few minutes may mean many assets loaded to memory, if not all.
     ; this is good if memory is not a problem.
