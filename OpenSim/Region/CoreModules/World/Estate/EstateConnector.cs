@@ -139,6 +139,11 @@ namespace OpenSim.Region.CoreModules.World.Estate
 
         private void SendToEstate(uint EstateID, Dictionary<string, object> sendData)
         {
+            // When no shared secret is configured, local estate actions still
+            // work, but remote requests must not transmit an empty token.
+            if (string.IsNullOrEmpty(token))
+                return;
+
             List<UUID> regions = m_EstateModule.Scenes[0].GetEstateRegions((int)EstateID);
 
             // Don't send to the same instance twice
