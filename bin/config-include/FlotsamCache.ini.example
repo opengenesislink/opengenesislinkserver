@@ -24,6 +24,14 @@
     ; so even a small memory cache is useful
     MemoryCacheEnabled = false
 
+    ; Optional OGL Memory Manager: when MemoryCacheEnabled=true,
+    ; cap strong asset references by estimated payload bytes (MiB) and LRU count.
+    ; 0 preserves the legacy TTL cache without a byte budget.
+    ; Suggested isolated test values: 256 MiB, 8192 entries.
+    ; Actual process RSS can exceed these values due to other allocators/assets.
+    MemoryCacheMaxMiB = 0
+    MemoryCacheMaxEntries = 8192
+
     ; If a memory cache hit happens, or the asset is still in memory
     ; due to other causes, update the timestamp on the disk file anyway.
     ; Don't turn this on unless you share your asset cache between simulators
