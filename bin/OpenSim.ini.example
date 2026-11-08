@@ -196,7 +196,7 @@
     AvatarToAvatarCollisionsByDefault = true
 
 [Wind]
-; Einfacher Simulatorwind, NICHT OpenGenesisLINK [OGLWeather].
+; Einfacher Simulatorwind, NICHT OpenGenesisLINK (OGLWeather).
     enabled = true
     wind_update_rate = 150
     wind_plugin = SimpleRandomWind
@@ -366,7 +366,7 @@
 
 [EstateManagement]
     ; Erlaubt autorisierten Estate-Berechtigten einen Regionsneustart.
-    ; Nicht mit dem internen [Estates]-Kommunikationshandler verwechseln.
+    ; Nicht mit dem internen (Estates)-Kommunikationshandler verwechseln.
     AllowRegionRestartFromClient = true
 
 [Inventory]
@@ -425,7 +425,7 @@
     ; NexBus und erreichbarem Robust-Peer konfigurieren.
 
 
-; Anzeigeoptionen unter [Startup]:
+; Anzeigeoptionen unter (Startup):
 ; OGLConsoleGermanHelp = true
 ; OGLConsoleExpertHelp = false
 
