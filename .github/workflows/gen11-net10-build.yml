@@ -24,6 +24,8 @@ jobs:
           dotnet-version: '10.0.x'
       - name: Verify retargeting implementation
         run: python3 tools/ci/gen11_retarget_generated_csproj.py --self-test
+      - name: Verify checked-in OGL performance direct-build sources
+        run: python3 tools/ci/verify_ogl_performance_sources.py
       - name: Regenerate and normalize project files
         run: |
           chmod +x runprebuild.sh
