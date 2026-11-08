@@ -56,6 +56,7 @@ namespace OpenSim.Region.CoreModules.Asset
             public string filename;
             public AssetBase asset;
             public bool replace;
+            public OglInFlightByteLimiter.Reservation reservation;
         }
 
         private static readonly ILog m_log = LogManager.GetLogger( MethodBase.GetCurrentMethod().DeclaringType);
@@ -89,6 +90,9 @@ namespace OpenSim.Region.CoreModules.Asset
         // File-cache I/O is independent of region-scene mutation. Defaults preserve G1 behavior.
         private int m_FileWriteConcurrency = 1;
         private int m_MaxPendingFileWrites = 0;
+        // Optional payload budget across pending and active file-cache I/O.
+        private int m_MaxInFlightFileWriteMiB = 0;
+        private OglInFlightByteLimiter m_FileWriteByteLimiter;
 
         private ExpiringCacheOS<string, AssetBase> m_MemoryCache;
         private bool m_MemoryCacheEnabled = false;
@@ -172,6 +176,12 @@ namespace OpenSim.Region.CoreModules.Asset
                         m_MaxPendingFileWrites = Math.Clamp(
                             assetConfig.GetInt("MaxPendingFileWrites", m_MaxPendingFileWrites),
                             0, 65536);
+                        m_MaxInFlightFileWriteMiB = Math.Clamp(
+                            assetConfig.GetInt("MaxInFlightFileWriteMiB", m_MaxInFlightFileWriteMiB),
+                            0, 16384);
+                        if (m_MaxInFlightFileWriteMiB > 0)
+                            m_FileWriteByteLimiter = new OglInFlightByteLimiter(
+                                (long)m_MaxInFlightFileWriteMiB * 1024 * 1024);
                         m_CacheDirectory = assetConfig.GetString("CacheDirectory", m_CacheDirectory);
                         m_CacheDirectory = Path.GetFullPath(m_CacheDirectory);
 
@@ -344,7 +354,8 @@ namespace OpenSim.Region.CoreModules.Asset
                     {
                         m_assetFileWriteWorker = new ObjectJobEngine(
                             ProcessWrites, "FlotsamCacheWriter", 1000,
-                            m_FileWriteConcurrency, m_MaxPendingFileWrites);
+                            m_FileWriteConcurrency, m_MaxPendingFileWrites,
+                            DiscardFileWrite);
                         m_log.InfoFormat(
                             "[FLOTSAM ASSET CACHE]: File writers={0}, pending cache queue cap={1} (0=legacy unbounded)",
                             m_FileWriteConcurrency, m_MaxPendingFileWrites);
@@ -370,16 +381,31 @@ namespace OpenSim.Region.CoreModules.Asset
             }
         }
 
+        private static void DiscardFileWrite(object o)
+        {
+            if (o is WriteAssetInfo discarded)
+            {
+                discarded.reservation?.Dispose();
+                lock (m_CurrentlyWriting)
+                    m_CurrentlyWriting.Remove(discarded.filename);
+            }
+        }
+
         private void ProcessWrites(object o)
         {
+            WriteAssetInfo wai = (WriteAssetInfo)o;
             try
             {
-                WriteAssetInfo wai = (WriteAssetInfo)o;
                 WriteFileCache(wai.filename, wai.asset, wai.replace);
-                wai.asset = null;
-                Thread.Yield();
             }
-            catch { }
+            catch (Exception e)
+            {
+                m_log.Warn("[FLOTSAM ASSET CACHE]: Background disk write failed: " + e.Message);
+            }
+            finally
+            {
+                wai.reservation?.Dispose();
+            }
         }
 
         ////////////////////////////////////////////////////////////
@@ -414,6 +440,7 @@ namespace OpenSim.Region.CoreModules.Asset
             string filename = GetFileName(key);
             bool registered = false;
             bool queued = false;
+            OglInFlightByteLimiter.Reservation reservation = null;
 
             try
             {
@@ -425,14 +452,21 @@ namespace OpenSim.Region.CoreModules.Asset
                     registered = true;
                 }
 
+                // Count both pending and currently executing writes. A queue
+                // length alone cannot bound memory when assets have varied sizes.
+                if (m_FileWriteByteLimiter != null &&
+                    !m_FileWriteByteLimiter.TryReserve(
+                        (long)(asset.Data?.LongLength ?? 0) + 1024L, out reservation))
+                    return;
+
                 WriteAssetInfo wai = new()
                 {
                     filename = filename,
                     asset = asset,
-                    replace = replace
+                    replace = replace,
+                    reservation = reservation
                 };
-                // Saturation drops only an optional disk-cache write; the asset
-                // is already available from the authoritative asset service.
+                // Saturation skips only disposable disk-cache I/O.
                 queued = m_assetFileWriteWorker?.Enqueue(wai) == true;
             }
             catch (Exception e)
@@ -441,14 +475,18 @@ namespace OpenSim.Region.CoreModules.Asset
             }
             finally
             {
-                // A rejected/disposed queue must not leave the filename in
-                // CurrentlyWriting indefinitely. Accepted jobs clear it after I/O.
-                if (registered && !queued)
+                if (!queued)
                 {
-                    Interlocked.Increment(ref m_CacheWritesRejected);
-                    lock (m_CurrentlyWriting)
-                        m_CurrentlyWriting.Remove(filename);
+                    reservation?.Dispose();
+                    if (registered)
+                    {
+                        Interlocked.Increment(ref m_CacheWritesRejected);
+                        lock (m_CurrentlyWriting)
+                            m_CurrentlyWriting.Remove(filename);
+                    }
                 }
+                // Accepted jobs release their reservation after I/O, or when
+                // cancelled/abandoned by the ObjectJobEngine.
             }
         }
 
@@ -1427,6 +1465,13 @@ namespace OpenSim.Region.CoreModules.Asset
                                     "[FLOTSAM ASSET CACHE] Disk writer queue: {0} pending; {1} cache writes rejected since start",
                                     m_assetFileWriteWorker?.Count ?? 0,
                                     Interlocked.Read(ref m_CacheWritesRejected));
+                                if (m_FileWriteByteLimiter != null)
+                                    con.Output(
+                                        "[FLOTSAM ASSET CACHE] File payloads in flight: ~{0} MiB / {1} MiB (peak ~{2} MiB, byte-budget rejects {3})",
+                                        m_FileWriteByteLimiter.InFlightBytes / (1024 * 1024),
+                                        m_MaxInFlightFileWriteMiB,
+                                        m_FileWriteByteLimiter.HighWaterBytes / (1024 * 1024),
+                                        m_FileWriteByteLimiter.RejectedCount);
                                 bool doingscan;
                                 lock (timerLock)
                                 {
