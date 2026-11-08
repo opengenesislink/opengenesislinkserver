@@ -101,7 +101,9 @@ for section in (
             effective = lambda value: value.partition(";")[0].strip().strip('"').lower()
             assert effective(sim.get(section, key)) == effective(
                 defaults.get(section, key)
-            ), f"Unexpected default override: [{section}] {key}"
+            ), (f"Unexpected default override: [{section}] {key}: "
+                f"active={effective(sim.get(section, key))!r}, "
+                f"default={effective(defaults.get(section, key))!r}")
 
 assert sim.get("Startup", "physics") == "BulletSim"
 assert sim.get("Startup", "meshing") == "Meshmerizer"
