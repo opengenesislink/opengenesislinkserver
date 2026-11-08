@@ -110,6 +110,21 @@ static class Program
                 "parallel inserts exceeded LRU limits");
         }
 
+        Require(OglPerformanceWorkerPolicy.SelectIndependentIoWorkers(0, 1) == 1,
+            "auto worker policy must not oversubscribe a single core");
+        Require(OglPerformanceWorkerPolicy.SelectIndependentIoWorkers(0, 2) == 1,
+            "auto worker policy must retain headroom on two cores");
+        Require(OglPerformanceWorkerPolicy.SelectIndependentIoWorkers(0, 8) == 4,
+            "auto worker policy should use up to half of eight cores");
+        Require(OglPerformanceWorkerPolicy.SelectIndependentIoWorkers(0, 32) == 4,
+            "auto worker policy needs a four-worker ceiling");
+        Require(OglPerformanceWorkerPolicy.SelectIndependentIoWorkers(8, 2) == 2,
+            "explicit worker count must respect CPU quota");
+        Require(OglPerformanceWorkerPolicy.SelectIndependentIoWorkers(5, 12) == 5,
+            "explicit worker count should be honored when within CPU cap");
+        Require(OglPerformanceWorkerPolicy.SelectIndependentIoWorkers(-1, 8) == 1,
+            "invalid worker count must fail safe to one");
+
         var limiter = new OglInFlightByteLimiter(1024);
         Require(limiter.TryReserve(800, out var large), "first byte reservation");
         Require(!limiter.TryReserve(300, out var denied) && denied == null,
