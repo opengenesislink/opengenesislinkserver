@@ -33,7 +33,7 @@ for path in ("bin/OpenSim.ini", "bin/OpenSim.ini.example"):
         "Enabled = true",
         'RelayDomain = "im.stadt-nexverse.de"',
         'SubjectTemplate = "Offline-IM Nachricht von {SENDER}"',
-        'SMTPHost = "mail.nexvortex.de"',
+        'SMTPHost = "web01.nexvortex.de"',
         "SMTPPort = 587",
         "UseStartTls = true",
         'SMTPUsername = "relay@im.stadt-nexverse.de"',
