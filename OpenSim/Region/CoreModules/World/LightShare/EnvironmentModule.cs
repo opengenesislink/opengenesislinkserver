@@ -1022,6 +1022,29 @@ namespace OpenSim.Region.CoreModules.World.LightShare
                 return;
 
             ViewerEnvironment updated = shared.Clone();
+            if (m_scene.RegionEnvironment == null)
+            {
+                // The stock OpenSimulator fallback is a "More Daylight"
+                // 3:1 cycle (dawn near 03:00 and dusk near 21:00). Prefer
+                // the bundled balanced default when the region has NO EEP
+                // asset of its own: at 00:00 it is night; dawn at 06:00,
+                // noon at 12:00 and sunset near 18:00. Custom region EEP
+                // day cycles remain untouched.
+                AssetBase balancedCycle = m_assetService?.Get(
+                    "5646d39e-d3d7-6aff-ed71-30fc87d64a91");
+                if (balancedCycle?.Data != null)
+                {
+                    try
+                    {
+                        updated.CycleFromOSD(OSDParser.Deserialize(balancedCycle.Data));
+                    }
+                    catch (Exception ex)
+                    {
+                        m_log.WarnFormat("[OGL SHARED DAY/NIGHT]: Could not load balanced day cycle: {0}; " +
+                            "using existing environment asset", ex.Message);
+                    }
+                }
+            }
             updated.DayLength = secondsPerDay;
             updated.DayOffset = dayOffset;
             m_oglSharedDayNightUpdating = true;
