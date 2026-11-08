@@ -93,8 +93,7 @@ namespace OpenSim.Region.CoreModules.World.Estate
                 configuredToken = estateConfig.GetString("Token", string.Empty);
 
             if (string.IsNullOrWhiteSpace(configuredToken)
-                || configuredToken.Length < 32
-                || string.Equals(configuredToken, "7db8eh2gvgg45jj", StringComparison.Ordinal))
+                || configuredToken.Length < 32)
             {
                 m_enabled = false;
                 m_log.Error("[ESTATE MODULE]: Estate inter-simulator communications disabled: configure the same strong OGL_ESTATE_SHARED_TOKEN (at least 32 characters) on every simulator, or a private [Estates] Token. No public fallback token is permitted.");
