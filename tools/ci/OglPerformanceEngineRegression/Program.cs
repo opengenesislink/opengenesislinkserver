@@ -69,7 +69,43 @@ static class Program
             Require(Volatile.Read(ref processed) == 2, "rejected job must not run");
         }
 
-        Console.WriteLine("PASS: OGL G1 performance sampling, per-region tick rates, and bounded background queue");
+        using (var cache = new OglBudgetedLruCache<string, byte[]>(
+                   1200, 2, value => value.LongLength))
+        {
+            Require(cache.AddOrUpdate("a", new byte[600], TimeSpan.FromMinutes(1)),
+                "LRU first insert");
+            Require(cache.AddOrUpdate("b", new byte[600], TimeSpan.FromMinutes(1)),
+                "LRU second insert");
+            Require(cache.TryGetValue("a", out _), "LRU cache read");
+            Require(cache.AddOrUpdate("c", new byte[600], TimeSpan.FromMinutes(1)),
+                "LRU third insert");
+            Require(cache.Contains("a") && cache.Contains("c") && !cache.Contains("b"),
+                "LRU must evict the least recently accessed asset");
+            Require(cache.Count == 2 && cache.EstimatedBytes == 1200,
+                "LRU byte/entry budget enforcement");
+            Require(!cache.AddOrUpdate("oversized", new byte[2400], TimeSpan.FromMinutes(1)),
+                "oversized asset must not be pinned in RAM");
+            Require(cache.AddOrUpdate("short", new byte[100], TimeSpan.FromMilliseconds(20)),
+                "short-lived asset insert");
+            Thread.Sleep(55);
+            Require(!cache.TryGetValue("short", out _), "expired asset must be released");
+            cache.Clear();
+            Require(cache.Count == 0 && cache.EstimatedBytes == 0, "cache clear");
+        }
+
+        using (var cache = new OglBudgetedLruCache<int, byte[]>(
+                   4096, 8, value => value.LongLength))
+        {
+            System.Threading.Tasks.Parallel.For(0, 600, i =>
+            {
+                cache.AddOrUpdate(i, new byte[256], TimeSpan.FromMinutes(1));
+                cache.TryGetValue(i, out _);
+            });
+            Require(cache.Count <= 8 && cache.EstimatedBytes <= 4096,
+                "parallel inserts exceeded LRU limits");
+        }
+
+        Console.WriteLine("PASS: OGL G1 performance sampler, bounded queues, and RAM-budgeted LRU cache");
         return 0;
     }
 }
