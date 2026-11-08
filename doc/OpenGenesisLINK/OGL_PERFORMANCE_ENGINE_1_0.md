@@ -46,6 +46,7 @@ Die Felder werden als Teil des bestehenden intern signierten NodeAgent-Events ge
 2. Baseline (1 Writer / Legacy-Queue) und Test (2/4 Writer / 1024 Queue / 256 MiB Byte-Budget) jeweils mit realistischem Mesh-/Textur-Load messen.
 3. Quantile der echten Heartbeat-Hz sowie `work_p95_ms`, `frame_p95_ms`, `frame_p99_ms`, `work_over_budget_percent`, CPU, Allokationsrate, GC-Pause, I/O-Latenz, Job-Queue, Asset-Cache-Hit-Rate und Viewer-Ladezeiten vergleichen.
 4. Cache-Schreibjobs duerfen das **autoritative** Asset niemals veraendern. Bei Queue-/Byte-Limit oder Shutdown duerfen keine Dateien permanent als 'writing' markiert bleiben und keine Byte-Reservierungen ausstehen. Tests pruefen gleichzeitige Producer/Dispose-Rennen und exakt einmalige Ausfuehrung oder Discard akzeptierter Jobs. Bei RAM-Cache-Limit muessen die aeltesten Eintraege weichen; grosse Einzelassets sollen nicht festgehalten werden. Der idle TTL-Sweep muss abgelaufene Eintraege ohne zusaetzliche Viewer-Anfragen verdraengen.
+6. Der echte `FlotsamCacheNet10Regression`-Integrationstest schreibt 64 Assetdateien mit vier Workern und acht MiB In-Flight-Budget, validiert nach Abschluss Datei-/Datenintegritaet und prueft das Freigeben der Reservations und Dateisperren. Er laeuft auf Linux und Windows im .NET-10-Build-Gate.
 5. Unter realer Last auf mehrere Regionen pruefen, dass Physics, EntityCrossing, YEngine und Backups unveraendert funktionieren.
 
 ## Noch nicht implementiert
