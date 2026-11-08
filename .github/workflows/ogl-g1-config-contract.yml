@@ -1,0 +1,41 @@
+name: OGL G1 ROBUST and Simulator Configuration Contract
+
+on:
+  pull_request:
+    paths:
+      - 'bin/OpenSim.ini'
+      - 'bin/OpenSim.ini.example'
+      - 'bin/OpenSimDefaults.ini'
+      - 'bin/Robust.HG.ini'
+      - 'bin/Robust.HG.ini.example'
+      - 'bin/config-include/**'
+      - 'tools/ci/verify_g1_config_contract.py'
+      - 'tools/ci/verify_opensim_autoports.py'
+      - '.github/workflows/ogl-g1-config-contract.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'bin/OpenSim.ini'
+      - 'bin/OpenSim.ini.example'
+      - 'bin/OpenSimDefaults.ini'
+      - 'bin/Robust.HG.ini'
+      - 'bin/Robust.HG.ini.example'
+      - 'bin/config-include/**'
+      - 'tools/ci/verify_g1_config_contract.py'
+      - 'tools/ci/verify_opensim_autoports.py'
+      - '.github/workflows/ogl-g1-config-contract.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  verify-g1-configuration:
+    name: Verify G1 INI inheritance, safety and operator contracts
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate all active ROBUST/Simulator functional sections
+        run: python3 tools/ci/verify_g1_config_contract.py
+      - name: Verify compact active simulator options and HTTP autoports
+        run: python3 tools/ci/verify_opensim_autoports.py

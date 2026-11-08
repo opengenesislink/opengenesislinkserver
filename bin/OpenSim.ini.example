@@ -1,3 +1,7 @@
+; OpenGenesisLINK G1 – allgemeine Standalone-Referenz (kein Stadt-NexVerse-Deployment).
+; Nicht den produktiven Hypergrid-/NodeAgent-/Portal-Stand ueberschreiben.
+; Geerbte Defaults werden nur bei abweichendem Betriebsbedarf angepasst.
+; Erläuterungen und kritische Werte: doc/OpenGenesisLINK/G1_CONFIG_AUDIT.md
 ; OpenGenesisLINK 0.9.3.10 compact simulator INI
 ; Active overrides only. Defaults in OpenSimDefaults.ini / config-include/*.ini.
 ; Runtime secrets and instance state must not be committed.
@@ -110,8 +114,15 @@
     allow_grid_gods = true
 
 [Estates]
+; EstateModule: Port=0 nutzt Simulator-HTTP-Port. Token nie in Git speichern.
+; Handler nicht ohne Estate-API-/Firewall-Tests umstellen.
+    EstateCommunicationsHandler = "EstateModule"
+    Port = 0
 
 [SMTP]
+; LSL-Mail ist unabhaengig vom Offline-IM-Mailrelay.
+; Bis zur Einrichtung eines gesicherten SMTP-Dienstes ausgeschaltet.
+    enabled = false
 
 [Network]
     http_listener_port = 9000
@@ -129,6 +140,12 @@
     XmlRpcPort = 20800
 
 [ClientStack.LindenUDP]
+; Gepruefte Code-Defaults fuer Viewer-UDP, Texture-Limits und ACKs.
+; Nur nach Bandbreiten-/Paketverlusttests abweichend konfigurieren.
+    scene_throttle_max_bps = 6250000
+    TextureSendLimit = 20
+    AckTimeout = 60
+    PausedAckTimeout = 300
 
 [ClientStack.LindenCaps]
     Cap_GetTexture = "localhost"
@@ -142,8 +159,19 @@
     DestinationGuideURI = "https://stadt-nexverse.de/service/destination"
 
 [Chat]
+; Lokale Chat-Reichweite in Metern.
+    enabled = true
+    whisper_distance = 10
+    say_distance = 20
+    shout_distance = 100
 
 [EntityTransfer]
+; Regions-/Hypergrid-Wechsel, fuer mehrere Simulatoren nicht deaktivieren.
+    AllowAvatarCrossing = true
+    DisableObjectTransfer = false
+    LevelHGTeleport = 0
+    DisableInterRegionTeleportCancellation = false
+    LandingPointBehavior = LandingPointBehavior_OS
 
 [Messaging]
     OfflineMessageModule = "Offline Message Module V2"
@@ -168,10 +196,25 @@
     AvatarToAvatarCollisionsByDefault = true
 
 [Wind]
+; Einfacher Simulatorwind, NICHT OpenGenesisLINK (OGLWeather).
+    enabled = true
+    wind_update_rate = 150
+    wind_plugin = SimpleRandomWind
+    strength = 1.0
 
 [Materials]
+; Viewer-Materialien, inklusive Firestorm; Standardlimit.
+    enable_materials = true
+    MaxMaterialsPerTransaction = 50
 
 [DataSnapshot]
+; Legacy-Snapshot-Suche standardmaessig deaktiviert.
+; Datenexposition erst nach gesonderter Datenschutzpruefung aktivieren.
+    index_sims = false
+    data_exposure = minimum
+    gridname = "OpenSim"
+    default_snapshot_period = 1200
+    snapshot_cache_directory = "DataSnapshot"
 
 [Economy]
     economymodule = NexVerseMoneyModule
@@ -228,6 +271,10 @@
     CurrencyPurchasePortalUrl = ""
 
 [YEngine]
+; Standard-Scriptengine. Engine-/Timer-Wechsel kann Scriptstatus brechen.
+    Enabled = true
+    UseSourceHashCode = true
+    MinTimerInterval = 0.1
 
 [XEngine]
     AppDomainLoading = false
@@ -256,6 +303,8 @@
     FastRezNearbyFirst = true
 
 [MediaOnAPrim]
+; Media-On-A-Prim wird per Viewer-CAPS bereitgestellt.
+    Enabled = true
 
 [NPC]
     ; Private owner NPC directory: requires valid NEX_NPC_INGEST_URL and _SECRET.
@@ -264,8 +313,16 @@
     NexNPCChatEnabled = false
 
 [Terrain]
+; Erstterrain nur bei neuen Regionen, nicht bei vorhandenen Bauten.
+    InitialTerrain = "pinhead-island"
+    SendTerrainUpdatesByViewDistance = true
+    OglTerrainBrushStrengthMultiplier = 2.0
 
 [LandManagement]
+; Parcels/VarRegion: optimierte Layer-Updates und sichtbare Ban-Linien.
+    LimitParcelLayerUpdateDistance = true
+    ParcelLayerViewDistance = 128
+    ShowParcelBansLines = true
 
 [UserProfiles]
     ProfileServiceURL = ${Const|BaseURL}:${Const|PublicPort}
@@ -290,6 +347,63 @@
     ResendAppearanceUpdates = false
 
 [XBakes]
+; Deaktivierte alte externe Texture-Bake-URL, kein untrusted HTTP.
+    URL = ""
+
+
+; ============================================================================
+; Generation 1: explizite, bereits bisher wirksame OpenSimDefaults-Module
+; ============================================================================
+; Die folgenden Werte sind keine neuen Features. Sie dokumentieren
+; Kernmodule, die zuvor ausschliesslich aus OpenSimDefaults.ini erbten.
+
+[RegionReady]
+    ; Login erst erlauben, wenn die Region bereit ist (Statuskanal -800).
+    ; KRITISCH fuer Regionstart, Nutzeranmeldung und Script-Bereitmeldung.
+    enabled = true
+    channel_notify = -800
+    login_disable = true
+
+[EstateManagement]
+    ; Erlaubt autorisierten Estate-Berechtigten einen Regionsneustart.
+    ; Nicht mit dem internen (Estates)-Kommunikationshandler verwechseln.
+    AllowRegionRestartFromClient = true
+
+[Inventory]
+    ; Mehrere zusammengehoerige Objekte werden im Inventar gebuendelt.
+    CoalesceMultipleObjectsToInventory = true
+
+[Attachments]
+    ; KRITISCH fuer Avatare, Skriptzustand und Inventar-Transfers.
+    Enabled = true
+
+[Mesh]
+    ; Mesh-Upload erlaubt. Upload-Gebuehren und Land Impact sind separat.
+    AllowMeshUpload = true
+
+[PacketPool]
+    ; UDP-Objektpuffer werden wiederverwendet; nur nach Profiling aendern.
+    RecycleBaseUDPPackets = true
+
+[Monitoring]
+    ; Externe bzw. interne Monitoring-/Diagnose-Schnittstellen.
+    Enabled = true
+
+[Statistics]
+    ; Anzahl Frames fuer die Statistikaggregation.
+    NumberOfFrames = 10
+
+[JsonStore]
+    ; Legacy JsonStore ist standardmaessig AUS. Aktivierung kann neue
+    ; Datenhaltung und OSSL/LSL-Verhaltensweisen erfordern.
+    Enabled = false
+    EnableObjectStore = false
+    MaxStringSpace = 0
+
+[OGLShutdown]
+    ; Maximale Wartezeit bis Region-Close/Shutdown (Sekunden).
+    ; KRITISCH fuer Evakuierung, Backup und geordnetes Herunterfahren.
+    RegionCloseTimeoutSeconds = 180
 
 [Architecture]
     Include-Architecture = "config-include/Standalone.ini"
@@ -311,7 +425,7 @@
     ; NexBus und erreichbarem Robust-Peer konfigurieren.
 
 
-; Anzeigeoptionen unter [Startup]:
+; Anzeigeoptionen unter (Startup):
 ; OGLConsoleGermanHelp = true
 ; OGLConsoleExpertHelp = false
 

@@ -1,3 +1,6 @@
+; OpenGenesisLINK Generation 1 – Hypergrid Installationsvorlage.
+; Nicht ueber die aktive ROBUST-Ini kopieren. Domains, TLS, DB und HMAC
+; muessen pro Deployment konsistent sein. Siehe G1_CONFIG_AUDIT.md.
 ; * Run
 ; * $ Robust.exe -inifile Robust.HG.ini
 ; *
@@ -144,7 +147,7 @@
     ;; Uncomment to provide bakes caching
     ; BakedTextureService = "${Const|PrivatePort}/OpenSim.Server.Handlers.dll:XBakesConnector"
 
-    ;; Uncomment for UserProfiles see [UserProfilesService] to configure...
+    ;; Uncomment for UserProfiles see (UserProfilesService) to configure...
     UserProfilesServiceConnector = "${Const|PublicPort}/OpenSim.Server.Handlers.dll:UserProfilesConnector"
 
     ;; Uncomment if you want to have centralized estate data
@@ -163,7 +166,7 @@
     ; WARNUNG: Das alte Protokoll liefert keine sichere Avatar-Autorisierung.
     ; Fremde Server koennen ggf. unerlaubte Inventaroperationen ausfuehren.
     ; Zum Sperren diese Connector-Zeile auskommentieren UND die Option
-    ; AllowLegacyPublicHGInventory in [HGInventoryService] auf false setzen.
+    ; AllowLegacyPublicHGInventory in (HGInventoryService) auf false setzen.
     HGInventoryServiceConnector = "HGInventoryService@${Const|PublicPort}/OpenSim.Server.Handlers.dll:XInventoryInConnector"
     HGAssetServiceConnector = "HGAssetService@${Const|PublicPort}/OpenSim.Server.Handlers.dll:AssetServiceConnector"
     ;; Uncomment this if you want Groups V2, HG to work
@@ -224,19 +227,21 @@
     ;ConsolePort = 0
 
 [Hypergrid]
+    ; KRITISCH: HomeURI/GatekeeperURI sind die Hypergrid-Identitaet.
+    ; Dieser generische Beispielwert muss mit dem realen Proxy/Port passen.
     ;# {HomeURI} {Hypergrid} {The Home URL of this grid} {}
     ;; This is the address of the external robust server that
     ;; runs the UserAgentsService, possibly this server.
     ;; For example http://myworld.com:8002
     ;; This is a default that can be overwritten in some sections.
-    ; HomeURI = "${Const|BaseURL}:${Const|PublicPort}"
+    HomeURI = "${Const|BaseURL}:${Const|PublicPort}"
 
     ;# {GatekeeperURI} {Hypergrid} {The URL of the gatekeeper of this grid} {}
     ;; This is the address of the external robust server
     ;; that runs the Gatekeeper service, possibly this server.
     ;; For example http://myworld.com:8002
     ;; This is a default that can be overwritten in some sections.
-    ; GatekeeperURI = "${Const|BaseURL}:${Const|PublicPort}"
+    GatekeeperURI = "${Const|BaseURL}:${Const|PublicPort}"
 
     ;# {GatekeeperURIAlias} {Hypergrid} {alternative hostnames (FQDN), or IPs of the gatekeeper of this grid and port (default 80 or 443 if alias starts with https://)} {}
     ;; comma separated list,
@@ -316,7 +321,7 @@
     ; Native OpenGenesisLINK NV$ double-entry ledger bootstrap.
     Enabled = true
 
-    ; Leave these empty to inherit StorageProvider and ConnectionString from [DatabaseService].
+    ; Leave these empty to inherit StorageProvider and ConnectionString from (DatabaseService).
     ; Set them only when the NV$ ledger intentionally uses a dedicated database.
     StorageProvider = ""
     ConnectionString = ""
@@ -441,7 +446,7 @@
     ;; Set to false to prevent export
     ExportSupported = true
 
-    ;; If you have this set under [Hypergrid], no need to set it here, leave it commented
+    ;; If you have this set under (Hypergrid), no need to set it here, leave it commented
     ; GatekeeperURI = "${Const|BaseURL}:${Const|PublicPort}"
 
 [AuthenticationService]
@@ -597,7 +602,7 @@
     ; HasProxy = false
 
     ; Defaults for the users, if none is specified in the useraccounts table entry (ServiceURLs)
-    ;; If you have GatekeeperURI set under [Hypergrid], no need to set it here, leave it commented
+    ;; If you have GatekeeperURI set under (Hypergrid), no need to set it here, leave it commented
     ; GatekeeperURI = "${Const|BaseURL}:${Const|PublicPort}"
 
     SRV_HomeURI = "${Const|BaseURL}:${Const|PublicPort}"
@@ -624,7 +629,7 @@
     DSTZone = "Europe/Berlin;W. Europe Standard Time"
 
     ;; If the region requested at login is not found and there are no default or fallback regions
-    ;; online or defined in section [GridService], try to send user to any region online
+    ;; online or defined in section (GridService), try to send user to any region online
     ;; this similar to legacy (was disabled on 0.9.2.0)
     ;; you should set this to false and define regions with Default and possible Fallback flags
     ;; With this option set to true, users maybe sent to regions they where not supposed to be, or even know about
@@ -648,7 +653,7 @@
     ;;
     ;; To turn off basic dos protection, set the DOSMaxRequestsInTimeFrame to 0.
 
-    ;; Allow banning via hashed MAC must be set in both [GatekeeperService] and [LoginService]
+    ;; Allow banning via hashed MAC must be set in both (GatekeeperService) and (LoginService)
     ;DeniedMacs = "YOURLONGMACTRSING ANOTHERMAC"
 
 [MapImageService]
@@ -744,7 +749,7 @@
     ; The active Simulator must use the same NEX_PORTAL_IM_SECRET.
     Enabled = false
     ; Set true after provisioning one shared 32+-byte HMAC secret.
-    ; MariaDB uses the existing [DatabaseService] connection.
+    ; MariaDB uses the existing (DatabaseService) connection.
     StoreBackend = "MariaDB"
     StorageProvider = ""
     ConnectionString = ""
@@ -752,7 +757,7 @@
     SharedSecret = "${Environment|NEX_PORTAL_IM_SECRET}"
 
 ; Optional owner-scoped NPC directory and direct-IM archive. Both disabled by default.
-; Uses the authoritative [DatabaseService] MariaDB connection, no SQLite.
+; Uses the authoritative (DatabaseService) MariaDB connection, no SQLite.
 [NexNPCPortal]
     Enabled = false
     ; 0 = discover active regions from trusted signed NexBus/NodeAgent inventory;
@@ -774,7 +779,7 @@
     ; P0 #301: keep disabled until the portal has migrated to World-owned
     ; one-time challenges. Backend must hold separate recovery-only API key.
     ; Challenges are stored in a new InnoDB table (ogl_password_recovery)
-    ; in the EXISTING [UserAccountService] / [DatabaseService] MariaDB.
+    ; in the EXISTING (UserAccountService) / (DatabaseService) MariaDB.
     ; No additional file, password, SQLite service or connection string.
     PasswordRecoveryEnabled = false
     ; Portal Account & Sicherheit: nur eigenstaendige Bearer-Session und Passwort.
@@ -819,7 +824,7 @@
     AuditStorePath = "data/nexverse-audit.jsonl"
     ; AuditConsoleMode = important (Standard), all oder off.
     ; important = nur Aktionen mit Änderungen und wichtige Ereignisse,
-    ; all = auch reguläre Leseaufrufe, off = keine [NEX-AUDIT]-Konsolenzeilen.
+    ; all = auch reguläre Leseaufrufe, off = keine (NEX-AUDIT)-Konsolenzeilen.
     ; Die persistente administrative Audit-Datei bleibt IMMER erhalten.
     AuditConsoleMode = "important"
     ; Öffentliche GETs wie /api/v1/health auch bei all standardmäßig ausblenden.
@@ -895,8 +900,8 @@
     ;GridStatusRSS = ${Const|BaseURL}:${Const|PublicPort}/GridStatusRSS
 
     ; optional web page for profiles
-    ;[AGENT_NAME] will be converted to Firstname.LastName by viewers
-    ; web_profile_url = http://webprofilesurl:ItsPort?name=[AGENT_NAME]
+    ;(AGENT_NAME) will be converted to Firstname.LastName by viewers
+    ; web_profile_url = http://webprofilesurl:ItsPort?name=(AGENT_NAME)
 
 [GatekeeperService]
     LocalServiceModule = "OpenSim.Services.HypergridService.dll:GatekeeperService"
@@ -909,11 +914,11 @@
     AuthenticationService = "OpenSim.Services.Connectors.dll:AuthenticationServicesConnector"
     SimulationService ="OpenSim.Services.Connectors.dll:SimulationServiceConnector"
     ; how does the outside world reach me? This acts as public key too.
-    ;; If you have GatekeeperURI set under [Hypergrid], no need to set it here, leave it commented
+    ;; If you have GatekeeperURI set under (Hypergrid), no need to set it here, leave it commented
     ; ExternalName = "${Const|BaseURL}:${Const|PublicPort}"
 
     ; Does this grid allow incoming links to any region in it?
-    ; If false, HG TPs happen only to the Default regions specified in [GridService] section
+    ; If false, HG TPs happen only to the Default regions specified in (GridService) section
     AllowTeleportsToAnyRegion = true
 
     ; If you run this gatekeeper server behind a proxy, set this to true
@@ -930,7 +935,7 @@
     ;; Leave blank or commented for no exceptions.
     ; DisallowExcept = "http://myfriendgrid.com:8002, http://myboss.com:8002"
 
-    ;; Allow banning via hashed MAC must be set in both [GatekeeperService] and [LoginService]
+    ;; Allow banning via hashed MAC must be set in both (GatekeeperService) and (LoginService)
     ;DeniedMacs = "YOURLONGMACTRSING ANOTHERMAC"
 
 [UserAgentService]
@@ -999,11 +1004,11 @@
 
     ; HGInventoryService is a public-facing inventory service that allows users to
     ; interact with their suitcase folder when on a foreign grid.  This reuses the general inventory service connector.
-    ; Hence, if the user has set up authentication in [Network] to protect their private services
+    ; Hence, if the user has set up authentication in (Network) to protect their private services
     ; make sure it is not set here.
     AuthType = None
 
-    ;; Can overwrite the default in [Hypergrid], but probably shouldn't
+    ;; Can overwrite the default in (Hypergrid), but probably shouldn't
     ; HomeURI = "${Const|BaseURL}:${Const|PublicPort}"
 
 ; * The interface that local users get when they are in other grids.
@@ -1026,11 +1031,11 @@
 
     ; HGAssetService is a public-facing service that allows users to
     ; read and create assets when on another grid.  This reuses the general asset service connector.
-    ; Hence, if the user has set up authentication in [Network] to protect their private services
+    ; Hence, if the user has set up authentication in (Network) to protect their private services
     ; make sure it is overriden for this public service.
     AuthType = None
 
-    ;; Can overwrite the default in [Hypergrid], but probably shouldn't
+    ;; Can overwrite the default in (Hypergrid), but probably shouldn't
     ; HomeURI = "${Const|BaseURL}:${Const|PublicPort}"
 
     ;; The asset types that this grid can export to / import from other grids.
@@ -1096,7 +1101,7 @@
     UserAccountService = "OpenSim.Services.UserAccountService.dll:UserAccountService"
 
     ;; What is the HomeURI of users associated with this grid?
-    ;; Can overwrite the default in [Hypergrid], but probably shouldn't
+    ;; Can overwrite the default in (Hypergrid), but probably shouldn't
     ; HomeURI = "${Const|BaseURL}:${Const|PublicPort}"
     ;; end hypergrid
 
@@ -1140,7 +1145,7 @@
 ; ============================================================================
 ; Opt-in public GET /api/v1/weather with no citizen login. Uses the same
 ; deterministic climate code as the simulator, not real weather services.
-; IMPORTANT: match WeatherSeed and TimeZone from EVERY [OGLWeather]
+; IMPORTANT: match WeatherSeed and TimeZone from EVERY (OGLWeather)
 ; simulator you want to represent. No synchronisation across mismatched seeds.
 [OGLWeatherPortal]
     Enabled = false
@@ -1152,7 +1157,7 @@
 ; ============================================================================
 ; Resident IAR self-service (World API / ROBUST only).
 ; Keep disabled until an identical shared storage mount is configured on ROBUST
-; and every target simulator's [OpenGenesisLINKIAR].StorageRoot.
+; and every target simulator's (OpenGenesisLINKIAR).StorageRoot.
 ; Binary upload/download is chunked (4 MiB), not sent through NexBus.
 ; ============================================================================
 [OglIarSelfService]

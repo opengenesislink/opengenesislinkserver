@@ -12,15 +12,22 @@ for rel, arch, enabled, http, xmlrpc in (
     cfg = ConfigParser(interpolation=None, strict=True)
     cfg.optionxform = str
     cfg.read_string(src)
-    # The active Stadt-NexVerse simulator INI now contains four fully
-    # configured Generation-1 city modules. Keep the compactness gate for
-    # the reusable Standalone example and a bounded site-specific allowance
-    # for the active simulator INI, without dropping the strict INI parser,
-    # HTTP auto-port checks or disabled-Experiences contract.
-    # The compact profiles now also declare the WebDAV IAR backend without
-    # changing existing startup/physics/auto-port semantics.
-    max_lines = 400 if rel == "bin/OpenSim.ini" else 340
+    # G1 configuration guide intentionally includes extensive safety comments.
+    # Bound the ACTUAL CONFIGURATION SURFACE (active assignments), rather than
+    # rejecting comments that explain high-risk Hypergrid/DB/feature switches.
+    # Keep a separate generous physical bound against accidental bulk-copying
+    # of the entire defaults file into these operator-specific profiles.
+    max_lines = 950 if rel == "bin/OpenSim.ini" else 800
+    max_active_keys = 350 if rel == "bin/OpenSim.ini" else 300
+    active_lines = [
+        line for line in src.splitlines()
+        if line.strip() and not line.lstrip().startswith((";", "#", "["))
+        and "=" in line
+    ]
     assert len(src.splitlines()) < max_lines, rel
+    assert len(active_lines) <= max_active_keys, (
+        rel, "active configuration is no longer compact", len(active_lines)
+    )
     assert "[Startup] section below." not in src
     assert not any(k in cfg.sections() for k in ("OGLPathfinding", "OGLNpcNavigation"))
     assert cfg.get("Architecture", "Include-Architecture").strip('"') == arch
