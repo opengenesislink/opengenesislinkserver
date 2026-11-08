@@ -84,6 +84,14 @@
     ; available). This is NOT a limit on Flotsam's memory asset cache.
     MaxPendingFileWrites = 0
 
+    ; Harder RAM backpressure: cap the combined estimated asset payload bytes
+    ; reserved by queued AND currently executing disk-cache file writes.
+    ; A single 100 MiB asset can otherwise dominate a queue of only 10 jobs.
+    ; 0 = legacy unbounded byte usage, 128-512 MiB recommended for test.
+    ; Oversized writes are skipped *only for this disposable file cache*.
+    ; The value never caps the authoritative asset store or overall RSS.
+    MaxInFlightFileWriteMiB = 0
+
     ; How long {in hours} to keep assets cached in memory, .5 == 30 minutes
     ; even a few minutes may mean many assets loaded to memory, if not all.
     ; this is good if memory is not a problem.
