@@ -49,13 +49,15 @@ namespace OpenSim.Framework
         private BlockingCollection<object> m_jobQueue;
         private CancellationTokenSource m_cancelSource;
         private WaitCallback m_callback;
+        private readonly Action<object> m_onDiscard;
         private int m_numberThreads = 0;
         private bool m_isRunning;
 
-        public ObjectJobEngine(WaitCallback callback, string name, int threadsHoldtime = 1000, int concurrency = 1, int maxQueuedJobs = 0)
+        public ObjectJobEngine(WaitCallback callback, string name, int threadsHoldtime = 1000, int concurrency = 1, int maxQueuedJobs = 0, Action<object> onDiscard = null)
         {
             m_name = name;
             m_threadsHoldtime = threadsHoldtime;
+            m_onDiscard = onDiscard;
 
             if (concurrency < 1)
                 m_concurrency = 1;
@@ -106,6 +108,9 @@ namespace OpenSim.Framework
 
             if (m_jobQueue != null)
             {
+                // A cancelled queued job was accepted by Enqueue but never run:
+                // return any reserved asset memory and release in-progress flags.
+                DrainDiscarded();
                 m_jobQueue.Dispose();
                 m_jobQueue = null;
             }
@@ -128,7 +133,7 @@ namespace OpenSim.Framework
                 return;
             try
             {
-                while(m_jobQueue.TryTake(out _));
+                DrainDiscarded();
                 m_cancelSource.Cancel();
             }
             catch { }
@@ -159,6 +164,28 @@ namespace OpenSim.Framework
             }
         }
 
+        private void Discard(object obj)
+        {
+            if (m_onDiscard == null)
+                return;
+            try
+            {
+                m_onDiscard(obj);
+            }
+            catch (Exception e)
+            {
+                m_log.ErrorFormat("[ObjectJob {0}]: Discard callback failed: {1}", m_name, e);
+            }
+        }
+
+        private void DrainDiscarded()
+        {
+            if (m_jobQueue == null)
+                return;
+            while (m_jobQueue.TryTake(out object abandoned))
+                Discard(abandoned);
+        }
+
         private void ProcessRequests(object o)
         {
             object obj;
@@ -182,8 +209,11 @@ namespace OpenSim.Framework
                     break;
                 }
 
-                if(!m_isRunning || m_callback == null)
+                if (!m_isRunning || m_callback == null)
+                {
+                    Discard(obj);
                     break;
+                }
                 try
                 {
                     m_callback.Invoke(obj);
