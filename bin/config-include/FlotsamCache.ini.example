@@ -32,6 +32,14 @@
     MemoryCacheMaxMiB = 0
     MemoryCacheMaxEntries = 8192
 
+    ; Optional dead weak-reference key reclamation for long-lived regions.
+    ; Weak asset targets already allow GC, but UUID string keys in the
+    ; reference dictionary otherwise persist until cache clear/deep scan.
+    ; 0 disables this independent low-frequency cleanup (legacy default).
+    ; Values >0 are clamped to 60..3600 seconds; use 600 (10 minutes) in tests.
+    ; It never calls GC.Collect and never discards still-live asset references.
+    WeakReferencePruneSeconds = 0
+
     ; If a memory cache hit happens, or the asset is still in memory
     ; due to other causes, update the timestamp on the disk file anyway.
     ; Don't turn this on unless you share your asset cache between simulators
