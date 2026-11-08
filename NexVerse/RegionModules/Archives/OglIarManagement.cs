@@ -67,6 +67,7 @@ namespace NexVerse.RegionModules.Archives
 
                 HashSet<string> visitedFiles = new(StringComparer.Ordinal);
                 long expandedBytes = 0;
+                int physicalTarEntries = 0;
                 bool assetsStarted = false;
                 string pendingLongName = null;
                 using FileStream input = File.OpenRead(archivePath);
@@ -75,8 +76,10 @@ namespace NexVerse.RegionModules.Archives
 
                 while (OglTarReader.TryReadEntry(tar, out string path, out long size, out byte type))
                 {
-                    // Count and bound *all* TAR records, including GNU metadata.
-                    if (++result.Entries > MaxEntries)
+                    // Bound physical TAR headers, including GNU metadata.
+                    // Inspection.Entries remains a logical-file count for
+                    // the existing IAR import progress denominator.
+                    if (++physicalTarEntries > MaxEntries)
                         throw new InvalidDataException("IAR enthaelt zu viele Eintraege.");
                     if (size > MaxFileBytes)
                         throw new InvalidDataException("Einzelne IAR-Datei ueberschreitet das Groessenlimit.");
@@ -129,6 +132,7 @@ namespace NexVerse.RegionModules.Archives
                         pendingLongName = null;
                     }
                     ValidatePath(path);
+                    ++result.Entries;
                     if (directory && size != 0)
                         throw new InvalidDataException("IAR-Ordner darf keinen Dateninhalt haben.");
 
