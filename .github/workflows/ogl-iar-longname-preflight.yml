@@ -1,0 +1,36 @@
+name: OGL IAR GNU LongName Preflight
+on:
+  pull_request:
+    paths:
+      - 'NexVerse/RegionModules/Archives/OglIarManagement.cs'
+      - 'OpenSim/Framework/Serialization/TarArchiveWriter.cs'
+      - 'tools/ci/OglIarPreflightRegression/**'
+      - 'tools/ci/verify_iar_management.py'
+      - 'tools/ci/verify_iar_progress.py'
+      - '.github/workflows/ogl-iar-longname-preflight.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'NexVerse/RegionModules/Archives/OglIarManagement.cs'
+      - 'OpenSim/Framework/Serialization/TarArchiveWriter.cs'
+      - 'tools/ci/OglIarPreflightRegression/**'
+      - 'tools/ci/verify_iar_management.py'
+      - 'tools/ci/verify_iar_progress.py'
+      - '.github/workflows/ogl-iar-longname-preflight.yml'
+permissions:
+  contents: read
+jobs:
+  iar-preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: Verify IAR management static guards
+        run: |
+          python3 tools/ci/verify_iar_management.py
+          python3 tools/ci/verify_iar_progress.py
+      - name: Test bounded TAR/GZip IAR preflight including GNU LongName and invalid TAR types
+        run: dotnet run --configuration Release --project tools/ci/OglIarPreflightRegression/OglIarPreflightRegression.csproj
