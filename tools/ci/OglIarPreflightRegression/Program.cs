@@ -74,13 +74,17 @@ internal static class Program
         return destination;
     }
 
-    private static void Evaluate(bool expected, string reason, Entry[] entries, bool badChecksum = false)
+    private static void Evaluate(bool expected, string reason, Entry[] entries, bool badChecksum = false,
+        int? logicalEntries = null)
     {
         string file = MakeArchive(entries, badChecksum);
         try
         {
             OglIarInspection result = OglIarInspector.Inspect(file);
             Assert(result.Valid == expected, reason + ": " + result.Error);
+            if (logicalEntries.HasValue)
+                Assert(result.Entries == logicalEntries.Value,
+                    reason + ": GNU metadata must not inflate logical import progress");
         }
         finally { File.Delete(file); }
     }
@@ -97,14 +101,14 @@ internal static class Program
         string longPath = "inventory/" + new string('n', 145) + "/item.xml";
         var longInventory = new Entry(longPath, Encoding.UTF8.GetBytes("<InventoryItem/>"));
         Evaluate(true, "OpenSim GNU LongName inventory path",
-            new[] { xml, longInventory, asset });
+            new[] { xml, longInventory, asset }, logicalEntries: 3);
         var longDirectory = new Entry("inventory/" + new string('d', 139) + "/", Array.Empty<byte>(), (byte)'5');
         Evaluate(true, "OpenSim GNU LongName directory",
-            new[] { xml, longDirectory, longInventory, asset });
+            new[] { xml, longDirectory, longInventory, asset }, logicalEntries: 4);
         Evaluate(true, "several GNU LongName paths",
             new[] { xml, longInventory,
                 new Entry("inventory/" + new string('q', 137) + "/second.xml", new byte[] { 5 }),
-                asset });
+                asset }, logicalEntries: 4);
 
         // Real links, PAX, sparse formats and malformed GNU long-name
         // metadata must remain prohibited; no import path traversal.
