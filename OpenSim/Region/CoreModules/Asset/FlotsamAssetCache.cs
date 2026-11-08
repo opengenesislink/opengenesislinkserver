@@ -297,17 +297,17 @@ namespace OpenSim.Region.CoreModules.Asset
                     return;
 
                 m_cleanupRunning = false;
-                    if (m_timerRunning)
-                    {
-                        m_timerRunning = false;
-                        m_CacheCleanTimer.Stop();
-                        m_CacheCleanTimer.Close();
-                    }
-                    if (m_assetFileWriteWorker != null)
-                    {
-                        m_assetFileWriteWorker.Dispose();
-                        m_assetFileWriteWorker = null;
-                    }
+                if (m_timerRunning)
+                {
+                    m_timerRunning = false;
+                    m_CacheCleanTimer.Stop();
+                    m_CacheCleanTimer.Close();
+                }
+                if (m_assetFileWriteWorker != null)
+                {
+                    m_assetFileWriteWorker.Dispose();
+                    m_assetFileWriteWorker = null;
+                }
                 // Stop all opt-in background sampling on final close.
                 m_AdaptiveFileWriteTimer?.Dispose();
                 m_AdaptiveFileWriteTimer = null;
