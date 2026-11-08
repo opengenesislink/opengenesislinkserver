@@ -120,8 +120,6 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OpenSim.Services.UserProfil
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OpenSim.Tools.Configger", "OpenSim/Tools/Configger/OpenSim.Tools.Configger.csproj", "{4A0CAAD7-0000-0000-0000-000000000000}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "pCampBot", "OpenSim/Tools/pCampBot/pCampBot.csproj", "{28E92A53-0000-0000-0000-000000000000}"
-EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Robust", "OpenSim/Server/Robust.csproj", "{568B726E-0000-0000-0000-000000000000}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SmartThreadPool", "ThirdParty/SmartThreadPool/SmartThreadPool.csproj", "{6D8D7852-0000-0000-0000-000000000000}"
@@ -402,10 +400,6 @@ Global
 		{4A0CAAD7-0000-0000-0000-000000000000}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{4A0CAAD7-0000-0000-0000-000000000000}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{4A0CAAD7-0000-0000-0000-000000000000}.Release|Any CPU.Build.0 = Release|Any CPU
-		{28E92A53-0000-0000-0000-000000000000}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{28E92A53-0000-0000-0000-000000000000}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{28E92A53-0000-0000-0000-000000000000}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{28E92A53-0000-0000-0000-000000000000}.Release|Any CPU.Build.0 = Release|Any CPU
 		{568B726E-0000-0000-0000-000000000000}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{568B726E-0000-0000-0000-000000000000}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{568B726E-0000-0000-0000-000000000000}.Release|Any CPU.ActiveCfg = Release|Any CPU
