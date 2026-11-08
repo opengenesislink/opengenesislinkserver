@@ -91,6 +91,11 @@ static class Program
             Require(!cache.TryGetValue("short", out _), "expired asset must be released");
             cache.Clear();
             Require(cache.Count == 0 && cache.EstimatedBytes == 0, "cache clear");
+            Require(cache.AddOrUpdate("no-expiry", new byte[100], TimeSpan.Zero),
+                "legacy zero TTL must be accepted");
+            Thread.Sleep(30);
+            Require(cache.Contains("no-expiry"),
+                "zero TTL must preserve non-expiring legacy semantics");
         }
 
         using (var cache = new OglBudgetedLruCache<int, byte[]>(
