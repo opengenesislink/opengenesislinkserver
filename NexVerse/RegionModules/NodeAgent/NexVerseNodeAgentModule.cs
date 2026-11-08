@@ -1479,8 +1479,23 @@ namespace NexVerse.RegionModules.NodeAgent
                 {
                     OglRegionFrame[] frames = scenes
                         .OrderBy(x => x.RegionInfo.RegionID.ToString(), StringComparer.Ordinal)
-                        .Select(x => new OglRegionFrame(
-                            x.RegionInfo.RegionID.ToString(), x.Frame, x.FrameTime))
+                        .Select(x =>
+                        {
+                            // Per-region window is drained only on the signed
+                            // NodeAgent heartbeat (never on every scene frame).
+                            OglRegionTimingSample? timings =
+                                x.OglPerformanceTiming?.TakeSnapshotAndReset();
+                            return new OglRegionFrame(
+                                x.RegionInfo.RegionID.ToString(), x.Frame, x.FrameTime,
+                                timings?.Frames ?? 0,
+                                timings?.WorkAverageMs ?? 0,
+                                timings?.FrameAverageMs ?? 0,
+                                timings?.WorkP95Ms ?? 0,
+                                timings?.FrameP95Ms ?? 0,
+                                timings?.FrameP99Ms ?? 0,
+                                timings?.WorkOverBudgetPercent ?? 0,
+                                timings?.FrameOverBudgetPercent ?? 0);
+                        })
                         .ToArray();
                     foreach (KeyValuePair<string, string> sample in m_PerformanceSampler.Capture(frames))
                         data[sample.Key] = sample.Value;
