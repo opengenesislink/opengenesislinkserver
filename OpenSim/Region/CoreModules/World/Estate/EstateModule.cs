@@ -51,7 +51,7 @@ namespace OpenSim.Region.CoreModules.World.Estate
 
         protected List<Scene> m_Scenes = new List<Scene>();
         protected bool m_InInfoUpdate = false;
-        private string token = "7db8eh2gvgg45jj";
+        private string token;
         protected bool m_enabled = false;
 
         public bool InInfoUpdate
@@ -80,14 +80,28 @@ namespace OpenSim.Region.CoreModules.World.Estate
                     return;
 
                 port = (uint)estateConfig.GetInt("Port", 0);
-                // this will need to came from somewhere else
-                token = estateConfig.GetString("Token", token);
             }
             else
             {
                 m_enabled = true;
             }
 
+            // A shared token must be configured on every simulator that exchanges
+            // estate messages. Never expose an HTTP handler with a public default.
+            string configuredToken = Environment.GetEnvironmentVariable("OGL_ESTATE_SHARED_TOKEN");
+            if (string.IsNullOrWhiteSpace(configuredToken) && estateConfig != null)
+                configuredToken = estateConfig.GetString("Token", string.Empty);
+
+            if (string.IsNullOrWhiteSpace(configuredToken)
+                || configuredToken.Length < 32
+                || string.Equals(configuredToken, "7db8eh2gvgg45jj", StringComparison.Ordinal))
+            {
+                m_enabled = false;
+                m_log.Error("[ESTATE MODULE]: Estate inter-simulator communications disabled: configure the same strong OGL_ESTATE_SHARED_TOKEN (at least 32 characters) on every simulator, or a private [Estates] Token. No public fallback token is permitted.");
+                return;
+            }
+
+            token = configuredToken;
             m_EstateConnector = new EstateConnector(this, token, port);
 
             if(port == 0)
