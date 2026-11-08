@@ -244,6 +244,25 @@ static class Program
         Require(concurrentFrameWindow.TakeSnapshotAndReset().Frames == 2000,
             "concurrent frame timing observations were lost");
 
+        // Idle worker retirement is a race: enqueue right at the 1ms
+        // timeout and verify that no accepted work is stranded forever.
+        int idleProcessed = 0;
+        using (var idleWorkerEngine = new ObjectJobEngine(_ =>
+            Interlocked.Increment(ref idleProcessed), "OglIdleWorkerRegression",
+            1, 1, 2))
+        {
+            for (int i = 1; i <= 200; i++)
+            {
+                Require(idleWorkerEngine.Enqueue(i), "idle worker rejected work");
+                Require(SpinWait.SpinUntil(
+                    () => Volatile.Read(ref idleProcessed) == i,
+                    TimeSpan.FromSeconds(3)),
+                    "accepted job stranded on an idle-worker retirement race");
+                if ((i & 3) == 0)
+                    Thread.Sleep(2);
+            }
+        }
+
         // Shutdown must not dispose a queue while a worker is still executing.
         // Accepted but queued items must be discarded exactly once.
         using (var callbackStarted = new ManualResetEventSlim(false))
