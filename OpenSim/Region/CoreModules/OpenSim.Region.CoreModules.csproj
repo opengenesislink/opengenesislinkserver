@@ -413,6 +413,8 @@
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="World\Land\PrimCountModule.cs">
+    <Compile Include="World\Land\OglMeshLandImpactMath.cs" />
+    <Compile Include="World\Land\OglMeshLandImpactCalculator.cs" />
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="World\Land\LandChannel.cs">
