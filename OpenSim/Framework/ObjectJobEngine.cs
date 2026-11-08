@@ -145,6 +145,7 @@ namespace OpenSim.Framework
 
         public bool Enqueue(object job)
         {
+            bool schedulingFailed = false;
             lock (m_mainLock)
             {
                 if (!m_isRunning || m_jobQueue == null || !m_jobQueue.TryAdd(job))
@@ -163,13 +164,20 @@ namespace OpenSim.Framework
                     {
                         --m_numberThreads;
                         m_log.ErrorFormat("[ObjectJob {0}]: Unable to start worker: {1}", m_name, e);
-                        // Stop and discard safely outside this lock if the
-                        // threadpool refuses scheduling rather than leak jobs.
-                        ThreadPool.QueueUserWorkItem(_ => Stop());
+                        schedulingFailed = true;
                     }
                 }
-                return true;
             }
+
+            if (schedulingFailed)
+            {
+                // A scheduling failure must fail closed; invoke discard
+                // callbacks only after releasing the queue lock.
+                Stop();
+                return false;
+            }
+
+            return true;
         }
 
         private void Discard(object job)
