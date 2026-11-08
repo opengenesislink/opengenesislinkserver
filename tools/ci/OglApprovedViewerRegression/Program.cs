@@ -80,6 +80,25 @@ internal static class Program
         Check("Frivolin Viewer", "Hydrastorm", false);
         Check("Frivolin", "Frivolin", false);
 
+        // TrixieStorm Viewer is our official in-house OpenGenesisLINK viewer.
+        // Accept release/beta channel suffixes and numeric viewer versions,
+        // but do not widen admission to similarly named/unknown clients.
+        Check("TrixieStorm Viewer", "", true);
+        Check("TrixieStorm Viewer 0.4.0", "TrixieStorm Viewer-Release", true);
+        Check("0.4.0", "TrixieStorm Viewer", true);
+        Check("v0.4.0.0", "TrixieStorm Viewer-Release", true);
+        Check("TRIXIESTORM VIEWER-Release", "trixiestorm viewer", true);
+        Check("TrixieStorm Viewer_Dev", null, true);
+        Check("TrixieStorm ViewerFake", "", false);
+        Check("TrixieStorm", "TrixieStorm", false);
+        Check("TrixieStorm ViewerCopybot", "TrixieStorm Viewer", false);
+        Check("TrixieStorm Viewer", "UnknownViewer", false);
+        Check("UnknownViewer", "TrixieStorm Viewer", false);
+        Check("TrixieStorm Viewer", "Hydrastorm", false);
+        Check("Darkstorm TrixieStorm Viewer", "TrixieStorm Viewer", false);
+        Check("TrixieStorm Viewer Copybot", "TrixieStorm Viewer", false);
+        Check("TrixieStorm Viewer-ReleaseFake", "", false);
+
         // Denials: explicit known Copybot labels and every other viewer family.
         Check("Darkstorm 2.0", "Darkstorm", false);
         Check("Hydrastorm 1.0", "Hydrastorm", false);
