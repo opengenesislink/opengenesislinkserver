@@ -183,6 +183,52 @@ static class Program
                 "cancellation leaked active or queued reservations");
         }
 
+        // Separate real work pressure from pacing/scheduler sleep. A 55-FPS
+        // normalized viewer readout is not a heartbeat timing measurement.
+        var frameWindow = new OglRegionTimingWindow();
+        frameWindow.Record(double.NaN, 1, 10); // invalid input must be ignored
+        for (int i = 0; i < 95; ++i)
+            frameWindow.Record(2.0, 8.5, 10.0);
+        for (int i = 0; i < 5; ++i)
+            frameWindow.Record(24.0, 25.0, 10.0);
+        OglRegionTimingSample frameStats = frameWindow.TakeSnapshotAndReset();
+        Require(frameStats.Frames == 100, "timing histogram lost frame observations");
+        Require(Math.Abs(frameStats.WorkAverageMs - 3.10) < 0.001,
+            "actual scene work average is incorrect");
+        Require(frameStats.WorkP95Ms == 2 && frameStats.FrameP95Ms == 10,
+            "P95 bucket edges must be conservative");
+        Require(frameStats.FrameP99Ms == 30,
+            "P99 must report long frames rather than normalize to 55 FPS");
+        Require(frameStats.WorkOverBudgetPercent == 5 &&
+                frameStats.FrameOverBudgetPercent == 5,
+            "budget overrun percentage is incorrect");
+        Require(frameWindow.TakeSnapshotAndReset().Frames == 0,
+            "window must reset after a heartbeat export");
+        var withFrameMetrics = sampler.Capture(new[]
+        {
+            new OglRegionFrame("timed-region", 125, 0.01f,
+                frameStats.Frames, frameStats.WorkAverageMs,
+                frameStats.FrameAverageMs, frameStats.WorkP95Ms,
+                frameStats.FrameP95Ms, frameStats.FrameP99Ms,
+                frameStats.WorkOverBudgetPercent,
+                frameStats.FrameOverBudgetPercent)
+        });
+        using (JsonDocument histogramJson =
+               JsonDocument.Parse(withFrameMetrics["perf_region_heartbeats_json"]))
+        {
+            JsonElement details = histogramJson.RootElement[0];
+            Require(details.GetProperty("window_frames").GetInt64() == 100,
+                "signed NodeAgent histogram lost the sample count");
+            Require(details.GetProperty("frame_p99_ms").GetDouble() == 30,
+                "signed NodeAgent histogram lost the P99 frame metric");
+        }
+
+        var concurrentFrameWindow = new OglRegionTimingWindow();
+        System.Threading.Tasks.Parallel.For(0, 2000, i =>
+            concurrentFrameWindow.Record(i % 2 == 0 ? 1 : 3, 5, 10));
+        Require(concurrentFrameWindow.TakeSnapshotAndReset().Frames == 2000,
+            "concurrent frame timing observations were lost");
+
         // Shutdown must not dispose a queue while a worker is still executing.
         // Accepted but queued items must be discarded exactly once.
         using (var callbackStarted = new ManualResetEventSlim(false))
