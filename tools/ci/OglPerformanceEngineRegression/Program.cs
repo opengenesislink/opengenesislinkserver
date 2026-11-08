@@ -263,6 +263,86 @@ static class Program
             }
         }
 
+        // Adaptive cache I/O must make progress without harming scene physics.
+        using (var gate = new OglAdaptiveFileWriteGate(4))
+        {
+            Require(gate.TargetWorkers == 4, "adaptive I/O must start at configured capacity");
+            gate.UpdatePressure(95, null);
+            gate.UpdatePressure(95, null);
+            gate.UpdatePressure(95, null);
+            Require(gate.TargetWorkers == 1, "sustained CPU pressure must reduce I/O to one worker");
+            for (int sample = 0; sample < 2; ++sample)
+                gate.UpdatePressure(15, 0);
+            Require(gate.TargetWorkers == 1, "recovery must require three healthy samples");
+            gate.UpdatePressure(15, 0);
+            Require(gate.TargetWorkers == 2, "healthy recovery should increase capacity gradually");
+            gate.UpdatePressure(15, 30);
+            Require(gate.TargetWorkers == 1, "region work overrun must reduce cache I/O concurrency");
+            gate.UpdatePressure(15, 0);
+            gate.UpdatePressure(15, 0);
+            gate.UpdatePressure(15, 0);
+            Require(gate.TargetWorkers == 2, "region recovery should restore capacity");
+
+            int active = 0;
+            int peakActive = 0;
+            System.Threading.Tasks.Parallel.For(0, 100, i =>
+            {
+                if (!gate.TryAcquire(TimeSpan.FromSeconds(5), out var lease))
+                    throw new InvalidOperationException("adaptive gate unexpectedly starved writer");
+
+                try
+                {
+                    int current = Interlocked.Increment(ref active);
+                    int observed;
+                    do
+                    {
+                        observed = Volatile.Read(ref peakActive);
+                        if (current <= observed) break;
+                    }
+                    while (Interlocked.CompareExchange(ref peakActive, current, observed) != observed);
+                    Thread.SpinWait(8000);
+                }
+                finally
+                {
+                    Interlocked.Decrement(ref active);
+                    lease.Dispose();
+                }
+            });
+            Require(peakActive <= 2 && gate.ActiveWorkers == 0,
+                "adaptive gate exceeded its target concurrent I/O budget");
+        }
+
+        // A waiting background writer is released when the gate shuts down.
+        var stoppingGate = new OglAdaptiveFileWriteGate(1);
+        Require(stoppingGate.TryAcquire(TimeSpan.Zero, out var heldPermit),
+            "initial worker permit refused");
+        var waitingWriter = System.Threading.Tasks.Task.Run(() =>
+        {
+            bool entered = stoppingGate.TryAcquire(TimeSpan.FromSeconds(5),
+                out var waitingPermit);
+            waitingPermit?.Dispose();
+            return entered;
+        });
+        Require(!waitingWriter.Wait(TimeSpan.FromMilliseconds(30)),
+            "waiter should be blocked while the only permit is held");
+        stoppingGate.Dispose();
+        Require(waitingWriter.Wait(TimeSpan.FromSeconds(5)) && !waitingWriter.Result,
+            "stopping the adaptive gate did not unblock a waiting writer");
+        heldPermit.Dispose();
+
+        // Monotonic region counters must be available without consuming
+        // the window exported to authenticated NodeAgent messages.
+        var adaptiveWindow = new OglRegionTimingWindow();
+        adaptiveWindow.Record(15, 18, 10);
+        adaptiveWindow.Record(4, 9, 10);
+        var lifetimeCounters = adaptiveWindow.GetLifetimeCounters();
+        Require(lifetimeCounters.Frames == 2 && lifetimeCounters.WorkOverruns == 1,
+            "independent cumulative region counters are incorrect");
+        Require(adaptiveWindow.TakeSnapshotAndReset().Frames == 2,
+            "independent pressure monitoring drained the NodeAgent histogram");
+        Require(adaptiveWindow.GetLifetimeCounters().Frames == 2,
+            "NodeAgent export reset the adaptive lifetime counters");
+
         // Shutdown must not dispose a queue while a worker is still executing.
         // Accepted but queued items must be discarded exactly once.
         using (var callbackStarted = new ManualResetEventSlim(false))
