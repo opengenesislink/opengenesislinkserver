@@ -6,7 +6,7 @@
 
 ## Befund und Umfang
 
-- Die aktive `bin/OpenSim.ini` besitzt **63 aktive Sektionen** und **268 explizite Schluessel**. Keine Sektion ist ohne aktive Einstellung.
+- Die aktive `bin/OpenSim.ini` besitzt nach dem optionalen Performance-Block **64 aktive Sektionen** und **269 explizite Schluessel**. Keine Sektion ist ohne aktive Einstellung.
 - Die aktive `bin/Robust.HG.ini` besitzt **52 aktive Sektionen** und **315 explizite Schluessel**. Keine Sektion ist ohne aktive Einstellung.
 - `OpenSim.ini.example` und `Robust.HG.ini.example` sind ebenfalls ohne leere Sektionen, und **jeder Schluessel der jeweiligen Vorlage ist im zugehoerigen aktiven Profil vorhanden**.
 - `OpenSimDefaults.ini` besitzt 55 Sektionen mit 394 Schluesseln. Das sind gemeinsame Defaults, die nicht pauschal in die knappe Betreiber-INI kopiert werden duerfen. Einige historischen Sektionen sind nur Kommentar-/Erweiterungspunkte; sie erzeugen **keine** automatisch implementierte Funktion.
@@ -289,7 +289,13 @@ Alle Schluesselnamen, **keine geheimen Werte**. `Robust.HG.ini.example` liefert 
 
 ## Anhang B – Aktive Simulator-Sektionen und Schluessel
 
+G1 Performance Engine (PR #416) fuegt den deaktivierten Abschnitt `OGLPerformance` fuer interne NodeAgent-Diagnostik hinzu. Die optionalen Flotsam-Tuningoptionen `FileWriteConcurrency`, `MaxPendingFileWrites`, `MemoryCacheMaxMiB` und `MemoryCacheMaxEntries` gehoeren zur separaten `[AssetCache]`-Konfiguration und werden nicht durch die Betreiber-Haupt-INI erzwungen. Details: `doc/OpenGenesisLINK/OGL_PERFORMANCE_ENGINE_1_0.md`.
+
 Die angefuehrten Werte stehen nach dieser Aktualisierung in `bin/OpenSim.ini`. Zusätzliche defaults koennen geerbt oder durch `config-include/GridHypergrid.ini` gesetzt sein.
+
+### `[OGLPerformance]` – optionale read-only CPU-, RAM- und Heartbeat-Telemetrie
+
+`Enabled` (Standard: `false`; Messwerte werden ausschliesslich ueber den authentifizierten NodeAgent-Heartbeat uebertragen).
 
 ### `[OGLFeatureControl]` – ES256-Schluessel und OAR/IAR-Freigabe
 

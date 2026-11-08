@@ -26,6 +26,7 @@
  */
 
 using System;
+using System.Diagnostics;
 using System.IO;
 using System.Collections.Generic;
 using System.Reflection;
@@ -56,6 +57,7 @@ namespace OpenSim.Region.CoreModules.Asset
             public string filename;
             public AssetBase asset;
             public bool replace;
+            public OglInFlightByteLimiter.Reservation reservation;
         }
 
         private static readonly ILog m_log = LogManager.GetLogger( MethodBase.GetCurrentMethod().DeclaringType);
@@ -82,12 +84,32 @@ namespace OpenSim.Region.CoreModules.Asset
 
         private static readonly HashSet<string> m_CurrentlyWriting = new();
         private static ObjectJobEngine m_assetFileWriteWorker = null;
+        private static long m_CacheWritesRejected;
         private static HashSet<string> m_defaultAssets = new();
 
         private bool m_FileCacheEnabled = true;
+        // File-cache I/O is independent of region-scene mutation. Defaults preserve G1 behavior.
+        private int m_FileWriteConcurrency = 1;
+        private int m_MaxPendingFileWrites = 0;
+        // Optional payload budget across pending and active file-cache I/O.
+        private int m_MaxInFlightFileWriteMiB = 0;
+        private OglInFlightByteLimiter m_FileWriteByteLimiter;
+        // Opt-in adaptive gate for disposable asset disk I/O; never scene/physics.
+        private bool m_AdaptiveFileWrites;
+        private int m_AdaptiveFileWriteSampleSeconds = 5;
+        private OglAdaptiveFileWriteGate m_AdaptiveFileWriteGate;
+        private System.Threading.Timer m_AdaptiveFileWriteTimer;
+        private readonly object m_AdaptiveSamplingLock = new();
+        private long m_LastAdaptiveTimestamp;
+        private double m_LastAdaptiveCpuSeconds;
+        private readonly OglRegionPressureTracker m_RegionPressureTracker = new();
 
         private ExpiringCacheOS<string, AssetBase> m_MemoryCache;
         private bool m_MemoryCacheEnabled = false;
+        // Optional RAM byte/entry budget. Without it, preserve legacy TTL cache.
+        private OglBudgetedLruCache<string, AssetBase> m_BudgetedMemoryCache;
+        private int m_MemoryCacheMaxMiB = 0;
+        private int m_MemoryCacheMaxEntries = 8192;
 
         private ExpiringKey<string> m_negativeCache;
         private bool m_negativeCacheEnabled = true;
@@ -112,6 +134,11 @@ namespace OpenSim.Region.CoreModules.Asset
 
         private Dictionary<string,WeakReference> weakAssetReferences = new();
         private readonly object weakAssetReferencesLock = new();
+        // Optional dead-key cleanup: weak targets are GC-managed, but dictionary
+        // strings otherwise persist until a manual/deep cache purge.
+        private int m_WeakReferencePruneSeconds;
+        private System.Threading.Timer m_WeakReferencePruneTimer;
+        private long m_WeakReferencesPruned;
         private static bool m_updateFileTimeOnCacheHit = false;
 
         private static ExpiringKey<string> m_lastFileAccessTimeChange = null;
@@ -158,10 +185,35 @@ namespace OpenSim.Region.CoreModules.Asset
                     else
                     {
                         m_FileCacheEnabled = assetConfig.GetBoolean("FileCacheEnabled", m_FileCacheEnabled);
+                        m_FileWriteConcurrency = OglPerformanceWorkerPolicy.SelectIndependentIoWorkers(
+                            assetConfig.GetInt("FileWriteConcurrency", m_FileWriteConcurrency),
+                            Environment.ProcessorCount);
+                        m_MaxPendingFileWrites = Math.Clamp(
+                            assetConfig.GetInt("MaxPendingFileWrites", m_MaxPendingFileWrites),
+                            0, 65536);
+                        m_AdaptiveFileWrites = assetConfig.GetBoolean(
+                            "AdaptiveFileWrites", m_AdaptiveFileWrites);
+                        m_AdaptiveFileWriteSampleSeconds = Math.Clamp(
+                            assetConfig.GetInt("AdaptiveFileWriteSampleSeconds",
+                                m_AdaptiveFileWriteSampleSeconds), 5, 60);
+                        int pruneSeconds = assetConfig.GetInt(
+                            "WeakReferencePruneSeconds", m_WeakReferencePruneSeconds);
+                        m_WeakReferencePruneSeconds = pruneSeconds <= 0
+                            ? 0 : Math.Clamp(pruneSeconds, 60, 3600);
+                        m_MaxInFlightFileWriteMiB = Math.Clamp(
+                            assetConfig.GetInt("MaxInFlightFileWriteMiB", m_MaxInFlightFileWriteMiB),
+                            0, 16384);
+                        if (m_MaxInFlightFileWriteMiB > 0)
+                            m_FileWriteByteLimiter = new OglInFlightByteLimiter(
+                                (long)m_MaxInFlightFileWriteMiB * 1024 * 1024);
                         m_CacheDirectory = assetConfig.GetString("CacheDirectory", m_CacheDirectory);
                         m_CacheDirectory = Path.GetFullPath(m_CacheDirectory);
 
                         m_MemoryCacheEnabled = assetConfig.GetBoolean("MemoryCacheEnabled", m_MemoryCacheEnabled);
+                        m_MemoryCacheMaxMiB = Math.Clamp(
+                            assetConfig.GetInt("MemoryCacheMaxMiB", m_MemoryCacheMaxMiB), 0, 16384);
+                        m_MemoryCacheMaxEntries = Math.Clamp(
+                            assetConfig.GetInt("MemoryCacheMaxEntries", m_MemoryCacheMaxEntries), 1, 65536);
                         m_MemoryExpiration = assetConfig.GetDouble("MemoryCacheTimeout", m_MemoryExpiration);
                         m_MemoryExpiration *= 3600.0; // config in hours to seconds
 
@@ -187,8 +239,21 @@ namespace OpenSim.Region.CoreModules.Asset
                     if(m_updateFileTimeOnCacheHit)
                         m_lastFileAccessTimeChange = new ExpiringKey<string>(300000);
 
-                    if(m_MemoryCacheEnabled)
-                        m_MemoryCache = new ExpiringCacheOS<string, AssetBase>((int)m_MemoryExpiration * 500);
+                    if (m_MemoryCacheEnabled)
+                    {
+                        if (m_MemoryCacheMaxMiB > 0)
+                        {
+                            m_BudgetedMemoryCache = new OglBudgetedLruCache<string, AssetBase>(
+                                (long)m_MemoryCacheMaxMiB * 1024 * 1024,
+                                m_MemoryCacheMaxEntries,
+                                asset => (long)(asset.Data?.LongLength ?? 0) + 1024L);
+                            m_log.InfoFormat(
+                                "[FLOTSAM ASSET CACHE]: Memory cache LRU budget {0} MiB, {1} entries",
+                                m_MemoryCacheMaxMiB, m_MemoryCacheMaxEntries);
+                        }
+                        else
+                            m_MemoryCache = new ExpiringCacheOS<string, AssetBase>((int)m_MemoryExpiration * 500);
+                    }
 
                     m_log.Info($"[FLOTSAM ASSET CACHE]: Cache Directory {m_CacheDirectory}");
 
@@ -232,23 +297,33 @@ namespace OpenSim.Region.CoreModules.Asset
 
         public void Close()
         {
-            if(m_Scenes.Count <= 0)
+            lock (timerLock)
             {
-                lock (timerLock)
+                bool noRegions;
+                lock (m_Scenes)
+                    noRegions = m_Scenes.Count == 0;
+                if (!noRegions)
+                    return;
+
+                m_cleanupRunning = false;
+                if (m_timerRunning)
                 {
-                    m_cleanupRunning = false;
-                    if (m_timerRunning)
-                    {
-                        m_timerRunning = false;
-                        m_CacheCleanTimer.Stop();
-                        m_CacheCleanTimer.Close();
-                    }
-                    if (m_assetFileWriteWorker != null)
-                    {
-                        m_assetFileWriteWorker.Dispose();
-                        m_assetFileWriteWorker = null;
-                    }
+                    m_timerRunning = false;
+                    m_CacheCleanTimer.Stop();
+                    m_CacheCleanTimer.Close();
                 }
+                if (m_assetFileWriteWorker != null)
+                {
+                    m_assetFileWriteWorker.Dispose();
+                    m_assetFileWriteWorker = null;
+                }
+                // Stop all opt-in background sampling on final close.
+                m_AdaptiveFileWriteTimer?.Dispose();
+                m_AdaptiveFileWriteTimer = null;
+                m_AdaptiveFileWriteGate?.Dispose();
+                m_WeakReferencePruneTimer?.Dispose();
+                m_WeakReferencePruneTimer = null;
+                m_BudgetedMemoryCache?.Dispose();
             }
         }
 
@@ -257,7 +332,8 @@ namespace OpenSim.Region.CoreModules.Asset
             if (m_Enabled)
             {
                 scene.RegisterModuleInterface<IAssetCache>(this);
-                m_Scenes.Add(scene);
+                lock (m_Scenes)
+                    m_Scenes.Add(scene);
             }
         }
 
@@ -266,10 +342,14 @@ namespace OpenSim.Region.CoreModules.Asset
             if (m_Enabled)
             {
                 scene.UnregisterModuleInterface<IAssetCache>(this);
-                m_Scenes.Remove(scene);
+                lock (m_Scenes)
+                    m_Scenes.Remove(scene);
                 lock(timerLock)
                 {
-                    if(m_Scenes.Count <= 0)
+                    bool noRegions;
+                    lock (m_Scenes)
+                        noRegions = m_Scenes.Count == 0;
+                    if (noRegions)
                     {
                         m_cleanupRunning = false;
                         if (m_timerRunning)
@@ -282,6 +362,18 @@ namespace OpenSim.Region.CoreModules.Asset
                         {
                             m_assetFileWriteWorker.Dispose();
                             m_assetFileWriteWorker = null;
+                        }
+                        // No active scenes: release the opt-in RAM cache now
+                        // instead of pinning stale assets until the next TTL.
+                        m_BudgetedMemoryCache?.Clear();
+                        m_WeakReferencePruneTimer?.Dispose();
+                        m_WeakReferencePruneTimer = null;
+                        m_AdaptiveFileWriteTimer?.Dispose();
+                        m_AdaptiveFileWriteTimer = null;
+                        lock (m_AdaptiveSamplingLock)
+                        {
+                            m_LastAdaptiveTimestamp = 0;
+                            m_RegionPressureTracker.Reset();
                         }
                     }
                 }
@@ -311,10 +403,57 @@ namespace OpenSim.Region.CoreModules.Asset
 
                     if (m_FileCacheEnabled && m_assetFileWriteWorker == null)
                     {
-                        m_assetFileWriteWorker = new ObjectJobEngine(ProcessWrites, "FloatsamCacheWriter", 1000, 1);
+                        if (m_AdaptiveFileWrites && m_FileWriteConcurrency > 1)
+                        {
+                            m_AdaptiveFileWriteGate ??=
+                                new OglAdaptiveFileWriteGate(m_FileWriteConcurrency);
+                        }
+
+                        m_assetFileWriteWorker = new ObjectJobEngine(
+                            ProcessWrites, "FlotsamCacheWriter", 1000,
+                            m_FileWriteConcurrency, m_MaxPendingFileWrites,
+                            DiscardFileWrite);
+                        m_log.InfoFormat(
+                            "[FLOTSAM ASSET CACHE]: File writers={0}, pending cache queue cap={1} (0=legacy unbounded), adaptive={2}",
+                            m_FileWriteConcurrency, m_MaxPendingFileWrites,
+                            m_AdaptiveFileWriteGate != null);
                     }
 
-                    if (!string.IsNullOrWhiteSpace(m_assetLoader) && scene.RegionInfo.RegionID == m_Scenes[0].RegionInfo.RegionID)
+                    if (m_AdaptiveFileWriteGate != null &&
+                        m_AdaptiveFileWriteTimer == null)
+                    {
+                        TimeSpan interval = TimeSpan.FromSeconds(m_AdaptiveFileWriteSampleSeconds);
+                        m_AdaptiveFileWriteTimer = new System.Threading.Timer(
+                            SampleAdaptiveFileWritePressure, null, interval, interval);
+                    }
+
+                    if (m_WeakReferencePruneSeconds > 0 &&
+                        m_WeakReferencePruneTimer == null)
+                    {
+                        TimeSpan interval = TimeSpan.FromSeconds(m_WeakReferencePruneSeconds);
+                        m_WeakReferencePruneTimer = new System.Threading.Timer(
+                            _ =>
+                            {
+                                try
+                                {
+                                    PruneDeadWeakReferences();
+                                }
+                                catch (Exception error)
+                                {
+                                    // Optional maintenance must never crash a simulator.
+                                    m_log.Warn("[FLOTSAM ASSET CACHE]: Weak-ref sweep skipped: " +
+                                        error.Message);
+                                }
+                            }, null, interval, interval);
+                    }
+
+                    // Region membership may be changing while optional
+                    // asset-loader initialization is running on another thread.
+                    bool firstRegion;
+                    lock (m_Scenes)
+                        firstRegion = m_Scenes.Count > 0 &&
+                            scene.RegionInfo.RegionID == m_Scenes[0].RegionInfo.RegionID;
+                    if (!string.IsNullOrWhiteSpace(m_assetLoader) && firstRegion)
                     {
                         IAssetLoader assetLoader = ServerUtils.LoadPlugin<IAssetLoader>(m_assetLoader, Array.Empty<object>());
                         if (assetLoader is not null)
@@ -334,21 +473,127 @@ namespace OpenSim.Region.CoreModules.Asset
             }
         }
 
-        private void ProcessWrites(object o)
+        private static void DiscardFileWrite(object o)
         {
+            if (o is WriteAssetInfo discarded)
+            {
+                discarded.reservation?.Dispose();
+                lock (m_CurrentlyWriting)
+                    m_CurrentlyWriting.Remove(discarded.filename);
+            }
+        }
+
+        private void SampleAdaptiveFileWritePressure(object unused)
+        {
+            if (m_AdaptiveFileWriteGate == null)
+                return;
+
             try
             {
-                WriteAssetInfo wai = (WriteAssetInfo)o;
-                WriteFileCache(wai.filename, wai.asset, wai.replace);
-                wai.asset = null;
-                Thread.Yield();
+                lock (m_AdaptiveSamplingLock)
+                {
+                    long now = Stopwatch.GetTimestamp();
+                    using Process process = Process.GetCurrentProcess();
+                    double cpuSeconds = process.TotalProcessorTime.TotalSeconds;
+
+                    Scene[] scenes;
+                    lock (m_Scenes)
+                        scenes = m_Scenes.ToArray();
+
+                    var regionCounters = new List<OglRegionPressureCounter>(scenes.Length);
+                    foreach (Scene scene in scenes)
+                    {
+                        if (scene.OglPerformanceTiming is null)
+                            continue;
+                        (long total, long overrun) =
+                            scene.OglPerformanceTiming.GetLifetimeCounters();
+                        regionCounters.Add(new OglRegionPressureCounter(
+                            scene.RegionInfo.RegionID.ToString(), total, overrun));
+                    }
+                    double? regionOverrunPercent =
+                        m_RegionPressureTracker.Sample(regionCounters);
+
+                    if (m_LastAdaptiveTimestamp > 0 &&
+                        now > m_LastAdaptiveTimestamp && scenes.Length > 0)
+                    {
+                        double wallSeconds =
+                            (now - m_LastAdaptiveTimestamp) / (double)Stopwatch.Frequency;
+                        double cpuPercent = Math.Clamp(
+                            100.0 * Math.Max(0, cpuSeconds - m_LastAdaptiveCpuSeconds) /
+                            (wallSeconds * Math.Max(1, Environment.ProcessorCount)), 0, 100);
+
+                        m_AdaptiveFileWriteGate.UpdatePressure(cpuPercent, regionOverrunPercent);
+                    }
+
+                    m_LastAdaptiveTimestamp = now;
+                    m_LastAdaptiveCpuSeconds = cpuSeconds;
+                }
             }
-            catch { }
+            catch (Exception e)
+            {
+                m_log.Debug("[FLOTSAM ASSET CACHE]: Adaptive I/O sampling skipped: " + e.Message);
+            }
+        }
+
+        private void ProcessWrites(object o)
+        {
+            WriteAssetInfo wai = (WriteAssetInfo)o;
+            OglAdaptiveFileWriteGate.Permit permit = null;
+            try
+            {
+                // Adaptive mode can temporarily lower concurrent disk I/O
+                // when the CPU is busy or region work overruns its budget.
+                // Workers wait briefly, then drop only expendable cache writes.
+                if (m_AdaptiveFileWriteGate != null &&
+                    !m_AdaptiveFileWriteGate.TryAcquire(
+                        TimeSpan.FromMilliseconds(500), out permit))
+                {
+                    Interlocked.Increment(ref m_CacheWritesRejected);
+                    lock (m_CurrentlyWriting)
+                        m_CurrentlyWriting.Remove(wai.filename);
+                    return;
+                }
+
+                WriteFileCache(wai.filename, wai.asset, wai.replace);
+            }
+            catch (Exception e)
+            {
+                m_log.Warn("[FLOTSAM ASSET CACHE]: Background disk write failed: " + e.Message);
+            }
+            finally
+            {
+                permit?.Dispose();
+                wai.reservation?.Dispose();
+            }
         }
 
         ////////////////////////////////////////////////////////////
         // IAssetCache
         //
+        private int PruneDeadWeakReferences()
+        {
+            // No forced GC, only remove entries whose targets are already
+            // collected. Never remove a live asset or touch authoritative data.
+            int removed = 0;
+            lock (weakAssetReferencesLock)
+            {
+                var deadKeys = new List<string>();
+                foreach (KeyValuePair<string, WeakReference> entry in weakAssetReferences)
+                {
+                    if (entry.Value is null || !entry.Value.IsAlive)
+                        deadKeys.Add(entry.Key);
+                }
+
+                foreach (string key in deadKeys)
+                    if (weakAssetReferences.Remove(key))
+                        ++removed;
+            }
+
+            if (removed > 0)
+                Interlocked.Add(ref m_WeakReferencesPruned, removed);
+            return removed;
+        }
+
         private void UpdateWeakReference(string key, AssetBase asset)
         {
             lock(weakAssetReferencesLock)
@@ -363,41 +608,68 @@ namespace OpenSim.Region.CoreModules.Asset
 
         private void UpdateMemoryCache(string key, AssetBase asset)
         {
-            m_MemoryCache.AddOrUpdate(key, asset, m_MemoryExpiration);
+            if (m_BudgetedMemoryCache != null)
+                m_BudgetedMemoryCache.AddOrUpdate(
+                    key, asset, TimeSpan.FromSeconds(m_MemoryExpiration));
+            else
+                m_MemoryCache.AddOrUpdate(key, asset, m_MemoryExpiration);
         }
 
         private void UpdateFileCache(string key, AssetBase asset, bool replace = false)
         {
-            if(m_assetFileWriteWorker is null)
+            if (m_assetFileWriteWorker is null)
                 return;
 
             string filename = GetFileName(key);
+            bool registered = false;
+            bool queued = false;
+            OglInFlightByteLimiter.Reservation reservation = null;
 
             try
             {
-                // Once we start writing, make sure we flag that we're writing
-                // that object to the cache so that we don't try to write the
-                // same file multiple times.
+                // Avoid duplicate writes even with multiple independent disk workers.
                 lock (m_CurrentlyWriting)
                 {
                     if (!m_CurrentlyWriting.Add(filename))
                         return;
+                    registered = true;
                 }
 
-                if (m_assetFileWriteWorker is not null)
+                // Count both pending and currently executing writes. A queue
+                // length alone cannot bound memory when assets have varied sizes.
+                if (m_FileWriteByteLimiter != null &&
+                    !m_FileWriteByteLimiter.TryReserve(
+                        (long)(asset.Data?.LongLength ?? 0) + 1024L, out reservation))
+                    return;
+
+                WriteAssetInfo wai = new()
                 {
-                    WriteAssetInfo wai = new()
-                    {
-                        filename = filename,
-                        asset = asset,
-                        replace = replace
-                    };
-                    m_assetFileWriteWorker.Enqueue(wai);
-                }
+                    filename = filename,
+                    asset = asset,
+                    replace = replace,
+                    reservation = reservation
+                };
+                // Saturation skips only disposable disk-cache I/O.
+                queued = m_assetFileWriteWorker?.Enqueue(wai) == true;
             }
             catch (Exception e)
             {
-                m_log.Warn($"[FLOTSAM ASSET CACHE]: Failed to update cache for asset {asset.ID}: {e.Message}");
+                m_log.Warn($"[FLOTSAM ASSET CACHE]: Failed to queue asset cache write for {asset.ID}: {e.Message}");
+            }
+            finally
+            {
+                if (!queued)
+                {
+                    reservation?.Dispose();
+                    if (registered)
+                    {
+                        Interlocked.Increment(ref m_CacheWritesRejected);
+                        lock (m_CurrentlyWriting)
+                            m_CurrentlyWriting.Remove(filename);
+                    }
+                }
+                // Accepted jobs release their reservation after I/O, or when
+                // cancelled/abandoned by the ObjectJobEngine.
             }
         }
 
@@ -486,7 +758,11 @@ namespace OpenSim.Region.CoreModules.Asset
         /// <returns></returns>
         private AssetBase GetFromMemoryCache(string id)
         {
-            if (m_MemoryCache.TryGetValue(id, out AssetBase asset))
+            AssetBase asset;
+            bool found = m_BudgetedMemoryCache != null
+                ? m_BudgetedMemoryCache.TryGetValue(id, out asset)
+                : m_MemoryCache.TryGetValue(id, out asset);
+            if (found)
             {
                 m_MemoryHits++;
                 return asset;
@@ -496,7 +772,9 @@ namespace OpenSim.Region.CoreModules.Asset
 
         private bool CheckFromMemoryCache(string id)
         {
-            return m_MemoryCache.Contains(id);
+            return m_BudgetedMemoryCache != null
+                ? m_BudgetedMemoryCache.Contains(id)
+                : m_MemoryCache.Contains(id);
         }
 
         /// <summary>
@@ -510,10 +788,13 @@ namespace OpenSim.Region.CoreModules.Asset
 
             // Track how often we have the problem that an asset is requested while
             // it is still being downloaded by a previous request.
-            if (m_CurrentlyWriting.Contains(filename))
+            lock (m_CurrentlyWriting)
             {
-                m_RequestsForInprogress++;
-                return null;
+                if (m_CurrentlyWriting.Contains(filename))
+                {
+                    m_RequestsForInprogress++;
+                    return null;
+                }
             }
 
             AssetBase asset = null;
@@ -736,7 +1017,12 @@ namespace OpenSim.Region.CoreModules.Asset
                     weakAssetReferences.Remove(id);
 
                 if (m_MemoryCacheEnabled)
-                    m_MemoryCache.Remove(id);
+                {
+                    if (m_BudgetedMemoryCache != null)
+                        m_BudgetedMemoryCache.Remove(id);
+                    else
+                        m_MemoryCache.Remove(id);
+                }
 
                 if (m_negativeCacheEnabled)
                     m_negativeCache.Remove(id);
@@ -770,8 +1056,13 @@ namespace OpenSim.Region.CoreModules.Asset
 
             if (m_MemoryCacheEnabled)
             {
-                m_MemoryCache.Dispose();
-                m_MemoryCache = new ExpiringCacheOS<string, AssetBase>((int)m_MemoryExpiration * 500);
+                if (m_BudgetedMemoryCache != null)
+                    m_BudgetedMemoryCache.Clear();
+                else
+                {
+                    m_MemoryCache.Dispose();
+                    m_MemoryCache = new ExpiringCacheOS<string, AssetBase>((int)m_MemoryExpiration * 500);
+                }
             }
             if (m_negativeCacheEnabled)
             {
@@ -1340,13 +1631,42 @@ namespace OpenSim.Region.CoreModules.Asset
                     {
                         WorkManager.RunInThreadPool(delegate
                         {
-                            if (m_MemoryCacheEnabled)
+                            if (m_MemoryCacheEnabled && m_BudgetedMemoryCache != null)
+                                con.Output(
+                                    "[FLOTSAM ASSET CACHE] Memory Cache (LRU): {0} assets / ~{1} MiB; budget {2} MiB",
+                                    m_BudgetedMemoryCache.Count,
+                                    m_BudgetedMemoryCache.EstimatedBytes / (1024 * 1024),
+                                    m_MemoryCacheMaxMiB);
+                            else if (m_MemoryCacheEnabled)
                                 con.Output("[FLOTSAM ASSET CACHE] Memory Cache: {0} assets", m_MemoryCache.Count);
                             else
                                 con.Output("[FLOTSAM ASSET CACHE] Memory cache disabled");
 
                             if (m_FileCacheEnabled)
                             {
+                                con.Output(
+                                    "[FLOTSAM ASSET CACHE] Disk writer queue: {0} pending; {1} cache writes rejected since start",
+                                    m_assetFileWriteWorker?.Count ?? 0,
+                                    Interlocked.Read(ref m_CacheWritesRejected));
+                                if (m_FileWriteByteLimiter != null)
+                                    con.Output(
+                                        "[FLOTSAM ASSET CACHE] File payloads in flight: ~{0} MiB / {1} MiB (peak ~{2} MiB, byte-budget rejects {3})",
+                                        m_FileWriteByteLimiter.InFlightBytes / (1024 * 1024),
+                                        m_MaxInFlightFileWriteMiB,
+                                        m_FileWriteByteLimiter.HighWaterBytes / (1024 * 1024),
+                                        m_FileWriteByteLimiter.RejectedCount);
+                                if (m_AdaptiveFileWriteGate != null)
+                                    con.Output(
+                                        "[FLOTSAM ASSET CACHE] Adaptive file I/O: {0}/{1} target workers; {2} active; {3} adaptive skip(s)",
+                                        m_AdaptiveFileWriteGate.TargetWorkers,
+                                        m_AdaptiveFileWriteGate.MaxWorkers,
+                                        m_AdaptiveFileWriteGate.ActiveWorkers,
+                                        m_AdaptiveFileWriteGate.RejectedWrites);
+                                if (m_WeakReferencePruneSeconds > 0)
+                                    con.Output(
+                                        "[FLOTSAM ASSET CACHE] Dead weak-ref sweep: every {0}s, {1} stale keys removed",
+                                        m_WeakReferencePruneSeconds,
+                                        Interlocked.Read(ref m_WeakReferencesPruned));
                                 bool doingscan;
                                 lock (timerLock)
                                 {
@@ -1416,7 +1736,10 @@ namespace OpenSim.Region.CoreModules.Asset
                         {
                             if (m_MemoryCacheEnabled)
                             {
-                                m_MemoryCache.Clear();
+                                if (m_BudgetedMemoryCache != null)
+                                    m_BudgetedMemoryCache.Clear();
+                                else
+                                    m_MemoryCache.Clear();
                                 con.Output("Memory cache cleared.");
                             }
                             else

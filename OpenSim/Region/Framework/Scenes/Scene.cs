@@ -355,6 +355,10 @@ namespace OpenSim.Region.Framework.Scenes
         // see SimStatsReporter.cs
         public bool Normalized55FPS { get; private set; }
 
+        // Allocated only when [OGLPerformance] Enabled=true. No new timing
+        // atomics or histogram allocations in the legacy heartbeat hot path.
+        public OglRegionTimingWindow OglPerformanceTiming { get; private set; }
+
         private readonly int m_update_physics = 1;
         private readonly int m_update_entitymovement = 1;
         private readonly int m_update_objects = 1;
@@ -809,6 +813,8 @@ namespace OpenSim.Region.Framework.Scenes
             : this(regInfo)
         {
             m_config = config;
+            if (config.Configs["OGLPerformance"]?.GetBoolean("Enabled", false) == true)
+                OglPerformanceTiming = new OglRegionTimingWindow();
             FrameTime = 0.0908f;
             FrameTimeWarnPercent = 60;
             FrameTimeCritPercent = 40;
@@ -1724,6 +1730,7 @@ namespace OpenSim.Region.Framework.Scenes
             double lastMS;
             double nowMS;
             double framestart;
+            double frameWorkMS;
             float sleepMS;
             float sleepError = 0;
 
@@ -1937,6 +1944,7 @@ namespace OpenSim.Region.Framework.Scenes
                 otherMS += tempOnRezMS + eventMS + backupMS + terrainMS + landMS;
 
                 lastMS = Util.GetTimeStampMS();
+                frameWorkMS = lastMS - framestart; // excludes pacing sleep
 
                 previousFrameTick = m_lastFrameTick;
                 m_lastFrameTick = (int)(lastMS + 0.5);
@@ -1971,6 +1979,10 @@ namespace OpenSim.Region.Framework.Scenes
                 float scriptTimeMS = GetAndResetScriptExecutionTime();
                 StatsReporter.AddFrameStats(TimeDilation, physicsFPS, agentMS,
                              physicsMS + physicsMS2, otherMS , sleepMS, frameMS, scriptTimeMS);
+
+                // Capture real work pressure separately from Thread.Sleep jitter.
+                // Avoid modifying existing 55-FPS-normalized viewer statistics.
+                OglPerformanceTiming?.Record(frameWorkMS, frameMS, frameTimeMS);
 
           // Optionally warn if a frame takes double the amount of time that it should.
                 if (DebugUpdates

@@ -31,12 +31,19 @@
 
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Reflection;
 using System.Threading;
 using log4net;
 
 namespace OpenSim.Framework
 {
+    /// <summary>
+    /// Bounded or legacy-unbounded worker queue. The callback is never invoked
+    /// under the queue lock, and accepted-but-unprocessed items are discarded
+    /// exactly once when the engine is stopped. Active callbacks may finish
+    /// after Dispose; the queue/CTS live until their final worker exits.
+    /// </summary>
     public class ObjectJobEngine : IDisposable
     {
         private static readonly ILog m_log = LogManager.GetLogger(MethodBase.GetCurrentMethod().DeclaringType);
@@ -44,152 +51,236 @@ namespace OpenSim.Framework
         private readonly object m_mainLock = new object();
         private readonly string m_name;
         private readonly int m_threadsHoldtime;
-        private readonly int m_concurrency = 1;
+        private readonly int m_concurrency;
+        private readonly Action<object> m_onDiscard;
 
         private BlockingCollection<object> m_jobQueue;
         private CancellationTokenSource m_cancelSource;
         private WaitCallback m_callback;
-        private int m_numberThreads = 0;
-        private bool m_isRunning;
+        // Protected by m_mainLock. Include scheduled-but-not-yet-started workers.
+        private int m_numberThreads;
+        private volatile bool m_isRunning;
+        private bool m_stopRequested;
 
-        public ObjectJobEngine(WaitCallback callback, string name, int threadsHoldtime = 1000, int concurrency = 1)
+        public ObjectJobEngine(WaitCallback callback, string name, int threadsHoldtime = 1000,
+            int concurrency = 1, int maxQueuedJobs = 0, Action<object> onDiscard = null)
         {
             m_name = name;
             m_threadsHoldtime = threadsHoldtime;
+            m_concurrency = Math.Max(1, concurrency);
+            m_onDiscard = onDiscard;
 
-            if (concurrency < 1)
-                m_concurrency = 1;
-            else
-                m_concurrency = concurrency;
-
-            if (callback !=  null)
+            if (callback != null)
             {
                 m_callback = callback;
-                m_jobQueue = new BlockingCollection<object>();
+                m_jobQueue = maxQueuedJobs > 0
+                    ? new BlockingCollection<object>(Math.Clamp(maxQueuedJobs, 1, 65536))
+                    : new BlockingCollection<object>();
                 m_cancelSource = new CancellationTokenSource();
                 m_isRunning = true;
             }
         }
 
-        ~ObjectJobEngine()
-        {
-            Dispose(false);
-        }
-
+        // Only managed resources: a finalizer would unnecessarily promote a
+        // busy worker/queue into a later GC generation.
         public void Dispose()
         {
-            Dispose(true);
-            GC.SuppressFinalize(this);
+            Stop();
         }
 
-        private void Dispose(bool disposing)
+        /// <summary>Number of pending jobs, excluding active callbacks.</summary>
+        public int Count
         {
-            lock(m_mainLock)
+            get
             {
-                if (!m_isRunning)
+                lock (m_mainLock)
+                    return m_jobQueue?.Count ?? 0;
+            }
+        }
+
+        // Historically Cancel stopped the worker's CancellationTokenSource.
+        // Make that stop explicit so future Enqueue cannot silently accept work
+        // against an already cancelled token.
+        public void Cancel()
+        {
+            Stop();
+        }
+
+        private void Stop()
+        {
+            List<object> discarded = new List<object>();
+            lock (m_mainLock)
+            {
+                if (m_stopRequested)
                     return;
+
+                m_stopRequested = true;
                 m_isRunning = false;
+                m_cancelSource?.Cancel();
 
-                m_cancelSource.Cancel();
+                if (m_jobQueue != null)
+                {
+                    while (m_jobQueue.TryTake(out object job))
+                        discarded.Add(job);
+                }
+
+                if (m_numberThreads == 0)
+                    ReleaseResourcesLocked();
             }
 
-            if (m_numberThreads > 0)
-            {
-                int cntr = 100;
-                while (m_numberThreads > 0 && --cntr > 0)
-                    Thread.Yield();
-            }
+            // User callbacks must never execute under m_mainLock.
+            foreach (object job in discarded)
+                Discard(job);
+        }
 
-            if (m_jobQueue != null)
-            {
-                m_jobQueue.Dispose();
-                m_jobQueue = null;
-            }
-            if (m_cancelSource != null)
-            {
-                m_cancelSource.Dispose();
-                m_cancelSource = null;
-            }
+        private void ReleaseResourcesLocked()
+        {
+            // Called only after every scheduled/active worker has exited.
+            m_jobQueue?.Dispose();
+            m_jobQueue = null;
+            m_cancelSource?.Dispose();
+            m_cancelSource = null;
             m_callback = null;
         }
 
-        /// <summary>
-        /// Number of jobs waiting to be processed.
-        /// </summary>
-        public int Count { get { return m_jobQueue == null ? 0 : m_jobQueue.Count; } }
-
-        public void Cancel()
+        public bool Enqueue(object job)
         {
-            if (!m_isRunning || m_jobQueue == null || m_jobQueue.Count == 0)
-                return;
-            try
-            {
-                while(m_jobQueue.TryTake(out _));
-                m_cancelSource.Cancel();
-            }
-            catch { }
-        }
-
-        /// <summary>
-        /// Queue the job for processing.
-        /// </summary>
-        /// <returns><c>true</c>, if job was queued, <c>false</c> otherwise.</returns>
-        /// <param name="job">The job</param>
-        /// </param>
-        public bool Enqueue(object o)
-        {
-            if (!m_isRunning)
-                return false;
-
+            bool schedulingFailed = false;
             lock (m_mainLock)
             {
-                m_jobQueue?.Add(o);
+                if (!m_isRunning || m_jobQueue == null || !m_jobQueue.TryAdd(job))
+                    return false;
+
                 if (m_numberThreads < m_concurrency && m_numberThreads < m_jobQueue.Count)
                 {
-                    Util.FireAndForget(ProcessRequests, null, m_name, false);
+                    // Reserve before queueing to the ThreadPool: an immediate
+                    // callback must never decrement before the increment.
                     ++m_numberThreads;
+                    try
+                    {
+                        Util.FireAndForget(ProcessRequests, null, m_name, false);
+                    }
+                    catch (Exception e)
+                    {
+                        --m_numberThreads;
+                        m_log.ErrorFormat("[ObjectJob {0}]: Unable to start worker: {1}", m_name, e);
+                        schedulingFailed = true;
+                    }
                 }
             }
+
+            if (schedulingFailed)
+            {
+                // A scheduling failure must fail closed; invoke discard
+                // callbacks only after releasing the queue lock.
+                Stop();
+                return false;
+            }
+
             return true;
         }
 
-        private void ProcessRequests(object o)
+        private void Discard(object job)
         {
-            object obj;
-            while (m_isRunning)
+            if (m_onDiscard == null)
+                return;
+            try
             {
-                try
+                m_onDiscard(job);
+            }
+            catch (Exception e)
+            {
+                m_log.ErrorFormat("[ObjectJob {0}]: Discard callback failed: {1}", m_name, e);
+            }
+        }
+
+        private void ProcessRequests(object state)
+        {
+            BlockingCollection<object> queue;
+            CancellationToken token;
+            WaitCallback callback;
+            lock (m_mainLock)
+            {
+                queue = m_jobQueue;
+                token = m_cancelSource.Token;
+                callback = m_callback;
+            }
+
+            try
+            {
+                while (m_isRunning)
                 {
-                    if(!m_jobQueue.TryTake(out obj, m_threadsHoldtime, m_cancelSource.Token))
+                    object job;
+                    try
                     {
-                        lock (m_mainLock)
+                        if (!queue.TryTake(out job, m_threadsHoldtime, token))
                         {
-                            if (m_jobQueue.Count > 0)
-                                continue;
-                            --m_numberThreads;
-                            return;
+                            // Keep the old worker idle timeout and honor jobs
+                            // concurrently enqueued just before the timeout.
+                            lock (m_mainLock)
+                            {
+                                if (m_isRunning && queue.Count > 0)
+                                    continue;
+                            }
+                            break;
                         }
                     }
-                }
-                catch
-                {
-                    break;
-                }
+                    catch (OperationCanceledException)
+                    {
+                        break;
+                    }
 
-                if(!m_isRunning || m_callback == null)
-                    break;
-                try
-                {
-                    m_callback.Invoke(obj);
-                    obj = null;
-                }
-                catch (Exception e)
-                {
-                    m_log.ErrorFormat("[ObjectJob {0}]: Job failed, continuing.  Exception {1}", m_name, e);
+                    if (!m_isRunning)
+                    {
+                        Discard(job);
+                        break;
+                    }
+
+                    try
+                    {
+                        callback(job);
+                    }
+                    catch (Exception e)
+                    {
+                        m_log.ErrorFormat("[ObjectJob {0}]: Job failed, continuing. Exception {1}", m_name, e);
+                    }
                 }
             }
-            lock (m_mainLock)
-                --m_numberThreads;
+            finally
+            {
+                bool restartFailed = false;
+                lock (m_mainLock)
+                {
+                    --m_numberThreads;
+
+                    // A producer may have queued work after an idle worker
+                    // decided to exit but before this decrement. Never strand
+                    // that work with zero available workers.
+                    if (m_isRunning && m_jobQueue != null &&
+                        m_jobQueue.Count > 0 && m_numberThreads == 0)
+                    {
+                        ++m_numberThreads;
+                        try
+                        {
+                            Util.FireAndForget(ProcessRequests, null, m_name, false);
+                        }
+                        catch (Exception e)
+                        {
+                            --m_numberThreads;
+                            restartFailed = true;
+                            m_log.ErrorFormat(
+                                "[ObjectJob {0}]: Unable to restart idle worker: {1}",
+                                m_name, e);
+                        }
+                    }
+
+                    if (m_stopRequested && m_numberThreads == 0)
+                        ReleaseResourcesLocked();
+                }
+
+                if (restartFailed)
+                    Stop();
+            }
         }
     }
 }

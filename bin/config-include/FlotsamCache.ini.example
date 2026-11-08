@@ -24,6 +24,22 @@
     ; so even a small memory cache is useful
     MemoryCacheEnabled = false
 
+    ; Optional OGL Memory Manager: when MemoryCacheEnabled=true,
+    ; cap strong asset references by estimated payload bytes (MiB) and LRU count.
+    ; 0 preserves the legacy TTL cache without a byte budget.
+    ; Suggested isolated test values: 256 MiB, 8192 entries.
+    ; Actual process RSS can exceed these values due to other allocators/assets.
+    MemoryCacheMaxMiB = 0
+    MemoryCacheMaxEntries = 8192
+
+    ; Optional dead weak-reference key reclamation for long-lived regions.
+    ; Weak asset targets already allow GC, but UUID string keys in the
+    ; reference dictionary otherwise persist until cache clear/deep scan.
+    ; 0 disables this independent low-frequency cleanup (legacy default).
+    ; Values >0 are clamped to 60..3600 seconds; use 600 (10 minutes) in tests.
+    ; It never calls GC.Collect and never discards still-live asset references.
+    WeakReferencePruneSeconds = 0
+
     ; If a memory cache hit happens, or the asset is still in memory
     ; due to other causes, update the timestamp on the disk file anyway.
     ; Don't turn this on unless you share your asset cache between simulators
@@ -63,6 +79,39 @@
 
     ; Set to false for no file cache
     FileCacheEnabled = true
+
+    ; OGL Performance Engine 1.0: independent disk-cache writes may use more CPU
+    ; and I/O bandwidth. Set 1 for historical serial behavior (safe default).
+    ; Positive values are clamped to 1..min(8, process-visible CPU cores).
+    ; An explicit 0 selects conservative auto mode (up to 4 workers, half the
+    ; visible CPU cores, minimum 1). The default stays 1 for compatibility.
+    ; Compare region frame times and disk latency before enabling 0/2/4.
+    FileWriteConcurrency = 1
+
+    ; OGL adaptive I/O scheduler. Off by default, for isolated load tests.
+    ; When enabled with >1 writer, a 5-60 second sample periodically checks
+    ; process CPU usage and (if [OGLPerformance] Enabled=true) actual region
+    ; work-time budget overruns. High pressure reduces concurrent DISK-CACHE
+    ; writes, never Physics, scripts, scene frames or authoritative asset saves.
+    ; Recovery is gradual to avoid worker-count oscillation.
+    ; Excess independent disk-cache writes can be skipped after a 500ms wait.
+    ; Enable only after setting an appropriate file write queue / byte budget.
+    AdaptiveFileWrites = false
+    AdaptiveFileWriteSampleSeconds = 5
+
+    ; Optional RAM backpressure for the disposable disk-write queue. 0 means
+    ; legacy unbounded queue; 512-2048 bounds asset buffers retained in memory.
+    ; When saturated, the cache write is skipped (the authoritative asset remains
+    ; available). This is NOT a limit on Flotsam's memory asset cache.
+    MaxPendingFileWrites = 0
+
+    ; Harder RAM backpressure: cap the combined estimated asset payload bytes
+    ; reserved by queued AND currently executing disk-cache file writes.
+    ; A single 100 MiB asset can otherwise dominate a queue of only 10 jobs.
+    ; 0 = legacy unbounded byte usage, 128-512 MiB recommended for test.
+    ; Oversized writes are skipped *only for this disposable file cache*.
+    ; The value never caps the authoritative asset store or overall RSS.
+    MaxInFlightFileWriteMiB = 0
 
     ; How long {in hours} to keep assets cached in memory, .5 == 30 minutes
     ; even a few minutes may mean many assets loaded to memory, if not all.
