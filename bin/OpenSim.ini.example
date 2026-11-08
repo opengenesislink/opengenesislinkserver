@@ -114,8 +114,12 @@
     allow_grid_gods = true
 
 [Estates]
-; EstateModule: Port=0 nutzt Simulator-HTTP-Port. Token nie in Git speichern.
-; Handler nicht ohne Estate-API-/Firewall-Tests umstellen.
+; EstateModule: Port=0 nutzt Simulator-HTTP-Port.
+; Erfordert einen auf allen Simulatoren identischen starken
+; OGL_ESTATE_SHARED_TOKEN (>=32 Zeichen), sonst wird /estate nicht aktiviert.
+; Alternativ nur in einer privaten Betreiber-INI: [Estates] Token = "...".
+; Niemals echte Tokens in Git hinterlegen. Routen nur ueber private Netze/TLS.
+; Rollout: doc/OpenGenesisLINK/G1_ESTATE_TOKEN_ROLLOUT.md
     EstateCommunicationsHandler = "EstateModule"
     Port = 0
 
