@@ -290,6 +290,9 @@ namespace OpenSim.Region.CoreModules.Asset
                         m_assetFileWriteWorker = null;
                     }
                 }
+                // Stop the opt-in RAM cache's periodic expiry timer as well
+                // when this shared region module is permanently closed.
+                m_BudgetedMemoryCache?.Dispose();
             }
         }
 
@@ -324,6 +327,9 @@ namespace OpenSim.Region.CoreModules.Asset
                             m_assetFileWriteWorker.Dispose();
                             m_assetFileWriteWorker = null;
                         }
+                        // No active scenes: release the opt-in RAM cache now
+                        // instead of pinning stale assets until the next TTL.
+                        m_BudgetedMemoryCache?.Clear();
                     }
                 }
             }
