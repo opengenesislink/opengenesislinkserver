@@ -126,6 +126,15 @@
     XmlRpcRouterModule = "XmlRpcRouterModule"
     XmlRpcPort = 20800
 
+; OpenGenesisLINK shared EEP civil-day cycle, synchronized to the simulator
+; server time zone. Enable only on regions meant to have a real 24-hour
+; shared day/night cycle; parcel and personal EEP overrides remain separate.
+; In split ROBUST/region deployments this MUST match the actual loaded
+; ROBUST [LoginService] DSTZone (Europe/Berlin is the NexVerse example).
+[OGLSharedDayNight]
+    Enabled = true
+    TimeZone = "Europe/Berlin;W. Europe Standard Time"
+
 [ClientStack.LindenUDP]
 
 [ClientStack.LindenCaps]
