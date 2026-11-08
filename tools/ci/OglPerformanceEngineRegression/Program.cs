@@ -312,6 +312,60 @@ static class Program
                 "adaptive gate exceeded its target concurrent I/O budget");
         }
 
+        // Region membership and lifetime-counter resets must not suppress
+        // load signals or carry old pressure into a reloaded region.
+        var regionPressure = new OglRegionPressureTracker();
+        Require(regionPressure.Sample(new[]
+        {
+            new OglRegionPressureCounter("A", 100, 10),
+            new OglRegionPressureCounter("B", 50, 5)
+        }) is null, "first sample must establish per-region baselines");
+        double? normalPressure = regionPressure.Sample(new[]
+        {
+            new OglRegionPressureCounter("A", 110, 12),
+            new OglRegionPressureCounter("B", 60, 6)
+        });
+        Require(normalPressure.HasValue && Math.Abs(normalPressure.Value - 15) < 0.0001,
+            "multi-region work pressure must aggregate per-region deltas");
+        double? afterRemoval = regionPressure.Sample(new[]
+        {
+            new OglRegionPressureCounter("B", 70, 7)
+        });
+        Require(afterRemoval.HasValue && Math.Abs(afterRemoval.Value - 10) < 0.0001,
+            "removed region must not corrupt the remaining pressure estimate");
+        Require(regionPressure.Sample(new[]
+        {
+            new OglRegionPressureCounter("B", 80, 7),
+            new OglRegionPressureCounter("C", 10000, 5000)
+        }) == 0, "new region must be baselined, not counted as historical load");
+        double? restartPressure = regionPressure.Sample(new[]
+        {
+            new OglRegionPressureCounter("B", 90, 8),
+            new OglRegionPressureCounter("C", 10, 0)
+        });
+        Require(restartPressure.HasValue &&
+                Math.Abs(restartPressure.Value - 10) < 0.0001,
+            "restarted region with reset counters must not mask active load");
+        double? recoveredPressure = regionPressure.Sample(new[]
+        {
+            new OglRegionPressureCounter("B", 100, 8),
+            new OglRegionPressureCounter("C", 20, 8)
+        });
+        Require(recoveredPressure.HasValue &&
+                Math.Abs(recoveredPressure.Value - 40) < 0.0001,
+            "restarted region must contribute to work pressure after re-baseline");
+        Require(regionPressure.Sample(Array.Empty<OglRegionPressureCounter>()) is null,
+            "empty set must not retain obsolete pressure");
+        Require(regionPressure.Sample(new[]
+        {
+            new OglRegionPressureCounter("C", 21, 8)
+        }) is null, "region must be re-baselined after disappearing");
+        regionPressure.Reset();
+        Require(regionPressure.Sample(new[]
+        {
+            new OglRegionPressureCounter("C", 500, 100)
+        }) is null, "explicit reset must remove old pressure baseline");
+
         // A waiting background writer is released when the gate shuts down.
         var stoppingGate = new OglAdaptiveFileWriteGate(1);
         Require(stoppingGate.TryAcquire(TimeSpan.Zero, out var heldPermit),
