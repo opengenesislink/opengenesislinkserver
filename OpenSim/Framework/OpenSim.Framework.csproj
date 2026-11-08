@@ -253,6 +253,12 @@
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="OglApprovedViewerPolicy.cs" />
+    <Compile Include="OglBudgetedLruCache.cs" />
+    <Compile Include="OglInFlightByteLimiter.cs" />
+    <Compile Include="OglPerformanceWorkerPolicy.cs" />
+    <Compile Include="OglRegionTimingWindow.cs" />
+    <Compile Include="OglAdaptiveFileWriteGate.cs" />
+    <Compile Include="OglRegionPressureTracker.cs" />
     <Compile Include="AssetPermissions.cs">
       <SubType>Code</SubType>
     </Compile>
