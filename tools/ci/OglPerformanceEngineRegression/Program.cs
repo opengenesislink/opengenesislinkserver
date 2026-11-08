@@ -110,7 +110,65 @@ static class Program
                 "parallel inserts exceeded LRU limits");
         }
 
-        Console.WriteLine("PASS: OGL G1 performance sampler, bounded queues, and RAM-budgeted LRU cache");
+        var limiter = new OglInFlightByteLimiter(1024);
+        Require(limiter.TryReserve(800, out var large), "first byte reservation");
+        Require(!limiter.TryReserve(300, out var denied) && denied == null,
+            "must reject when the in-flight byte budget is exhausted");
+        Require(limiter.InFlightBytes == 800 && limiter.RejectedCount == 1,
+            "incorrect byte budget occupancy/rejected counter");
+        large.Dispose();
+        large.Dispose(); // never count releases twice
+        Require(limiter.InFlightBytes == 0 && limiter.HighWaterBytes == 800,
+            "byte reservation leaked or double release underflowed");
+
+        // Multiple workers must never overcommit a shared byte budget.
+        var parallelLimiter = new OglInFlightByteLimiter(4096);
+        System.Threading.Tasks.Parallel.For(0, 1000, i =>
+        {
+            if (parallelLimiter.TryReserve(512, out var slot))
+            {
+                try { Thread.SpinWait(3000); }
+                finally { slot.Dispose(); }
+            }
+        });
+        Require(parallelLimiter.InFlightBytes == 0 &&
+                parallelLimiter.HighWaterBytes <= parallelLimiter.LimitBytes,
+            "parallel in-flight budget exceeded or leaked");
+
+        // Discarding accepted queued jobs on cancellation must release
+        // their memory reservations; the executing job releases its own.
+        var cancelLimiter = new OglInFlightByteLimiter(1024);
+        using (var started = new ManualResetEventSlim(false))
+        using (var unblock = new ManualResetEventSlim(false))
+        using (var workerCompleted = new ManualResetEventSlim(false))
+        {
+            Require(cancelLimiter.TryReserve(256, out var executing), "executing reservation");
+            Require(cancelLimiter.TryReserve(256, out var abandoned), "queued reservation");
+            using (var queue = new ObjectJobEngine(o =>
+                   {
+                       started.Set();
+                       if (!unblock.Wait(TimeSpan.FromSeconds(10)))
+                           throw new InvalidOperationException("worker was not released");
+                       ((OglInFlightByteLimiter.Reservation)o!).Dispose();
+                       workerCompleted.Set();
+                   }, "OglByteBudgetCancellationRegression", 1000, 1, 2,
+                   o => ((OglInFlightByteLimiter.Reservation)o).Dispose()))
+            {
+                Require(queue.Enqueue(executing), "executing job not queued");
+                Require(started.Wait(TimeSpan.FromSeconds(10)), "worker not started");
+                Require(queue.Enqueue(abandoned), "second job not queued");
+                queue.Cancel();
+                Require(cancelLimiter.InFlightBytes == 256,
+                    "abandoned queued job was not released by discard callback");
+                unblock.Set();
+                Require(workerCompleted.Wait(TimeSpan.FromSeconds(10)),
+                    "executing job did not finish");
+            }
+            Require(cancelLimiter.InFlightBytes == 0,
+                "cancellation leaked active or queued reservations");
+        }
+
+        Console.WriteLine("PASS: OGL G1 performance sampler, bounded job/byte queues, and RAM-budgeted LRU cache");
         return 0;
     }
 }
