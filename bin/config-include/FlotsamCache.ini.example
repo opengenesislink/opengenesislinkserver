@@ -80,6 +80,17 @@
     ; Compare region frame times and disk latency before enabling 0/2/4.
     FileWriteConcurrency = 1
 
+    ; OGL adaptive I/O scheduler. Off by default, for isolated load tests.
+    ; When enabled with >1 writer, a 5-60 second sample periodically checks
+    ; process CPU usage and (if [OGLPerformance] Enabled=true) actual region
+    ; work-time budget overruns. High pressure reduces concurrent DISK-CACHE
+    ; writes, never Physics, scripts, scene frames or authoritative asset saves.
+    ; Recovery is gradual to avoid worker-count oscillation.
+    ; Excess independent disk-cache writes can be skipped after a 500ms wait.
+    ; Enable only after setting an appropriate file write queue / byte budget.
+    AdaptiveFileWrites = false
+    AdaptiveFileWriteSampleSeconds = 5
+
     ; Optional RAM backpressure for the disposable disk-write queue. 0 means
     ; legacy unbounded queue; 512-2048 bounds asset buffers retained in memory.
     ; When saturated, the cache write is skipped (the authoritative asset remains
