@@ -4,6 +4,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Threading;
 
 namespace OpenSim.Framework
 {
@@ -23,16 +24,28 @@ namespace OpenSim.Framework
         private readonly Func<TValue, long> m_EstimateBytes;
         private readonly long m_MaxBytes;
         private readonly int m_MaxEntries;
+        private readonly Timer m_ExpiryTimer;
         private long m_Bytes;
+        private long m_ExpiredEvictions;
         private bool m_Disposed;
 
-        public OglBudgetedLruCache(long maxBytes, int maxEntries, Func<TValue, long> estimateBytes)
+        public OglBudgetedLruCache(long maxBytes, int maxEntries, Func<TValue, long> estimateBytes,
+            TimeSpan? expirySweepInterval = null)
         {
             if (maxBytes < 1) throw new ArgumentOutOfRangeException(nameof(maxBytes));
             if (maxEntries < 1) throw new ArgumentOutOfRangeException(nameof(maxEntries));
             m_EstimateBytes = estimateBytes ?? throw new ArgumentNullException(nameof(estimateBytes));
             m_MaxBytes = maxBytes;
             m_MaxEntries = maxEntries;
+
+            // Only instantiated for the explicitly enabled budgeted RAM cache.
+            // One low-frequency timer per cache releases expired assets even
+            // when no viewer is requesting them (no hot-path eviction scans).
+            TimeSpan interval = expirySweepInterval ?? TimeSpan.FromMinutes(1);
+            if (interval < TimeSpan.FromMilliseconds(10) ||
+                interval > TimeSpan.FromHours(1))
+                throw new ArgumentOutOfRangeException(nameof(expirySweepInterval));
+            m_ExpiryTimer = new Timer(_ => ExpireIdleEntries(), null, interval, interval);
         }
 
         public int Count
@@ -43,6 +56,13 @@ namespace OpenSim.Framework
         public long EstimatedBytes
         {
             get { lock (m_Sync) { PruneExpired(Stopwatch.GetTimestamp()); return m_Bytes; } }
+        }
+
+        // Monotonic counter, used to verify idle expiry without triggering a
+        // manual cache lookup/status sweep. This is not an RSS measurement.
+        public long ExpiredEvictions
+        {
+            get { lock (m_Sync) return m_ExpiredEvictions; }
         }
 
         public bool AddOrUpdate(TKey key, TValue value, TimeSpan lifetime)
@@ -103,7 +123,8 @@ namespace OpenSim.Framework
                         value = entry.Value;
                         return true;
                     }
-                    RemoveCore(key);
+                    if (RemoveCore(key))
+                        ++m_ExpiredEvictions;
                 }
                 value = default;
                 return false;
@@ -133,12 +154,22 @@ namespace OpenSim.Framework
 
         public void Dispose()
         {
+            m_ExpiryTimer.Dispose();
             lock (m_Sync)
             {
                 m_Disposed = true;
                 m_Entries.Clear();
                 m_Lru.Clear();
                 m_Bytes = 0;
+            }
+        }
+
+        private void ExpireIdleEntries()
+        {
+            lock (m_Sync)
+            {
+                if (!m_Disposed)
+                    PruneExpired(Stopwatch.GetTimestamp());
             }
         }
 
@@ -149,8 +180,8 @@ namespace OpenSim.Framework
             while (node != null)
             {
                 LinkedListNode<TKey> previous = node.Previous;
-                if (m_Entries[node.Value].ExpiresAt <= now)
-                    RemoveCore(node.Value);
+                if (m_Entries[node.Value].ExpiresAt <= now && RemoveCore(node.Value))
+                    ++m_ExpiredEvictions;
                 node = previous;
             }
         }
