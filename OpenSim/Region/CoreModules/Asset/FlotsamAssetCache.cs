@@ -134,6 +134,11 @@ namespace OpenSim.Region.CoreModules.Asset
 
         private Dictionary<string,WeakReference> weakAssetReferences = new();
         private readonly object weakAssetReferencesLock = new();
+        // Optional dead-key cleanup: weak targets are GC-managed, but dictionary
+        // strings otherwise persist until a manual/deep cache purge.
+        private int m_WeakReferencePruneSeconds;
+        private System.Threading.Timer m_WeakReferencePruneTimer;
+        private long m_WeakReferencesPruned;
         private static bool m_updateFileTimeOnCacheHit = false;
 
         private static ExpiringKey<string> m_lastFileAccessTimeChange = null;
@@ -191,6 +196,10 @@ namespace OpenSim.Region.CoreModules.Asset
                         m_AdaptiveFileWriteSampleSeconds = Math.Clamp(
                             assetConfig.GetInt("AdaptiveFileWriteSampleSeconds",
                                 m_AdaptiveFileWriteSampleSeconds), 5, 60);
+                        int pruneSeconds = assetConfig.GetInt(
+                            "WeakReferencePruneSeconds", m_WeakReferencePruneSeconds);
+                        m_WeakReferencePruneSeconds = pruneSeconds <= 0
+                            ? 0 : Math.Clamp(pruneSeconds, 60, 3600);
                         m_MaxInFlightFileWriteMiB = Math.Clamp(
                             assetConfig.GetInt("MaxInFlightFileWriteMiB", m_MaxInFlightFileWriteMiB),
                             0, 16384);
@@ -312,6 +321,8 @@ namespace OpenSim.Region.CoreModules.Asset
                 m_AdaptiveFileWriteTimer?.Dispose();
                 m_AdaptiveFileWriteTimer = null;
                 m_AdaptiveFileWriteGate?.Dispose();
+                m_WeakReferencePruneTimer?.Dispose();
+                m_WeakReferencePruneTimer = null;
                 m_BudgetedMemoryCache?.Dispose();
             }
         }
@@ -355,6 +366,8 @@ namespace OpenSim.Region.CoreModules.Asset
                         // No active scenes: release the opt-in RAM cache now
                         // instead of pinning stale assets until the next TTL.
                         m_BudgetedMemoryCache?.Clear();
+                        m_WeakReferencePruneTimer?.Dispose();
+                        m_WeakReferencePruneTimer = null;
                         m_AdaptiveFileWriteTimer?.Dispose();
                         m_AdaptiveFileWriteTimer = null;
                         lock (m_AdaptiveSamplingLock)
@@ -412,6 +425,14 @@ namespace OpenSim.Region.CoreModules.Asset
                         TimeSpan interval = TimeSpan.FromSeconds(m_AdaptiveFileWriteSampleSeconds);
                         m_AdaptiveFileWriteTimer = new System.Threading.Timer(
                             SampleAdaptiveFileWritePressure, null, interval, interval);
+                    }
+
+                    if (m_WeakReferencePruneSeconds > 0 &&
+                        m_WeakReferencePruneTimer == null)
+                    {
+                        TimeSpan interval = TimeSpan.FromSeconds(m_WeakReferencePruneSeconds);
+                        m_WeakReferencePruneTimer = new System.Threading.Timer(
+                            _ => PruneDeadWeakReferences(), null, interval, interval);
                     }
 
                     // Region membership may be changing while optional
@@ -537,6 +558,30 @@ namespace OpenSim.Region.CoreModules.Asset
         ////////////////////////////////////////////////////////////
         // IAssetCache
         //
+        private int PruneDeadWeakReferences()
+        {
+            // No forced GC, only remove entries whose targets are already
+            // collected. Never remove a live asset or touch authoritative data.
+            int removed = 0;
+            lock (weakAssetReferencesLock)
+            {
+                var deadKeys = new List<string>();
+                foreach (KeyValuePair<string, WeakReference> entry in weakAssetReferences)
+                {
+                    if (entry.Value is null || !entry.Value.IsAlive)
+                        deadKeys.Add(entry.Key);
+                }
+
+                foreach (string key in deadKeys)
+                    if (weakAssetReferences.Remove(key))
+                        ++removed;
+            }
+
+            if (removed > 0)
+                Interlocked.Add(ref m_WeakReferencesPruned, removed);
+            return removed;
+        }
+
         private void UpdateWeakReference(string key, AssetBase asset)
         {
             lock(weakAssetReferencesLock)
@@ -1605,6 +1650,11 @@ namespace OpenSim.Region.CoreModules.Asset
                                         m_AdaptiveFileWriteGate.MaxWorkers,
                                         m_AdaptiveFileWriteGate.ActiveWorkers,
                                         m_AdaptiveFileWriteGate.RejectedWrites);
+                                if (m_WeakReferencePruneSeconds > 0)
+                                    con.Output(
+                                        "[FLOTSAM ASSET CACHE] Dead weak-ref sweep: every {0}s, {1} stale keys removed",
+                                        m_WeakReferencePruneSeconds,
+                                        Interlocked.Read(ref m_WeakReferencesPruned));
                                 bool doingscan;
                                 lock (timerLock)
                                 {
