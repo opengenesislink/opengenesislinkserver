@@ -52,7 +52,7 @@ namespace OpenSim.Framework
         private int m_numberThreads = 0;
         private bool m_isRunning;
 
-        public ObjectJobEngine(WaitCallback callback, string name, int threadsHoldtime = 1000, int concurrency = 1)
+        public ObjectJobEngine(WaitCallback callback, string name, int threadsHoldtime = 1000, int concurrency = 1, int maxQueuedJobs = 0)
         {
             m_name = name;
             m_threadsHoldtime = threadsHoldtime;
@@ -65,7 +65,11 @@ namespace OpenSim.Framework
             if (callback !=  null)
             {
                 m_callback = callback;
-                m_jobQueue = new BlockingCollection<object>();
+                // Keep historical unbounded behavior unless the caller opts in.
+                // Bounded queues avoid retaining unlimited asset byte arrays when disk I/O stalls.
+                m_jobQueue = maxQueuedJobs > 0
+                    ? new BlockingCollection<object>(Math.Clamp(maxQueuedJobs, 1, 65536))
+                    : new BlockingCollection<object>();
                 m_cancelSource = new CancellationTokenSource();
                 m_isRunning = true;
             }
@@ -143,14 +147,16 @@ namespace OpenSim.Framework
 
             lock (m_mainLock)
             {
-                m_jobQueue?.Add(o);
+                if (!m_isRunning || m_jobQueue == null || !m_jobQueue.TryAdd(o))
+                    return false;
+
                 if (m_numberThreads < m_concurrency && m_numberThreads < m_jobQueue.Count)
                 {
                     Util.FireAndForget(ProcessRequests, null, m_name, false);
                     ++m_numberThreads;
                 }
+                return true;
             }
-            return true;
         }
 
         private void ProcessRequests(object o)
