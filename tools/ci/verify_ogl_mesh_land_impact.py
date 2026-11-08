@@ -34,6 +34,7 @@ assert "m_scene?.RequestModuleInterface<IPrimCountModule>()" in group
 assert "TriggerParcelPrimCountTainted" in group
 assert "GetObjectLandImpact(group)" in read("OpenSim/Region/Framework/Scenes/Scene.Inventory.cs")
 assert "GetObjectLandImpact(g)" in read("OpenSim/Region/CoreModules/Framework/InventoryAccess/InventoryAccessModule.cs")
+assert "GetObjectLandImpact(grp)" in read("OpenSim/Region/ClientStack/Linden/Caps/ObjectCaps/UploadObjectAssetModule.cs")
 assert "GetObjectLandImpact(group)" in read("OpenSim/Region/OptionalModules/Scripting/JsonStore/JsonStoreScriptModule.cs")
 
 for file, enabled in [
