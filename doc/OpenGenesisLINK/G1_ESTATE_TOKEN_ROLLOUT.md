@@ -10,9 +10,9 @@ Der historische OpenSimulator-`EstateModule`-Code enthielt einen fest einkompili
 
 - Der Handler wird nur registriert, wenn ein starkes, **auf allen beteiligten Simulatoren identisches** Geheimnis mit mindestens **32 Zeichen** vorliegt.
 - Bevorzugt wird die Prozessumgebungsvariable `OGL_ESTATE_SHARED_TOKEN`. Nur wenn sie fehlt/leer ist, wird `[Estates] Token` aus der **privaten Betreiber-INI** gelesen (kein Git-Secret).
-- Fehlt das Geheimnis oder ist es zu kurz, wird `EstateModule` für diese Instanz **deaktiviert** und ein Fehler ohne den Token-Wert protokolliert. Es gibt **keinen** Fallback auf den historischen Token.
+- Fehlt das Geheimnis oder ist es zu kurz, wird **nur die Remote-Estate-Kommunikation** deaktiviert: kein `/estate`-Handler und keine ausgehenden Estate-HTTP-Aufrufe. Lokale Estate-Callbacks und intra-prozessuale Estate-Updates bleiben aktiv. Der Fehler wird ohne Token-Wert protokolliert. Es gibt **keinen** Fallback auf den historischen Token.
 - Eingehende Token werden mittels `CryptographicOperations.FixedTimeEquals` geprüft.
-- Andere Estate-Management-Funktionen bleiben im eigenen Modul; regionsübergreifendes Estate-Update, Estate-Broadcast und Fernausweisungen können bei deaktiviertem EstateModule ausfallen.
+- Lokale Estate-Management-Funktionen bleiben aktiv; regionsübergreifendes Estate-Update, Estate-Broadcast und Fernausweisungen fallen ohne gültigen Shared Token aus.
 
 ## Vor dem Update – Pflicht für Stadt NexVerse
 
@@ -25,7 +25,7 @@ Der historische OpenSimulator-`EstateModule`-Code enthielt einen fest einkompili
 ## Funktions- und Security-Tests
 
 - Mit gültigem Token über zwei Simulatoren: Estate-Update, Covenant, Estate-Nachricht, Teleport-Home jeweils durchführen.
-- Fehlender/zu kurzer Token: `/estate` darf **nicht registriert** werden; Startprotokoll enthält einen Fehler, niemals das Geheimnis.
+- Fehlender/zu kurzer Token: `/estate` darf **nicht registriert** werden und der Connector darf keine Remote-Requests versenden; lokale Estate-Funktionen müssen weiterarbeiten. Das Startprotokoll enthält einen Fehler, niemals das Geheimnis.
 - Falscher Token und POST ohne Token: keine autorisierte Estate-Operation; gültiger Token funktioniert.
 - Nur authentische/autorisiert veranlasste Aktionen; Remote-Netzzugriff über Firewall/Proxy begrenzen.
 - Kein Abhören auf dem öffentlichen Simulator-HTTP-Port ohne separate Zugriffskontrolle, auch nach diesem Fix.
