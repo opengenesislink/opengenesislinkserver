@@ -75,13 +75,16 @@ internal static class Program
     }
 
     private static void Evaluate(bool expected, string reason, Entry[] entries, bool badChecksum = false,
-        int? logicalEntries = null)
+        int? logicalEntries = null, string? expectedError = null)
     {
         string file = MakeArchive(entries, badChecksum);
         try
         {
             OglIarInspection result = OglIarInspector.Inspect(file);
             Assert(result.Valid == expected, reason + ": " + result.Error);
+            if (expectedError != null)
+                Assert(result.Error.Contains(expectedError, StringComparison.Ordinal),
+                    reason + ": expected diagnostic category " + expectedError + ", got: " + result.Error);
             if (logicalEntries.HasValue)
                 Assert(result.Entries == logicalEntries.Value,
                     reason + ": GNU metadata must not inflate logical import progress");
@@ -109,6 +112,37 @@ internal static class Program
             new[] { xml, longInventory,
                 new Entry("inventory/" + new string('q', 137) + "/second.xml", new byte[] { 5 }),
                 asset }, logicalEntries: 4);
+
+        // Production path regression: inventory names may contain ':', '\\'
+        // and '/' but the writer encodes those as safe ASCII entities.
+        // This also covers nested inventory trees longer than the former
+        // 512-character filename limit.
+        var escapedFolder = new Entry(
+            "inventory/Windows&#58;Legacy&#92;Backup__11111111-1111-1111-1111-111111111111/",
+            Array.Empty<byte>(), (byte)'5');
+        var escapedItem = new Entry(
+            escapedFolder.Path + "NexVerse&#58;Promo&amp;Sounds&#92;2026&#47;2027__22222222-2222-2222-2222-222222222222.xml",
+            Encoding.UTF8.GetBytes("<InventoryItem/>"));
+        Evaluate(true, "archive-encoded colon, backslash, slash and ampersand in inventory",
+            new[] { xml, escapedFolder, escapedItem, asset }, logicalEntries: 4);
+        Evaluate(true, "archive entity escaped literal entity-looking inventory name",
+            new[] { xml, new Entry("inventory/Literal&amp;#58;Text__33333333-3333-3333-3333-333333333333.xml",
+                Encoding.UTF8.GetBytes("<InventoryItem/>")), asset });
+
+        string deepInventoryName = "inventory/" + new string('d', 1500) +
+            "__44444444-4444-4444-4444-444444444444/item.xml";
+        Evaluate(true, "long nested inventory paths up to bounded 4096-character cap",
+            new[] { xml, new Entry(deepInventoryName, Encoding.UTF8.GetBytes("<InventoryItem/>")), asset },
+            logicalEntries: 3);
+        Evaluate(false, "GNU LongName exceeding 4096-character filename bound",
+            new[] { xml, new Entry("inventory/" + new string('x', 4200) + ".xml",
+                new byte[] { 1 }), asset });
+        Evaluate(false, "raw colon remains unsafe in TAR entries",
+            new[] { xml, new Entry("inventory/Windows:Legacy__abc.xml", new byte[] { 1 }), asset },
+            expectedError: "Doppelpunkt");
+        Evaluate(false, "raw backslash remains unsafe in TAR entries",
+            new[] { xml, new Entry("inventory/Windows\\Legacy__abc.xml", new byte[] { 1 }), asset },
+            expectedError: "Backslash");
 
         // Real links, PAX, sparse formats and malformed GNU long-name
         // metadata must remain prohibited; no import path traversal.
