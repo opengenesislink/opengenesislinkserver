@@ -83,14 +83,42 @@ internal static class Program
             Check(fromFile is not null && fromFile.Data.SequenceEqual(original.Data), "File cache could not read new versioned format");
 
             TestConcurrentRealFileCacheWrites(root);
+            TestDeadWeakReferencePruning();
 
-            Console.WriteLine("PASS: Flotsam .NET10 codec, corruption detection, concurrent file-cache writes and byte-budget cleanup");
+            Console.WriteLine("PASS: Flotsam .NET10 codec, concurrent file-cache writes, byte budget, and dead weak-key reclamation");
             return 0;
         }
         finally
         {
             Directory.Delete(root, recursive: true);
         }
+    }
+
+    private static void TestDeadWeakReferencePruning()
+    {
+        // Do not force a GC in the test. A weak reference with a null target
+        // is known dead; a strongly held AssetBase must remain available.
+        var cache = new FlotsamAssetCache();
+        Type type = typeof(FlotsamAssetCache);
+        var weakField = type.GetField("weakAssetReferences",
+            BindingFlags.Instance | BindingFlags.NonPublic)!;
+        var prune = type.GetMethod("PruneDeadWeakReferences",
+            BindingFlags.Instance | BindingFlags.NonPublic)!;
+        var liveAsset = new AssetBase { ID = Guid.NewGuid().ToString("D") };
+        var weak = (Dictionary<string, WeakReference>)weakField.GetValue(cache)!;
+        weak["dead-1"] = new WeakReference(null);
+        weak["dead-2"] = new WeakReference(null);
+        weak["live"] = new WeakReference(liveAsset);
+
+        Check((int)prune.Invoke(cache, Array.Empty<object>())! == 2,
+            "dead weak-reference keys were not reclaimed");
+        Check(weak.Count == 1 && weak.ContainsKey("live"),
+            "weak-reference pruning discarded live asset metadata");
+        Check(ReferenceEquals(weak["live"].Target, liveAsset),
+            "weak-reference pruning changed a live asset target");
+        Check((int)prune.Invoke(cache, Array.Empty<object>())! == 0,
+            "weak-reference pruning must be idempotent");
+        GC.KeepAlive(liveAsset);
     }
 
     private static void TestConcurrentRealFileCacheWrites(string root)
