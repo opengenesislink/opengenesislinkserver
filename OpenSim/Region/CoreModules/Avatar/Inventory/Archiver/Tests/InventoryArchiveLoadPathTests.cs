@@ -49,6 +49,34 @@ namespace OpenSim.Region.CoreModules.Avatar.Inventory.Archiver.Tests
     public class InventoryArchiveLoadPathTests : InventoryArchiveTestCase
     {
         /// <summary>
+        /// TAR paths must be safe on Windows/Linux while the reimported avatar
+        /// folder names preserve colons, backslashes, slashes and literal
+        /// entity-like text without recursive unescaping.
+        /// </summary>
+        [Test]
+        public void TestArchivePathEscapingForWindowsUnsafeInventoryNames()
+        {
+            string[] names =
+            {
+                @"NexVerse: Winter\2026/2027 & friends",
+                "Literal &#58; and &#92; entities",
+                @"C:\\Textures\export:final",
+                "Folder/With/Slashes",
+                "Regular inventory folder"
+            };
+
+            foreach (string name in names)
+            {
+                string archived = InventoryArchiveUtils.EscapeArchivePath(name);
+                Assert.That(archived.Contains(":"), Is.False, "Colon leaked into TAR inventory name");
+                Assert.That(archived.Contains("\\"), Is.False, "Backslash leaked into TAR inventory name");
+                Assert.That(archived.Contains("/"), Is.False, "Slash leaked into TAR inventory name");
+                Assert.That(InventoryArchiveUtils.UnescapeArchivePath(archived),
+                    Is.EqualTo(name), "IAR name escaping failed to round-trip");
+            }
+        }
+
+        /// <summary>
         /// Test loading an IAR to various different inventory paths.
         /// </summary>
         [Test]
