@@ -350,6 +350,61 @@
 ; Deaktivierte alte externe Texture-Bake-URL, kein untrusted HTTP.
     URL = ""
 
+
+; ============================================================================
+; Generation 1: explizite, bereits bisher wirksame OpenSimDefaults-Module
+; ============================================================================
+; Die folgenden Werte sind keine neuen Features. Sie dokumentieren
+; Kernmodule, die zuvor ausschliesslich aus OpenSimDefaults.ini erbten.
+
+[RegionReady]
+    ; Login erst erlauben, wenn die Region bereit ist (Statuskanal -800).
+    ; KRITISCH fuer Regionstart, Nutzeranmeldung und Script-Bereitmeldung.
+    enabled = true
+    channel_notify = -800
+    login_disable = true
+
+[EstateManagement]
+    ; Erlaubt autorisierten Estate-Berechtigten einen Regionsneustart.
+    ; Nicht mit dem internen [Estates]-Kommunikationshandler verwechseln.
+    AllowRegionRestartFromClient = true
+
+[Inventory]
+    ; Mehrere zusammengehoerige Objekte werden im Inventar gebuendelt.
+    CoalesceMultipleObjectsToInventory = true
+
+[Attachments]
+    ; KRITISCH fuer Avatare, Skriptzustand und Inventar-Transfers.
+    Enabled = true
+
+[Mesh]
+    ; Mesh-Upload erlaubt. Upload-Gebuehren und Land Impact sind separat.
+    AllowMeshUpload = true
+
+[PacketPool]
+    ; UDP-Objektpuffer werden wiederverwendet; nur nach Profiling aendern.
+    RecycleBaseUDPPackets = true
+
+[Monitoring]
+    ; Externe bzw. interne Monitoring-/Diagnose-Schnittstellen.
+    Enabled = true
+
+[Statistics]
+    ; Anzahl Frames fuer die Statistikaggregation.
+    NumberOfFrames = 10
+
+[JsonStore]
+    ; Legacy JsonStore ist standardmaessig AUS. Aktivierung kann neue
+    ; Datenhaltung und OSSL/LSL-Verhaltensweisen erfordern.
+    Enabled = false
+    EnableObjectStore = false
+    MaxStringSpace = 0
+
+[OGLShutdown]
+    ; Maximale Wartezeit bis Region-Close/Shutdown (Sekunden).
+    ; KRITISCH fuer Evakuierung, Backup und geordnetes Herunterfahren.
+    RegionCloseTimeoutSeconds = 180
+
 [Architecture]
     Include-Architecture = "config-include/Standalone.ini"
 
