@@ -761,11 +761,12 @@ namespace OpenSim.Region.OptionalModules.Scripting.JsonStore
                 return;
             }
 
-            int totalPrims = 0;
+            int totalImpact = 0;
+            IPrimCountModule landImpactModule = m_scene.RequestModuleInterface<IPrimCountModule>();
             foreach (SceneObjectGroup group in objlist)
-                totalPrims += group.PrimCount;
+                totalImpact += landImpactModule?.GetObjectLandImpact(group) ?? group.PrimCount;
 
-            if (! m_scene.Permissions.CanRezObject(totalPrims, item.OwnerID, pos))
+            if (! m_scene.Permissions.CanRezObject(totalImpact, item.OwnerID, pos))
             {
                 GenerateRuntimeError("Not allowed to create the object");
                 return;

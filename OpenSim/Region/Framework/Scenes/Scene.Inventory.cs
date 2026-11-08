@@ -2696,10 +2696,15 @@ namespace OpenSim.Region.Framework.Scenes
                 return null;
 
             int totalPrims = 0;
+            long totalLandImpact = 0;
+            IPrimCountModule primCountModule = RequestModuleInterface<IPrimCountModule>();
             foreach (SceneObjectGroup group in objlist)
-                totalPrims += group.PrimCount;
+            {
+                totalPrims += group.PrimCount; // Actual linkset/rez placement geometry.
+                totalLandImpact += primCountModule?.GetObjectLandImpact(group) ?? group.PrimCount;
+            }
 
-            if (!Permissions.CanRezObject(totalPrims, newowner, pos))
+            if (!Permissions.CanRezObject((int)Math.Min(int.MaxValue, totalLandImpact), newowner, pos))
                 return null;
 
             if (!Permissions.BypassPermissions())

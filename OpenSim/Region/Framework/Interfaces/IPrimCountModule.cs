@@ -37,5 +37,14 @@ namespace OpenSim.Region.Framework.Interfaces
         void TaintPrimCount();
 
         IPrimCounts GetPrimCounts(UUID parcelID);
+
+        // Quota cost for a full linked object (does not alter PrimCount or LSL).
+        int GetObjectLandImpact(OpenSim.Region.Framework.Scenes.SceneObjectGroup group);
+
+        // Accurate aggregate costs for viewer GetObjectCost/selected weights.
+        bool MeshLandImpactEnabled { get; }
+        void GetObjectLandImpactWeights(
+            OpenSim.Region.Framework.Scenes.SceneObjectGroup group,
+            out float streaming, out float physics, out float server);
     }
 }

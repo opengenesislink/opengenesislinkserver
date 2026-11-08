@@ -1751,7 +1751,9 @@ namespace OpenSim.Region.CoreModules.World.Land
                             }
                             try
                             {
-                                primCount[obj.OwnerID] += obj.PrimCount;
+                                primCount[obj.OwnerID] +=
+                                    m_scene.RequestModuleInterface<IPrimCountModule>()?.GetObjectLandImpact(obj)
+                                    ?? obj.PrimCount;
                             }
                             catch (KeyNotFoundException)
                             {
@@ -1786,7 +1788,9 @@ namespace OpenSim.Region.CoreModules.World.Land
                         {
                             ownersAndCount.Add(obj.OwnerID, 0);
                         }
-                        ownersAndCount[obj.OwnerID] += obj.PrimCount;
+                        ownersAndCount[obj.OwnerID] +=
+                            m_scene.RequestModuleInterface<IPrimCountModule>()?.GetObjectLandImpact(obj)
+                            ?? obj.PrimCount;
                     }
                 }
                 catch (InvalidOperationException)
