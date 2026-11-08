@@ -13,6 +13,9 @@ on:
   pull_request:
     paths:
       - OpenSim/Server/Handlers/Grid/GridInfoHandlers.cs
+      - OpenSim/Region/CoreModules/World/LightShare/EnvironmentModule.cs
+      - bin/OpenSim.ini.example
+      - tools/ci/verify_ogl_shared_daynight.py
       - tools/ci/verify_ogl_viewer_clock.py
       - .github/workflows/ogl-viewer-clock.yml
   workflow_dispatch:
@@ -31,3 +34,19 @@ jobs:
         run: python3 tools/ci/verify_ogl_shared_daynight.py
       - name: Existing Berlin login DST regression guard
         run: python3 tools/ci/verify_nexverse_berlin_dst.py
+
+  compile-region-eep:
+    name: Compile .NET 10 ROBUST and simulator EEP module
+    runs-on: ubuntu-22.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: Generate OpenGenesisLINK project files
+        run: |
+          chmod +x runprebuild.sh
+          ./runprebuild.sh
+      - name: Build source with shared-day/night EEP extension
+        run: dotnet build OpenSim.sln --configuration Release
