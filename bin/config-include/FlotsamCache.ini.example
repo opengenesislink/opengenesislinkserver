@@ -74,8 +74,10 @@
 
     ; OGL Performance Engine 1.0: independent disk-cache writes may use more CPU
     ; and I/O bandwidth. Set 1 for historical serial behavior (safe default).
-    ; Never set higher than 8 or your process-visible CPU core count.
-    ; Enable 2-4 only after comparing region frame times and disk latency.
+    ; Positive values are clamped to 1..min(8, process-visible CPU cores).
+    ; An explicit 0 selects conservative auto mode (up to 4 workers, half the
+    ; visible CPU cores, minimum 1). The default stays 1 for compatibility.
+    ; Compare region frame times and disk latency before enabling 0/2/4.
     FileWriteConcurrency = 1
 
     ; Optional RAM backpressure for the disposable disk-write queue. 0 means
