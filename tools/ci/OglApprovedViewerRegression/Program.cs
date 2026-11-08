@@ -97,7 +97,7 @@ internal static class Program
         Check("TrixieStorm Viewer", "Hydrastorm", false);
         Check("Darkstorm TrixieStorm Viewer", "TrixieStorm Viewer", false);
         Check("TrixieStorm Viewer Copybot", "TrixieStorm Viewer", false);
-        Check("TrixieStorm Viewer-ReleaseFake", "", false);
+        Check("TrixieStorm ViewerFake-Release", "", false);
 
         // Denials: explicit known Copybot labels and every other viewer family.
         Check("Darkstorm 2.0", "Darkstorm", false);
