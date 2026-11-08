@@ -1,0 +1,30 @@
+name: OGL G1 Legacy Launcher Cleanup
+on:
+  pull_request:
+    paths:
+      - 'OpenSim/Tools/LaunchSLClient/**'
+      - 'OpenSim/Tools/classaudit.pl'
+      - 'bin/LaunchSLClient.ini'
+      - 'doc/NexVerse/LEGACY_COMPONENTS.md'
+      - 'tools/ci/verify_ogl_legacy_launcher_cleanup.py'
+      - '.github/workflows/ogl-g1-legacy-launcher-cleanup.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'OpenSim/Tools/LaunchSLClient/**'
+      - 'OpenSim/Tools/classaudit.pl'
+      - 'bin/LaunchSLClient.ini'
+      - 'doc/NexVerse/LEGACY_COMPONENTS.md'
+      - 'tools/ci/verify_ogl_legacy_launcher_cleanup.py'
+      - '.github/workflows/ogl-g1-legacy-launcher-cleanup.yml'
+permissions:
+  contents: read
+jobs:
+  removed-tooling-guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify retired tooling and production module preservation
+        run: |
+          python3 tools/ci/verify_ogl_legacy_launcher_cleanup.py
+          python3 tools/ci/verify_ogl_legacy_cleanup.py
