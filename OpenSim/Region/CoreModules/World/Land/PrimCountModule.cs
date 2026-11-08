@@ -56,6 +56,8 @@ namespace OpenSim.Region.CoreModules.World.Land
 //        private static readonly ILog m_log = LogManager.GetLogger(MethodBase.GetCurrentMethod().DeclaringType);
 
         private Scene m_Scene;
+        private bool m_meshLandImpactEnabled;
+        private OglMeshLandImpactCalculator m_meshLandImpact;
         private Dictionary<UUID, PrimCounts> m_PrimCounts =
                 new Dictionary<UUID, PrimCounts>();
         private Dictionary<UUID, UUID> m_OwnerMap =
@@ -83,11 +85,17 @@ namespace OpenSim.Region.CoreModules.World.Land
 
         public void Initialise(IConfigSource source)
         {
+            // Off by default in OpenSimDefaults.ini; opt in per simulator
+            // after confirming production parcel quotas and viewer behavior.
+            m_meshLandImpactEnabled =
+                source?.Configs["OGLMeshLandImpact"]?.GetBoolean("Enabled", false) ?? false;
         }
 
         public void AddRegion(Scene scene)
         {
             m_Scene = scene;
+            m_meshLandImpact = m_meshLandImpactEnabled
+                ? new OglMeshLandImpactCalculator(scene) : null;
 
             m_Scene.RegisterModuleInterface<IPrimCountModule>(this);
 
@@ -112,6 +120,38 @@ namespace OpenSim.Region.CoreModules.World.Land
         public string Name
         {
             get { return "PrimCountModule"; }
+        }
+
+        public bool MeshLandImpactEnabled => m_meshLandImpactEnabled;
+
+        public int GetObjectLandImpact(SceneObjectGroup group)
+        {
+            if (group is null)
+                return 0;
+            if (!m_meshLandImpactEnabled || m_meshLandImpact is null)
+                return group.PrimCount;
+            return m_meshLandImpact.GetLandImpact(group);
+        }
+
+        public void GetObjectLandImpactWeights(SceneObjectGroup group,
+            out float streaming, out float physics, out float server)
+        {
+            if (group is null)
+            {
+                streaming = physics = server = 0;
+                return;
+            }
+            if (!m_meshLandImpactEnabled || m_meshLandImpact is null)
+            {
+                streaming = physics = server = group.PrimCount;
+                return;
+            }
+
+            m_meshLandImpact.GetWeights(group, out _, out double sw,
+                out double pw, out double vw);
+            streaming = (float)Math.Min(float.MaxValue, sw);
+            physics = (float)Math.Min(float.MaxValue, pw);
+            server = (float)Math.Min(float.MaxValue, vw);
         }
 
         private void OnParcelPrimCountAdd(SceneObjectGroup obj)
@@ -205,7 +245,9 @@ namespace OpenSim.Region.CoreModules.World.Land
             if (m_ParcelCounts.TryGetValue(landData.GlobalID, out parcelCounts))
             {
                 UUID landOwner = landData.OwnerID;
-                int partCount = obj.GetPartCount();
+                // Land/parcel limits use linkset LI, not raw mesh part count.
+                // LSL and the editable linkset structure still use PrimCount.
+                int partCount = GetObjectLandImpact(obj);
 
                 m_SimwideCounts[landOwner] += partCount;
                 if (parcelCounts.Users.ContainsKey(obj.OwnerID))
