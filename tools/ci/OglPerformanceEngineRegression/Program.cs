@@ -183,6 +183,80 @@ static class Program
                 "cancellation leaked active or queued reservations");
         }
 
+        // Shutdown must not dispose a queue while a worker is still executing.
+        // Accepted but queued items must be discarded exactly once.
+        using (var callbackStarted = new ManualResetEventSlim(false))
+        using (var finishCallback = new ManualResetEventSlim(false))
+        using (var callbackFinished = new ManualResetEventSlim(false))
+        {
+            int completed = 0;
+            int discarded = 0;
+            var engine = new ObjectJobEngine(o =>
+            {
+                callbackStarted.Set();
+                Require(finishCallback.Wait(TimeSpan.FromSeconds(10)),
+                    "callback unexpectedly timed out");
+                Interlocked.Increment(ref completed);
+                callbackFinished.Set();
+            }, "OglDisposeDuringCallback", 1000, 1, 4, _ =>
+            {
+                Interlocked.Increment(ref discarded);
+            });
+
+            Require(engine.Enqueue(1), "active job rejected");
+            Require(callbackStarted.Wait(TimeSpan.FromSeconds(10)),
+                "callback did not start");
+            Require(engine.Enqueue(2), "queued shutdown job rejected");
+            engine.Dispose();  // must return while first callback is still active
+            Require(engine.Count == 0 && !engine.Enqueue(3),
+                "stopped queue still accepts/retains jobs");
+            Require(Volatile.Read(ref discarded) == 1,
+                "discard callback must release exactly one queued job");
+            finishCallback.Set();
+            Require(callbackFinished.Wait(TimeSpan.FromSeconds(10)),
+                "active callback did not finish after Dispose");
+            Require(Volatile.Read(ref completed) == 1 &&
+                    Volatile.Read(ref discarded) == 1,
+                "shutdown lost, duplicated or executed a discarded job");
+        }
+
+        // Concurrent producers and shutdown: each accepted job is either
+        // completed or discarded, never both and never silently leaked.
+        int acceptedConcurrent = 0;
+        int executedConcurrent = 0;
+        int discardedConcurrent = 0;
+        var concurrentEngine = new ObjectJobEngine(_ =>
+        {
+            Thread.SpinWait(1500);
+            Interlocked.Increment(ref executedConcurrent);
+        }, "OglConcurrentStopStress", 20, 4, 64,
+            _ => Interlocked.Increment(ref discardedConcurrent));
+        using (var startProducers = new ManualResetEventSlim(false))
+        {
+            var producers = Enumerable.Range(0, 8).Select(worker =>
+                System.Threading.Tasks.Task.Run(() =>
+                {
+                    Require(startProducers.Wait(TimeSpan.FromSeconds(10)),
+                        "producer startup timed out");
+                    for (int i = 0; i < 500; i++)
+                        if (concurrentEngine.Enqueue(worker * 500 + i))
+                            Interlocked.Increment(ref acceptedConcurrent);
+                })).ToArray();
+            startProducers.Set();
+            Thread.Sleep(20);
+            concurrentEngine.Dispose();
+            Require(System.Threading.Tasks.Task.WaitAll(producers, TimeSpan.FromSeconds(10)),
+                "concurrent producers did not finish");
+            Require(SpinWait.SpinUntil(
+                () => Volatile.Read(ref executedConcurrent) +
+                      Volatile.Read(ref discardedConcurrent) ==
+                      Volatile.Read(ref acceptedConcurrent),
+                TimeSpan.FromSeconds(10)),
+                "accepted background job was neither executed nor discarded");
+            Require(concurrentEngine.Count == 0 && !concurrentEngine.Enqueue(42),
+                "disposed job engine retained queued work or reopened");
+        }
+
         Console.WriteLine("PASS: OGL G1 performance sampler, bounded job/byte queues, and RAM-budgeted LRU cache");
         return 0;
     }
