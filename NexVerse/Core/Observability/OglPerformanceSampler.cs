@@ -16,12 +16,31 @@ namespace NexVerse.Core.Observability
         public string Id { get; }
         public uint Frame { get; }
         public float TargetFrameSeconds { get; }
+        public long SampledFrames { get; }
+        public double WorkAverageMs { get; }
+        public double FrameAverageMs { get; }
+        public double WorkP95Ms { get; }
+        public double FrameP95Ms { get; }
+        public double FrameP99Ms { get; }
+        public double WorkOverBudgetPercent { get; }
+        public double FrameOverBudgetPercent { get; }
 
-        public OglRegionFrame(string id, uint frame, float targetFrameSeconds)
+        public OglRegionFrame(string id, uint frame, float targetFrameSeconds,
+            long sampledFrames = 0, double workAverageMs = 0, double frameAverageMs = 0,
+            double workP95Ms = 0, double frameP95Ms = 0, double frameP99Ms = 0,
+            double workOverBudgetPercent = 0, double frameOverBudgetPercent = 0)
         {
             Id = id ?? string.Empty;
             Frame = frame;
             TargetFrameSeconds = targetFrameSeconds;
+            SampledFrames = sampledFrames;
+            WorkAverageMs = workAverageMs;
+            FrameAverageMs = frameAverageMs;
+            WorkP95Ms = workP95Ms;
+            FrameP95Ms = frameP95Ms;
+            FrameP99Ms = frameP99Ms;
+            WorkOverBudgetPercent = workOverBudgetPercent;
+            FrameOverBudgetPercent = frameOverBudgetPercent;
         }
     }
 
@@ -136,7 +155,15 @@ namespace NexVerse.Core.Observability
                     {
                         region_id = region.Id,
                         heartbeat_hz = Math.Round(measuredHz, 2),
-                        target_hz = Math.Round(targetHz, 2)
+                        target_hz = Math.Round(targetHz, 2),
+                        window_frames = region.SampledFrames,
+                        work_avg_ms = Math.Round(region.WorkAverageMs, 2),
+                        frame_avg_ms = Math.Round(region.FrameAverageMs, 2),
+                        work_p95_ms = Math.Round(region.WorkP95Ms, 2),
+                        frame_p95_ms = Math.Round(region.FrameP95Ms, 2),
+                        frame_p99_ms = Math.Round(region.FrameP99Ms, 2),
+                        work_over_budget_percent = Math.Round(region.WorkOverBudgetPercent, 2),
+                        frame_over_budget_percent = Math.Round(region.FrameOverBudgetPercent, 2)
                     });
                     m_PreviousRegions[region.Id] = new RegionPosition(region.Frame, timestamp);
                 }
