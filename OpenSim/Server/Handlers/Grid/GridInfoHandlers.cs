@@ -152,7 +152,7 @@ namespace OpenSim.Server.Handlers.Grid
         {
             httpResponse.KeepAlive = false;
             httpResponse.ContentType = "application/json; charset=utf-8";
-            httpResponse.AddHeader("Cache-Control", "public, max-age=60");
+            httpResponse.AddHeader("Cache-Control", "no-store");
             httpResponse.AddHeader("X-Content-Type-Options", "nosniff");
 
             if (!string.Equals(httpRequest.HttpMethod, "GET", StringComparison.OrdinalIgnoreCase))
@@ -205,6 +205,10 @@ namespace OpenSim.Server.Handlers.Grid
                     ogl_grid_info = "/ogl/v1/grid-info",
                     ogl_login = (string)null
                 },
+                // Explicit UTC epoch and server-selected civil zone. A legacy
+                // daylight_savings boolean alone cannot replace Pacific Time.
+                // New optional field; existing v1 clients ignore unknown keys.
+                clock = BuildViewerClock(),
                 features = new
                 {
                     legacy_login = true,
@@ -221,6 +225,83 @@ namespace OpenSim.Server.Handlers.Grid
                     viewer_identity_verified_by_discovery = false
                 }
             });
+        }
+
+        /// <summary>
+        /// Publish only the selected civil time zone and its CURRENT UTC
+        /// offset, not the full login configuration. The same [LoginService]
+        /// DSTZone setting determines the legacy daylight_savings flag.
+        /// Clients refresh the offset to handle DST transitions or server
+        /// configuration changes; never assume the viewer OS is in this zone.
+        /// </summary>
+        private object BuildViewerClock()
+        {
+            DateTimeOffset now = DateTimeOffset.UtcNow;
+            TimeZoneInfo zone = TimeZoneInfo.Utc;
+            IConfig loginConfig = m_Config?.Configs["LoginService"];
+            string candidates = loginConfig?.GetString(
+                "DSTZone", "America/Los_Angeles;Pacific Standard Time")
+                ?? "America/Los_Angeles;Pacific Standard Time";
+            string configured = candidates.Trim();
+
+            if (string.Equals(configured, "local", StringComparison.OrdinalIgnoreCase))
+            {
+                zone = TimeZoneInfo.Local;
+            }
+            else if (!string.Equals(configured, "none", StringComparison.OrdinalIgnoreCase))
+            {
+                bool found = false;
+                foreach (string option in configured.Split(';'))
+                {
+                    string id = option.Trim();
+                    if (id.Length == 0 || id.Length > 128)
+                        continue;
+
+                    try
+                    {
+                        zone = TimeZoneInfo.FindSystemTimeZoneById(id);
+                        found = true;
+                        break;
+                    }
+                    catch (TimeZoneNotFoundException) { }
+                    catch (InvalidTimeZoneException) { }
+                }
+
+                if (!found)
+                    _log.Warn("[OGL VIEWER CLOCK]: DSTZone cannot be resolved; falling back to UTC");
+            }
+
+            TimeSpan offset = zone.GetUtcOffset(now);
+            int offsetSeconds = checked((int)offset.TotalSeconds);
+            DateTimeOffset local = TimeZoneInfo.ConvertTime(now, zone);
+            bool daylight = zone.IsDaylightSavingTime(local);
+            string abbreviation;
+            // A locale-friendly abbreviation is a PRESENTATION detail; the
+            // selected zone and offset still come from ROBUST's config.
+            if (zone.Id == "Europe/Berlin" || zone.Id == "W. Europe Standard Time")
+            {
+                abbreviation = daylight ? "MESZ" : "MEZ";
+            }
+            else if (zone.Equals(TimeZoneInfo.Utc))
+            {
+                abbreviation = "UTC";
+            }
+            else
+            {
+                int abs = Math.Abs(offsetSeconds);
+                abbreviation = string.Format(System.Globalization.CultureInfo.InvariantCulture,
+                    "UTC{0}{1:00}:{2:00}", offsetSeconds < 0 ? "-" : "+",
+                    abs / 3600, (abs % 3600) / 60);
+            }
+
+            return new
+            {
+                schema = "org.opengenesislink.viewer.clock.v1",
+                unix_time = now.ToUnixTimeSeconds(),
+                timezone = zone.Id,
+                utc_offset_seconds = offsetSeconds,
+                abbreviation
+            };
         }
 
         private string PublicLabel(string key, string fallback)

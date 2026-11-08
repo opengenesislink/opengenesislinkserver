@@ -1,0 +1,28 @@
+name: OGL Viewer clock v1 source and DST checks
+
+on:
+  push:
+    branches: [feature/ogl-viewer-server-clock]
+    paths:
+      - OpenSim/Server/Handlers/Grid/GridInfoHandlers.cs
+      - tools/ci/verify_ogl_viewer_clock.py
+      - .github/workflows/ogl-viewer-clock.yml
+  pull_request:
+    paths:
+      - OpenSim/Server/Handlers/Grid/GridInfoHandlers.cs
+      - tools/ci/verify_ogl_viewer_clock.py
+      - .github/workflows/ogl-viewer-clock.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test-clock-discovery:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Python source contract and Berlin DST boundaries
+        run: python3 tools/ci/verify_ogl_viewer_clock.py
+      - name: Existing Berlin login DST regression guard
+        run: python3 tools/ci/verify_nexverse_berlin_dst.py
