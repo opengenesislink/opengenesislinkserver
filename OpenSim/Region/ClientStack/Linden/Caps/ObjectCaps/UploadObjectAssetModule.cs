@@ -276,7 +276,12 @@ namespace OpenSim.Region.ClientStack.Linden
                     // Required for linking
                     grp.RootPart.ClearUpdateSchedule();
 
-                    if (m_scene.Permissions.CanRezObject(1, avatar.UUID, pos))
+                    // Legacy UploadObject CAPS creates mesh instances one at
+                    // a time. At minimum, never undercharge a costly instance
+                    // as a flat single prim while the LI policy is enabled.
+                    int landImpact = m_scene.RequestModuleInterface<IPrimCountModule>()
+                        ?.GetObjectLandImpact(grp) ?? 1;
+                    if (m_scene.Permissions.CanRezObject(landImpact, avatar.UUID, pos))
                     {
                         m_scene.AddSceneObject(grp);
                         grp.AbsolutePosition = obj.Position;
