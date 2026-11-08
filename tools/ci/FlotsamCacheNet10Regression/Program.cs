@@ -167,6 +167,46 @@ internal static class Program
             lock (writing)
                 Check(((HashSet<string>)writing).Count == 0,
                     "Concurrent file cache left permanent in-progress markers");
+
+            // Force the opt-in adaptive cache I/O gate to saturate. The writer
+            // must skip only the optional disk cache and release its in-flight
+            // byte reservation and filename marker within the 500ms deadline.
+            var adaptiveField = type.GetField("m_AdaptiveFileWriteGate",
+                BindingFlags.Instance | BindingFlags.NonPublic)!;
+            using (var adaptive = new OglAdaptiveFileWriteGate(1))
+            {
+                adaptiveField.SetValue(cache, adaptive);
+                Check(adaptive.TryAcquire(TimeSpan.Zero, out var held),
+                    "adaptive gate failed to reserve its single worker");
+
+                try
+                {
+                    var skipped = new AssetBase
+                    {
+                        ID = Guid.NewGuid().ToString("D"),
+                        Name = "Adaptive saturated cache fixture",
+                        Type = 7,
+                        Data = new byte[8192]
+                    };
+                    updateFile.Invoke(cache, new object[] { skipped.ID, skipped, false });
+                    Check(SpinWait.SpinUntil(() =>
+                        adaptive.RejectedWrites > 0 && limiter.InFlightBytes == 0,
+                        TimeSpan.FromSeconds(5)),
+                        "saturated adaptive cache I/O did not release its byte reservation");
+                    string skippedPath = (string)filename.Invoke(cache,
+                        new object[] { skipped.ID })!;
+                    Check(!File.Exists(skippedPath),
+                        "saturated adaptive writer should skip optional disk-cache I/O");
+                    lock (writing)
+                        Check(!((HashSet<string>)writing).Contains(skippedPath),
+                            "saturated adaptive writer retained an in-progress marker");
+                }
+                finally
+                {
+                    held.Dispose();
+                    adaptiveField.SetValue(cache, null);
+                }
+            }
         }
         finally
         {
