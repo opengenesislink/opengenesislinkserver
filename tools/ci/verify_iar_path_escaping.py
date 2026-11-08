@@ -9,7 +9,7 @@ inspector = (root / "NexVerse/RegionModules/Archives/OglIarManagement.cs").read_
 test = (root / "tools/ci/OglIarPreflightRegression/Program.cs").read_text()
 reader_test = (root / "OpenSim/Region/CoreModules/Avatar/Inventory/Archiver/Tests/InventoryArchiveLoadPathTests.cs").read_text()
 encode = util.split("public static string EscapeArchivePath(string path)", 1)[1].split("public static string UnescapeArchivePath", 1)[0]
-decode = util.split("public static string UnescapeArchivePath(string path)", 1)[1].split("\n        }", 1)[0]
+decode = util.split("public static string UnescapeArchivePath(string path)", 1)[1].split("return path.Replace", 1)[1].split("\n        }", 1)[0]
 for token in ('"&amp;"', '"&#47;"', '"&#92;"', '"&#58;"'):
     assert token in encode, f"missing archive path entity encoder {token}"
     assert token in decode, f"missing archive path entity decoder {token}"
