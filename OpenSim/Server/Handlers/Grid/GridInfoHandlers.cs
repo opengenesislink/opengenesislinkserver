@@ -68,7 +68,6 @@ namespace OpenSim.Server.Handlers.Grid
 
         private void loadGridInfo(IConfigSource configSource)
         {
-            _info["platform"] = "OpenSim";
             try
             {
                 IConfig gridCfg = configSource.Configs["GridInfoService"];
@@ -127,6 +126,12 @@ namespace OpenSim.Server.Handlers.Grid
             {
                 _log.Warn("[GRID INFO SERVICE]: Cannot get grid info from config source, using minimal defaults");
             }
+
+            // Always advertise the actual OpenGenesisLINK server identity.
+            // Apply this after loading operator settings so a legacy
+            // [GridInfoService] platform=OpenSim value cannot override it.
+            // Shared by /get_grid_info, /json_grid_info and XML-RPC grid info.
+            _info["platform"] = "OpenGenesisLINK";
 
             _log.DebugFormat("[GRID INFO SERVICE]: Grid info service initialized with {0} keys", _info.Count);
         }
