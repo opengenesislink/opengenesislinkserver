@@ -26,6 +26,7 @@
  */
 
 using System;
+using System.Diagnostics;
 using System.IO;
 using System.Collections.Generic;
 using System.Reflection;
@@ -93,6 +94,16 @@ namespace OpenSim.Region.CoreModules.Asset
         // Optional payload budget across pending and active file-cache I/O.
         private int m_MaxInFlightFileWriteMiB = 0;
         private OglInFlightByteLimiter m_FileWriteByteLimiter;
+        // Opt-in adaptive gate for disposable asset disk I/O; never scene/physics.
+        private bool m_AdaptiveFileWrites;
+        private int m_AdaptiveFileWriteSampleSeconds = 5;
+        private OglAdaptiveFileWriteGate m_AdaptiveFileWriteGate;
+        private System.Threading.Timer m_AdaptiveFileWriteTimer;
+        private readonly object m_AdaptiveSamplingLock = new();
+        private long m_LastAdaptiveTimestamp;
+        private double m_LastAdaptiveCpuSeconds;
+        private long m_LastAdaptiveFrames;
+        private long m_LastAdaptiveOverruns;
 
         private ExpiringCacheOS<string, AssetBase> m_MemoryCache;
         private bool m_MemoryCacheEnabled = false;
@@ -176,6 +187,11 @@ namespace OpenSim.Region.CoreModules.Asset
                         m_MaxPendingFileWrites = Math.Clamp(
                             assetConfig.GetInt("MaxPendingFileWrites", m_MaxPendingFileWrites),
                             0, 65536);
+                        m_AdaptiveFileWrites = assetConfig.GetBoolean(
+                            "AdaptiveFileWrites", m_AdaptiveFileWrites);
+                        m_AdaptiveFileWriteSampleSeconds = Math.Clamp(
+                            assetConfig.GetInt("AdaptiveFileWriteSampleSeconds",
+                                m_AdaptiveFileWriteSampleSeconds), 5, 60);
                         m_MaxInFlightFileWriteMiB = Math.Clamp(
                             assetConfig.GetInt("MaxInFlightFileWriteMiB", m_MaxInFlightFileWriteMiB),
                             0, 16384);
@@ -290,8 +306,10 @@ namespace OpenSim.Region.CoreModules.Asset
                         m_assetFileWriteWorker = null;
                     }
                 }
-                // Stop the opt-in RAM cache's periodic expiry timer as well
-                // when this shared region module is permanently closed.
+                // Stop all opt-in background sampling on final close.
+                m_AdaptiveFileWriteTimer?.Dispose();
+                m_AdaptiveFileWriteTimer = null;
+                m_AdaptiveFileWriteGate?.Dispose();
                 m_BudgetedMemoryCache?.Dispose();
             }
         }
@@ -301,7 +319,8 @@ namespace OpenSim.Region.CoreModules.Asset
             if (m_Enabled)
             {
                 scene.RegisterModuleInterface<IAssetCache>(this);
-                m_Scenes.Add(scene);
+                lock (m_Scenes)
+                    m_Scenes.Add(scene);
             }
         }
 
@@ -310,7 +329,8 @@ namespace OpenSim.Region.CoreModules.Asset
             if (m_Enabled)
             {
                 scene.UnregisterModuleInterface<IAssetCache>(this);
-                m_Scenes.Remove(scene);
+                lock (m_Scenes)
+                    m_Scenes.Remove(scene);
                 lock(timerLock)
                 {
                     if(m_Scenes.Count <= 0)
@@ -330,6 +350,10 @@ namespace OpenSim.Region.CoreModules.Asset
                         // No active scenes: release the opt-in RAM cache now
                         // instead of pinning stale assets until the next TTL.
                         m_BudgetedMemoryCache?.Clear();
+                        m_AdaptiveFileWriteTimer?.Dispose();
+                        m_AdaptiveFileWriteTimer = null;
+                        lock (m_AdaptiveSamplingLock)
+                            m_LastAdaptiveTimestamp = 0;
                     }
                 }
             }
@@ -358,13 +382,28 @@ namespace OpenSim.Region.CoreModules.Asset
 
                     if (m_FileCacheEnabled && m_assetFileWriteWorker == null)
                     {
+                        if (m_AdaptiveFileWrites && m_FileWriteConcurrency > 1)
+                        {
+                            m_AdaptiveFileWriteGate ??=
+                                new OglAdaptiveFileWriteGate(m_FileWriteConcurrency);
+                        }
+
                         m_assetFileWriteWorker = new ObjectJobEngine(
                             ProcessWrites, "FlotsamCacheWriter", 1000,
                             m_FileWriteConcurrency, m_MaxPendingFileWrites,
                             DiscardFileWrite);
                         m_log.InfoFormat(
-                            "[FLOTSAM ASSET CACHE]: File writers={0}, pending cache queue cap={1} (0=legacy unbounded)",
-                            m_FileWriteConcurrency, m_MaxPendingFileWrites);
+                            "[FLOTSAM ASSET CACHE]: File writers={0}, pending cache queue cap={1} (0=legacy unbounded), adaptive={2}",
+                            m_FileWriteConcurrency, m_MaxPendingFileWrites,
+                            m_AdaptiveFileWriteGate != null);
+                    }
+
+                    if (m_AdaptiveFileWriteGate != null &&
+                        m_AdaptiveFileWriteTimer == null)
+                    {
+                        TimeSpan interval = TimeSpan.FromSeconds(m_AdaptiveFileWriteSampleSeconds);
+                        m_AdaptiveFileWriteTimer = new System.Threading.Timer(
+                            SampleAdaptiveFileWritePressure, null, interval, interval);
                     }
 
                     if (!string.IsNullOrWhiteSpace(m_assetLoader) && scene.RegionInfo.RegionID == m_Scenes[0].RegionInfo.RegionID)
@@ -397,11 +436,85 @@ namespace OpenSim.Region.CoreModules.Asset
             }
         }
 
+        private void SampleAdaptiveFileWritePressure(object unused)
+        {
+            if (m_AdaptiveFileWriteGate == null)
+                return;
+
+            try
+            {
+                lock (m_AdaptiveSamplingLock)
+                {
+                    long now = Stopwatch.GetTimestamp();
+                    using Process process = Process.GetCurrentProcess();
+                    double cpuSeconds = process.TotalProcessorTime.TotalSeconds;
+
+                    Scene[] scenes;
+                    lock (m_Scenes)
+                        scenes = m_Scenes.ToArray();
+
+                    long frames = 0;
+                    long workOverruns = 0;
+                    foreach (Scene scene in scenes)
+                    {
+                        if (scene.OglPerformanceTiming is null)
+                            continue;
+                        (long total, long overrun) =
+                            scene.OglPerformanceTiming.GetLifetimeCounters();
+                        frames += total;
+                        workOverruns += overrun;
+                    }
+
+                    if (m_LastAdaptiveTimestamp > 0 &&
+                        now > m_LastAdaptiveTimestamp && scenes.Length > 0)
+                    {
+                        double wallSeconds =
+                            (now - m_LastAdaptiveTimestamp) / (double)Stopwatch.Frequency;
+                        double cpuPercent = Math.Clamp(
+                            100.0 * Math.Max(0, cpuSeconds - m_LastAdaptiveCpuSeconds) /
+                            (wallSeconds * Math.Max(1, Environment.ProcessorCount)), 0, 100);
+
+                        double? regionOverrunPercent = null;
+                        long frameDelta = frames - m_LastAdaptiveFrames;
+                        if (frameDelta > 0)
+                            regionOverrunPercent = Math.Clamp(
+                                100.0 * Math.Max(0, workOverruns - m_LastAdaptiveOverruns) /
+                                frameDelta, 0, 100);
+
+                        m_AdaptiveFileWriteGate.UpdatePressure(cpuPercent, regionOverrunPercent);
+                    }
+
+                    m_LastAdaptiveTimestamp = now;
+                    m_LastAdaptiveCpuSeconds = cpuSeconds;
+                    m_LastAdaptiveFrames = frames;
+                    m_LastAdaptiveOverruns = workOverruns;
+                }
+            }
+            catch (Exception e)
+            {
+                m_log.Debug("[FLOTSAM ASSET CACHE]: Adaptive I/O sampling skipped: " + e.Message);
+            }
+        }
+
         private void ProcessWrites(object o)
         {
             WriteAssetInfo wai = (WriteAssetInfo)o;
+            OglAdaptiveFileWriteGate.Permit permit = null;
             try
             {
+                // Adaptive mode can temporarily lower concurrent disk I/O
+                // when the CPU is busy or region work overruns its budget.
+                // Workers wait briefly, then drop only expendable cache writes.
+                if (m_AdaptiveFileWriteGate != null &&
+                    !m_AdaptiveFileWriteGate.TryAcquire(
+                        TimeSpan.FromMilliseconds(500), out permit))
+                {
+                    Interlocked.Increment(ref m_CacheWritesRejected);
+                    lock (m_CurrentlyWriting)
+                        m_CurrentlyWriting.Remove(wai.filename);
+                    return;
+                }
+
                 WriteFileCache(wai.filename, wai.asset, wai.replace);
             }
             catch (Exception e)
@@ -410,6 +523,7 @@ namespace OpenSim.Region.CoreModules.Asset
             }
             finally
             {
+                permit?.Dispose();
                 wai.reservation?.Dispose();
             }
         }
@@ -1478,6 +1592,13 @@ namespace OpenSim.Region.CoreModules.Asset
                                         m_MaxInFlightFileWriteMiB,
                                         m_FileWriteByteLimiter.HighWaterBytes / (1024 * 1024),
                                         m_FileWriteByteLimiter.RejectedCount);
+                                if (m_AdaptiveFileWriteGate != null)
+                                    con.Output(
+                                        "[FLOTSAM ASSET CACHE] Adaptive file I/O: {0}/{1} target workers; {2} active; {3} adaptive skip(s)",
+                                        m_AdaptiveFileWriteGate.TargetWorkers,
+                                        m_AdaptiveFileWriteGate.MaxWorkers,
+                                        m_AdaptiveFileWriteGate.ActiveWorkers,
+                                        m_AdaptiveFileWriteGate.RejectedWrites);
                                 bool doingscan;
                                 lock (timerLock)
                                 {
