@@ -57,14 +57,21 @@ namespace OpenSim.Framework
                     return false;
 
                 long now = Stopwatch.GetTimestamp();
-                long duration = (long)Math.Clamp(
-                    lifetime.TotalSeconds * Stopwatch.Frequency,
-                    1.0, (double)long.MaxValue / 4);
+                // Non-positive TTL means no expiration, matching Flotsam's
+                // existing expiring cache behavior. The byte/entry cap remains.
+                long expiresAt = long.MaxValue;
+                if (lifetime > TimeSpan.Zero)
+                {
+                    long duration = (long)Math.Clamp(
+                        lifetime.TotalSeconds * Stopwatch.Frequency,
+                        1.0, (double)long.MaxValue / 4);
+                    expiresAt = now >= long.MaxValue - duration ? long.MaxValue : now + duration;
+                }
                 var entry = new Entry
                 {
                     Value = value,
                     EstimatedBytes = estimatedBytes,
-                    ExpiresAt = now >= long.MaxValue - duration ? long.MaxValue : now + duration,
+                    ExpiresAt = expiresAt,
                     Node = m_Lru.AddFirst(key)
                 };
                 m_Entries.Add(key, entry);
