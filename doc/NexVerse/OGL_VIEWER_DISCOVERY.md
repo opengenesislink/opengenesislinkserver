@@ -56,6 +56,13 @@ Firestorm benötigt **keine** Änderung und wird nicht anhand
     "ogl_grid_info": "/ogl/v1/grid-info",
     "ogl_login": null
   },
+  "clock": {
+    "schema": "org.opengenesislink.viewer.clock.v1",
+    "unix_time": 1790000000,
+    "timezone": "Europe/Berlin",
+    "utc_offset_seconds": 7200,
+    "abbreviation": "MESZ"
+  },
   "features": {
     "legacy_login": true,
     "ogl_grid_info_v1": true,
@@ -122,3 +129,20 @@ Konnektoren auf Port 19092 und prüft:
   in die Testkonfiguration aufgenommenen Geheimfelds.
 
 Das ersetzt **keinen echten Login-/CAPS-/Viewer-Integrationstest**.
+
+## Uhrzeit und Server-Zeitzone im OGL Viewer
+
+Seit der Erweiterung um `clock` liefert dieselbe v1-Discovery
+ein **optionales** Zeitzonen-/Zeitobjekt. `timezone`, `utc_offset_seconds`
+und `abbreviation` werden auf ROBUST aus der tatsaechlich geladenen
+`[LoginService] DSTZone` berechnet; `unix_time` ist die aktuelle UTC-
+Serverzeit. Die Werte im Beispiel sind illustrative Momentaufnahmen.
+
+Der TrixieStorm Viewer stellt daraus die Statusleisten-Uhr dar und
+fragt die Zeitzone regelmaessig erneut ab. Pacific Time/PST ist dabei
+**keine** fest eingebaute Anzeigebasis. Wenn ein aelterer Server die
+optionale Uhr noch nicht bereitstellt, zeigt der Viewer UTC als
+kenntlichen Rueckfall, nicht ein falsch etikettiertes PST.
+Die Loginprotokolle und Gridwahl werden dadurch **nicht** veraendert.
+
+Details: [OGL_VIEWER_CLOCK.md](OGL_VIEWER_CLOCK.md).

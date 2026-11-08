@@ -24,10 +24,20 @@ von PST/PDT in MEZ/MESZ. Die Anzeige kann beim Wechsel auf
 europaeische Sommerzeit (vor oder nach dem US-Wechsel) eine Stunde
 von der gewohnten Pacific-Time-Darstellung abweichen.
 
-Ein echtes `MEZ/MESZ`-Label mit Berliner Uhrzeit oben im Viewer
-muesste im Viewer selbst (z. B. OGL-Viewer-Fork) integriert werden.
-Das Serverflag darf nicht als Beleg fuer eine solche Funktion
-missverstanden werden.
+Das **neue TrixieStorm-Viewer-Feature** nutzt darum *nicht* das
+einzelne `daylight_savings`-Flag: der OGL-Discovery-Endpunkt
+`/ogl/v1/grid-info` gibt zusaetzlich die aktuell geladene
+`[LoginService] DSTZone`, den wirksamen UTC-Offset und die UTC-Serverzeit
+im optionalen `clock`-Objekt bekannt. TrixieStorm verwendet die
+konfigurierte Zone fuer die Statusleisten-Uhr. Im Sommer wird
+`MESZ` und im Winter `MEZ` ausgegeben. Alle anderen, nicht angepassten
+Firestorm-Viewer zeigen weiterhin Pacific Time.
+Siehe [OGL_VIEWER_CLOCK.md](OGL_VIEWER_CLOCK.md).
+
+**Hinweis:** Eine Aenderung an der lokalen `Robust.HG.ini` erfordert
+weiterhin einen ROBUST-Neustart. Die Viewer-Aktualisierung folgt dann
+ohne eigenen Neubau. Die neue Discovery-Erweiterung muss vorher
+auf dem aktiven ROBUST-Server bereitgestellt worden sein.
 
 ## Aktivierung auf der produktiven Installation
 
@@ -38,9 +48,11 @@ missverstanden werden.
 2. Im Abschnitt `[LoginService]` die Zeile oben setzen.
 3. **Nur ROBUST** neu starten. Regionen muessen dafuer nicht
    pauschal neu gestartet werden.
-4. Firestorm neu anmelden, da `daylight_savings` nur beim
-   Login uebermittelt wird. Viewer-Anzeige als Pacific Time
-   behandeln, nicht als Berliner Uhrzeit.
+4. Klassische Firestorm-Viewer neu anmelden, da `daylight_savings`
+   weiterhin nur beim Login uebermittelt wird und ihre eigene PST-Uhr
+   nicht geaendert wird. TrixieStorm uebernimmt die neu bereitgestellte
+   `clock`-Antwort aus der OGL-Discovery und aktualisiert sie
+   laufend; das erste Abrufen braucht eine erreichbare Discovery.
 
 Die Systemuhr muss NICHT auf Berliner Zeitzone gestellt werden,
 damit `DSTZone` richtig funktioniert. Die bisherigen OGLWeather-,
