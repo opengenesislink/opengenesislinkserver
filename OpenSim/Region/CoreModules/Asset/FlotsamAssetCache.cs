@@ -102,8 +102,7 @@ namespace OpenSim.Region.CoreModules.Asset
         private readonly object m_AdaptiveSamplingLock = new();
         private long m_LastAdaptiveTimestamp;
         private double m_LastAdaptiveCpuSeconds;
-        private long m_LastAdaptiveFrames;
-        private long m_LastAdaptiveOverruns;
+        private readonly OglRegionPressureTracker m_RegionPressureTracker = new();
 
         private ExpiringCacheOS<string, AssetBase> m_MemoryCache;
         private bool m_MemoryCacheEnabled = false;
@@ -353,7 +352,10 @@ namespace OpenSim.Region.CoreModules.Asset
                         m_AdaptiveFileWriteTimer?.Dispose();
                         m_AdaptiveFileWriteTimer = null;
                         lock (m_AdaptiveSamplingLock)
+                        {
                             m_LastAdaptiveTimestamp = 0;
+                            m_RegionPressureTracker.Reset();
+                        }
                     }
                 }
             }
@@ -453,17 +455,18 @@ namespace OpenSim.Region.CoreModules.Asset
                     lock (m_Scenes)
                         scenes = m_Scenes.ToArray();
 
-                    long frames = 0;
-                    long workOverruns = 0;
+                    var regionCounters = new List<OglRegionPressureCounter>(scenes.Length);
                     foreach (Scene scene in scenes)
                     {
                         if (scene.OglPerformanceTiming is null)
                             continue;
                         (long total, long overrun) =
                             scene.OglPerformanceTiming.GetLifetimeCounters();
-                        frames += total;
-                        workOverruns += overrun;
+                        regionCounters.Add(new OglRegionPressureCounter(
+                            scene.RegionInfo.RegionID.ToString(), total, overrun));
                     }
+                    double? regionOverrunPercent =
+                        m_RegionPressureTracker.Sample(regionCounters);
 
                     if (m_LastAdaptiveTimestamp > 0 &&
                         now > m_LastAdaptiveTimestamp && scenes.Length > 0)
@@ -474,20 +477,11 @@ namespace OpenSim.Region.CoreModules.Asset
                             100.0 * Math.Max(0, cpuSeconds - m_LastAdaptiveCpuSeconds) /
                             (wallSeconds * Math.Max(1, Environment.ProcessorCount)), 0, 100);
 
-                        double? regionOverrunPercent = null;
-                        long frameDelta = frames - m_LastAdaptiveFrames;
-                        if (frameDelta > 0)
-                            regionOverrunPercent = Math.Clamp(
-                                100.0 * Math.Max(0, workOverruns - m_LastAdaptiveOverruns) /
-                                frameDelta, 0, 100);
-
                         m_AdaptiveFileWriteGate.UpdatePressure(cpuPercent, regionOverrunPercent);
                     }
 
                     m_LastAdaptiveTimestamp = now;
                     m_LastAdaptiveCpuSeconds = cpuSeconds;
-                    m_LastAdaptiveFrames = frames;
-                    m_LastAdaptiveOverruns = workOverruns;
                 }
             }
             catch (Exception e)
