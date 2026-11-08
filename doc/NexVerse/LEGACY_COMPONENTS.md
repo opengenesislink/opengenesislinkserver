@@ -19,6 +19,8 @@ Status values:
 | Generated `obj/` trees | **REMOVED** | Build intermediates are excluded through `.gitignore`. |
 | OptionalModules example modules | **REMOVED** | BareBones and WebSocket echo sample modules are not part of the production NexVerse source line. |
 | pCampBot / PhysicsCamperbot | **REMOVED** | Unmaintained stand-alone multi-login stress bot; 16 source and 7 bin files, prebuild and solution references deleted. |
+| LaunchSLClient / legacy external-grid presets | **REMOVED** | Old Windows Forms/VS2008 launcher and `bin/LaunchSLClient.ini` no longer belong to G1; TrixieStorm is a separate viewer repository. |
+| `OpenSim/Tools/classaudit.pl` | **REMOVED** | One-off 2007 Perl source scanner, not referenced by current build/CI tooling. |
 | LSL XML-RPC RemoteData | **COMPAT** | Must remain while required for LSL RemoteData compatibility. It is not RemoteAdmin. |
 | LLLogin / viewer login protocol | **KEEP** | Required for compatible viewers including Firestorm. |
 | LLUDP / viewer protocol stack | **KEEP** | Required for viewer compatibility. |
@@ -58,16 +60,16 @@ Build and runtime verification remains required before NEXJAST is considered com
 ## G1 cleanup audit – 2026-11-08 (OpenGenesisLINK)
 
 The following is a **source/configuration inventory**, not proof of which
-optional services are enabled on all production nodes. Only pCampBot is
-approved for removal in this change. Delete no other components without
+optional services are enabled on all production nodes. pCampBot, LaunchSLClient and classaudit have been explicitly approved for removal
+in separate focused PRs. Delete no other components without
 checking staging, compatibility and test dependencies.
 
 | Component / path | Current G1 evidence | Recommended action | Removal gate |
 | --- | --- | --- | --- |
 | `OpenSim/Tools/pCampBot/`, `bin/pCampBot*` | Legacy independent login-stress program; explicitly compiles in main solution; includes tracked old executable, DLL, PDB and config. | **REMOVED in this cleanup** | Full simulator, ROBUST and generated-solution CI must remain green. |
-| `OpenSim/Tools/LaunchSLClient/` | Standalone Windows Forms launcher; old `secondlife` executable lookup, Nant / VS2008 / .NET 3.5 scripts; not part of root `prebuild.xml` / root `OpenSim.sln`. | **HIGH – candidate for next cleanup** | Check operator usage; it is unrelated to the active TrixieStorm Viewer repository. |
-| `bin/LaunchSLClient.ini` | Legacy launcher configuration includes outdated DeepGrid, OpenlifeGrid and Linden Lab shortcuts instead of Stadt NexVerse. | **HIGH – candidate for next cleanup** | Confirm no separate operator uses the legacy Windows Forms launcher. |
-| `OpenSim/Tools/classaudit.pl` | One-off 2007 Perl script for namespace/class scanning; hard-coded relative source path. | **LOW RISK – candidate for next cleanup** | Verify no CI or local audit workflow calls the script; replace with modern linting if still needed. |
+| `OpenSim/Tools/LaunchSLClient/` | Standalone Windows Forms launcher; old `secondlife` executable lookup, Nant / VS2008 / .NET 3.5 scripts; not part of root `prebuild.xml` / root `OpenSim.sln`. | **REMOVED** | User-approved G1 cleanup; TrixieStorm is maintained separately. |
+| `bin/LaunchSLClient.ini` | Legacy launcher configuration included outdated DeepGrid, OpenlifeGrid and Linden Lab shortcuts instead of Stadt NexVerse. | **REMOVED** | No legacy launcher configuration remains in active G1 source. |
+| `OpenSim/Tools/classaudit.pl` | One-off 2007 Perl script for namespace/class scanning; hard-coded relative source path. | **REMOVED** | Future namespace lint should be implemented as a modern CI check, if needed. |
 | `OpenSim/Region/CoreModules/World/LegacyMap/` | Alternate `MapImageModule` legacy terrain renderer; currently configured map renderer is `Warp3DImageModule`. | **MEDIUM – candidate, NOT removed** | Verify static image fallback, world-map compatibility, migrations and custom region overrides. |
 | `OpenSim/Region/PhysicsModules/POS/` | Older optional `POS` physics engine; G1 runtime profile uses `BulletSim`. | **MEDIUM – candidate, NOT removed** | Scan deployed region INIs and test basic physics / simulator compatibility. |
 | `OpenSim/Region/PhysicsModules/BasicPhysics/` | Incomplete minimal physics engine; its own comments cite regression-test usage. | **MEDIUM – candidate, NOT removed** | Identify test references and provide a replacement test fixture before deletion. |
@@ -82,12 +84,14 @@ checking staging, compatibility and test dependencies.
 
 ### Scope and safety
 
-- Removed: only the pCampBot standalone tool, its tracked binaries and
-  its two root build integrations.
+- Removed in the earlier PR: only the pCampBot standalone tool, its tracked binaries
+  and its two root build integrations.
+- Removed in this PR: `LaunchSLClient/` (21 source/support files),
+  `bin/LaunchSLClient.ini` and `OpenSim/Tools/classaudit.pl`.
 - Deliberately not removed: OpenSim / Hypergrid protocols, LLUDP, YEngine,
   Firestorm compatibility, FSAssets, OGLWeather legacy viewers, region modules,
   optional physics fallback implementations and migration fixtures.
 - Local deployments are **not** updated by source removal. A stale
   `/opt/robust/bin/pCampBot*` may remain after `git pull` if deployment
   copies files rather than synchronizing/deleting them; check explicitly.
-- The follow-up candidates above require distinct PRs and CI/simulator tests.
+- The remaining follow-up candidates above require distinct PRs and CI/simulator tests.
