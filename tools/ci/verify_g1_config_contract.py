@@ -96,8 +96,11 @@ for section in (
     "JsonStore", "OGLShutdown"):
     for key in defaults.options(section):
         if sim.has_option(section, key):
-            assert sim.get(section, key).strip().lower() == (
-                defaults.get(section, key).strip().lower()
+            # Legacy OpenSimDefaults.ini uses semicolon inline comments for
+            # some settings. Normalize those while comparing actual values.
+            effective = lambda value: value.partition(";")[0].strip().strip('"').lower()
+            assert effective(sim.get(section, key)) == effective(
+                defaults.get(section, key)
             ), f"Unexpected default override: [{section}] {key}"
 
 assert sim.get("Startup", "physics") == "BulletSim"
