@@ -28,6 +28,10 @@ namespace OpenSim.Framework
         private long m_FrameOverruns;
         private long m_TotalWorkMicroseconds;
         private long m_TotalFrameMicroseconds;
+        // Monotonic counters for other read-only observers. Unlike the
+        // NodeAgent histogram these are never reset on export.
+        private long m_LifetimeFrames;
+        private long m_LifetimeWorkOverruns;
 
         public void Record(double workMs, double frameMs, double budgetMs)
         {
@@ -41,10 +45,24 @@ namespace OpenSim.Framework
             Interlocked.Add(ref m_TotalWorkMicroseconds, ToMicroseconds(workMs));
             Interlocked.Add(ref m_TotalFrameMicroseconds, ToMicroseconds(frameMs));
             if (workMs > budgetMs)
+            {
                 Interlocked.Increment(ref m_WorkOverruns);
+                Interlocked.Increment(ref m_LifetimeWorkOverruns);
+            }
             if (frameMs > budgetMs)
                 Interlocked.Increment(ref m_FrameOverruns);
             Interlocked.Increment(ref m_Frames);
+            Interlocked.Increment(ref m_LifetimeFrames);
+        }
+
+        /// <summary>
+        /// Monotonic counters usable by independent controllers without
+        /// consuming the histogram window sent via the NodeAgent.
+        /// </summary>
+        public (long Frames, long WorkOverruns) GetLifetimeCounters()
+        {
+            return (Interlocked.Read(ref m_LifetimeFrames),
+                    Interlocked.Read(ref m_LifetimeWorkOverruns));
         }
 
         public OglRegionTimingSample TakeSnapshotAndReset()
