@@ -23,7 +23,10 @@ def text(path: str) -> str:
 def parse(path: str) -> ConfigParser:
     config = ConfigParser(interpolation=None, strict=True)
     config.optionxform = str
-    config.read_string(text(path), source=path)
+    # Nini's OpenSimDefaults.ini contains legacy tab-indented keys.
+    # ConfigParser treats following four-space keys as multiline values unless
+    # their indentation is normalized. The actual INI is left untouched.
+    config.read_string(text(path).expandtabs(4), source=path)
     return config
 
 
@@ -101,9 +104,7 @@ for section in (
             effective = lambda value: value.partition(";")[0].strip().strip('"').lower()
             assert effective(sim.get(section, key)) == effective(
                 defaults.get(section, key)
-            ), (f"Unexpected default override: [{section}] {key}: "
-                f"active={effective(sim.get(section, key))!r}, "
-                f"default={effective(defaults.get(section, key))!r}")
+            ), f"Unexpected default override: [{section}] {key}"
 
 assert sim.get("Startup", "physics") == "BulletSim"
 assert sim.get("Startup", "meshing") == "Meshmerizer"
