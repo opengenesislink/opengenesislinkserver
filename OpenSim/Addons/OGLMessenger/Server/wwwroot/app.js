@@ -67,8 +67,15 @@ async function initialize() {
   el("navigation").hidden = false;
   el("signout").hidden = false;
   el("historySetting").hidden = false;
+  await api("/api/v1/presence/heartbeat", { method: "POST" });
   await loadSettings();
   await loadContacts();
+  setInterval(async () => {
+    if (document.visibilityState === "visible") {
+      await api("/api/v1/presence/heartbeat", { method: "POST" });
+      if (!state.selected) await loadContacts();
+    }
+  }, 30000);
   state.polling = setInterval(async () => {
     if (document.visibilityState === "visible" && state.selected)
       await loadThread(false);
@@ -130,8 +137,11 @@ async function loadContacts() {
     const detail = friend
       ? (contact.state !== "friends" ? "Freundschaftsanfrage" :
         contact.is_hypergrid ? "Hypergrid · Präsenz nur lokal bekannt" :
-        contact.online_status === "online" ? "Inworld online" :
-        contact.online_status === "offline" ? "Offline" : "Status unbekannt")
+        contact.messenger_status === "inworld_and_mobile" ? "Inworld + Mobilonline" :
+        contact.messenger_status === "mobile" ? "Mobilonline" :
+        contact.messenger_status === "inworld" ? "Inworld online" :
+        contact.online_status === "offline" && contact.can_see_online ?
+          "Offline" : "Status unbekannt")
       : "Gruppe · Mitteilungen";
     const button = node("button", "contact");
     button.type = "button";
