@@ -26,7 +26,13 @@ public sealed class MessengerSessionStore
     public MessengerSessionStore(MessengerOptions options, IDataProtectionProvider protection)
     {
         string path = Path.GetFullPath(options.DatabasePath);
-        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        string databaseDirectory = Path.GetDirectoryName(path)!;
+        Directory.CreateDirectory(databaseDirectory);
+        // The SQLite database and its WAL can contain encrypted tokens,
+        // personal IDs and IM idempotency metadata. Keep its parent private.
+        if (OperatingSystem.IsLinux())
+            File.SetUnixFileMode(databaseDirectory, UnixFileMode.UserRead |
+                UnixFileMode.UserWrite | UnixFileMode.UserExecute);
         _connectionString = new SqliteConnectionStringBuilder
         {
             DataSource = path,
@@ -64,6 +70,8 @@ public sealed class MessengerSessionStore
             );
             """;
         sql.ExecuteNonQuery();
+        if (OperatingSystem.IsLinux())
+            File.SetUnixFileMode(path, UnixFileMode.UserRead | UnixFileMode.UserWrite);
     }
 
     private SqliteConnection Open()
