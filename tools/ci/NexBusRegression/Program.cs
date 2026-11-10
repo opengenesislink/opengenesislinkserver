@@ -108,6 +108,32 @@ internal static class Program
             "simulator-1", "invalid-operation-id", issuedAt, controlKey,
             authorization, issuedAt), "invalid node update operation accepted");
 
+        // A benign stage approval must NEVER authorize a destructive live
+        // reset/build, even if node, operation, timestamp and key all match.
+        string deployAuthorization = NexBusProtocol.SignNodeDeployRequest(
+            "simulator-1", updateOperation, issuedAt, controlKey);
+        Require(NexBusProtocol.VerifyNodeDeployRequest(
+            "simulator-1", updateOperation, issuedAt, controlKey,
+            deployAuthorization, issuedAt), "valid live deploy approval rejected");
+        Require(!NexBusProtocol.VerifyNodeDeployRequest(
+            "simulator-1", updateOperation, issuedAt, controlKey,
+            authorization, issuedAt), "stage approval escalated into live deploy");
+        Require(!NexBusProtocol.VerifyNodeStageRequest(
+            "simulator-1", updateOperation, issuedAt, controlKey,
+            deployAuthorization, issuedAt), "live approval reused as stage");
+        Require(!NexBusProtocol.VerifyNodeDeployRequest(
+            "simulator-2", updateOperation, issuedAt, controlKey,
+            deployAuthorization, issuedAt), "live approval reused for another node");
+        Require(!NexBusProtocol.VerifyNodeDeployRequest(
+            "simulator-1", Guid.NewGuid().ToString("D"), issuedAt, controlKey,
+            deployAuthorization, issuedAt), "live approval reused for another request");
+        Require(!NexBusProtocol.VerifyNodeDeployRequest(
+            "simulator-1", updateOperation, issuedAt, sharedKey,
+            deployAuthorization, issuedAt), "transport HMAC authorized a live deploy");
+        Require(!NexBusProtocol.VerifyNodeDeployRequest(
+            "simulator-1", updateOperation, issuedAt, controlKey,
+            deployAuthorization, issuedAt + 301), "expired live deploy accepted");
+
         NexEvent wireEvent = NexBusProtocol.Deserialize(wire);
         Require(wireEvent.EventId == ev.EventId, "wire EventId mismatch");
         Require(wireEvent.Name == ev.Name, "wire event name mismatch");
