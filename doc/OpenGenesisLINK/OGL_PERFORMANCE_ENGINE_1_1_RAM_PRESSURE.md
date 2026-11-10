@@ -5,9 +5,9 @@ Physics, 55-FPS-Normalisierung, Region-Scheduling oder Runtime-GC.
 
 ## Problem und Umsetzung
 
-Der mit PR #416 eingefuehrte Flotsam-LRU haelt Assets
-bis zum Budget oder bis zur Ablaufzeit konfigurierten RAM-Budget bis zum
-Ablauf der TTL oder bis zum LRU-Verdrangen. Bei hoher System-Speicherlast
+Der mit PR #416 eingefuehrte Flotsam-LRU haelt zwischengespeicherte Assets
+innerhalb des konfigurierten RAM-Budgets bis zum Ablauf ihrer TTL oder
+bis zur LRU-Verdraengung. Bei hoher System-Speicherlast
 kann dieser optionale Cache entbehrliche Payloads vorzeitig freigeben.
 
 Mit `MemoryPressureTrimEnabled=true` ueberprueft ein Timer alle 30 Sekunden
