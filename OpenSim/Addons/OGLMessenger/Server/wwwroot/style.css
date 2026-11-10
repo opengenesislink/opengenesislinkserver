@@ -1,0 +1,48 @@
+:root{color-scheme:dark;font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#08151e;color:#e8f0f4}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%;height:100%}button,textarea{font:inherit}button{cursor:pointer}
+.app-shell{display:flex;height:100dvh;min-height:420px;padding:12px;gap:12px}
+.sidebar,.conversation{background:#101f2b;border:1px solid #203747;border-radius:18px;overflow:hidden}
+.sidebar{display:flex;flex-flow:column;flex:0 0 345px;max-width:40%}
+.brand{padding:20px 20px 16px;display:flex;align-items:center;gap:12px;border-bottom:1px solid #213644}
+.brand strong{font-size:1.2rem;letter-spacing:.01em}.brand small{display:block;color:#97acb8;font-size:.76rem;margin-top:2px}
+.identity{padding:12px 17px;color:#a7beca;font-size:.88rem;min-height:42px}
+.navigation{display:flex;gap:8px;padding:7px 12px 12px}
+.tab{border:1px solid #2b4858;background:#172d3a;color:#b5cbd6;padding:10px;border-radius:12px;flex:1}
+.tab.active{background:#11667a;color:white;border-color:#167c91}
+.contact-list{flex:1;overflow:auto;padding:0 9px}
+.contact{display:flex;align-items:center;width:100%;gap:11px;text-align:left;padding:13px 11px;margin-bottom:5px;background:transparent;border:0;border-radius:12px;color:inherit}
+.contact:hover,.contact.selected{background:#1b3341}
+.avatar{display:grid;place-items:center;width:42px;height:42px;flex:0 0 42px;background:#20576a;border-radius:50%;font-weight:700}
+.contact-name{font-weight:600;word-break:break-word}.contact-detail{font-size:.78rem;color:#91aab7;margin-top:4px}
+.contact-body{min-width:0}.contact-name,.contact-detail{display:block}
+.login-panel{padding:12px 20px 25px;color:#c5d5dd;line-height:1.6}
+.primary-link{display:block;text-align:center;background:#18a4b7;color:#071924;padding:13px;border-radius:12px;font-weight:700;text-decoration:none}
+.muted{color:#88a1ae;font-size:.82rem}
+.sidebar-footer{padding:14px;border-top:1px solid #213644;display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;font-size:.83rem}
+.sidebar-footer button{border:1px solid #435968;border-radius:8px;background:transparent;color:#ccdae1;padding:7px 10px}
+.conversation{flex:1;min-width:0;display:flex;flex-direction:column}
+.conversation-header{display:flex;align-items:center;gap:12px;padding:18px 22px;border-bottom:1px solid #213644;min-height:85px}
+.conversation-header h1{font-size:1.1rem;margin:0}.conversation-header p{margin:4px 0 0;color:#91abb9;font-size:.82rem}
+#back{border:0;background:none;color:#8bddeb;font-size:2rem;padding:0 9px}
+.message-list{flex:1;overflow:auto;padding:18px;display:flex;flex-direction:column;gap:10px;background:radial-gradient(ellipse at 50% 35%,#112b37,#0e1e2b 75%)}
+.intro{margin:auto;max-width:350px;text-align:center;color:#b5cbd6;line-height:1.6}
+.intro h2{color:#e8f0f4;font-size:1.13rem;margin:14px 0}
+.bubble{max-width:min(560px,82%);border:1px solid #294554;border-radius:16px 16px 16px 4px;background:#1b3442;padding:10px 15px;white-space:pre-wrap;overflow-wrap:anywhere;align-self:flex-start}
+.bubble.own{background:#155468;border-color:#23758c;align-self:flex-end;border-radius:16px 16px 4px 16px}
+.bubble-meta{font-size:.72rem;color:#9dbec9;display:block;margin-bottom:5px}
+.compose{padding:15px;display:flex;gap:10px;border-top:1px solid #213644}
+.compose textarea{resize:none;flex:1;min-height:45px;max-height:120px;border-radius:12px;border:1px solid #345263;padding:12px;color:#fff;background:#172e3b}
+.compose button{background:#16a2b5;border:0;border-radius:11px;color:#051b26;font-weight:700;padding:0 19px}
+.notice{min-height:0;margin:0;padding:0 20px;color:#ffc77b;font-size:.84rem}
+.notice:not(:empty){padding-bottom:12px}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap}
+[hidden]{display:none!important}
+@media(max-width:720px){
+ .app-shell{padding:0;gap:0;min-height:0}.sidebar,.conversation{border-radius:0;border:0}
+ .sidebar{max-width:none;flex:1}.conversation{display:none}
+ .app-shell.chat-open .sidebar{display:none}.app-shell.chat-open .conversation{display:flex}
+ #back{display:block}
+ .brand{padding-top:max(20px,env(safe-area-inset-top))}
+ .compose{padding-bottom:max(12px,env(safe-area-inset-bottom))}
+}
