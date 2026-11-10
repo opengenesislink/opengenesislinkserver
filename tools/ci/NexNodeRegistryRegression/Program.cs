@@ -47,6 +47,17 @@ internal static class Program
                 ["perf_managed_heap_bytes"] = "1048576",
                 ["perf_gc_pause_percent"] = "2.50",
                 ["perf_threadpool_pending_items"] = "7",
+                ["perf_host_cpu_cores_json"] =
+                    "[{\"core_id\":0,\"usage_percent\":98.25},{\"core_id\":1,\"usage_percent\":15.5}]",
+                ["perf_region_heartbeats_json"] =
+                    "[{\"region_id\":\"11111111-1111-1111-1111-111111111111\",\"heartbeat_hz\":11.0," +
+                    "\"target_hz\":11.0,\"window_frames\":100,\"work_p95_ms\":8,\"frame_p95_ms\":12," +
+                    "\"frame_p99_ms\":28,\"work_over_budget_percent\":5.0,\"frame_over_budget_percent\":8.0}]",
+                ["perf_asset_requests"] = "200",
+                ["perf_asset_memory_hits"] = "100",
+                ["perf_asset_disk_hits"] = "60",
+                ["perf_asset_ram_bytes"] = "1048576",
+                ["perf_asset_writer_pending_jobs"] = "2",
                 ["region_count"] = "2",
                 ["agent_count"] = "7",
                 ["npc_count"] = "2",
@@ -96,6 +107,20 @@ internal static class Program
                 first.LunaTextureClassifications["png"] == 3,
             "LunaTexture classification projection mismatch");
         Require(first.Regions.Count == 2, "heartbeat region list mismatch");
+        Require(first.HostCpuCores.Count == 2 &&
+                first.HostCpuCores[0].CoreId == 0 &&
+                first.HostCpuCores[0].UsagePercent == 98.25,
+            "host CPU cores must be parsed and ordered");
+        Require(first.RegionPerformance.Count == 1 &&
+                first.RegionPerformance[0].RegionId ==
+                    "11111111-1111-1111-1111-111111111111" &&
+                first.RegionPerformance[0].FrameP99Ms == 28 &&
+                first.RegionPerformance[0].WorkOverBudgetPercent == 5,
+            "signed region frame timing projection mismatch");
+        Require(first.PerformanceMetrics["perf_asset_requests"] == 200 &&
+                first.PerformanceMetrics["perf_asset_ram_bytes"] == 1048576 &&
+                first.PerformanceMetrics["perf_asset_writer_pending_jobs"] == 2,
+            "signed Flotsam cache projection mismatch");
         Require(first.PerformanceMetrics["perf_processor_count"] == 8 &&
                 first.PerformanceMetrics["perf_process_cpu_percent"] == 53.25 &&
                 first.PerformanceMetrics["perf_managed_heap_bytes"] == 1048576 &&
@@ -118,6 +143,23 @@ internal static class Program
         Require(sanitized.PerformanceMetrics.Count == 1 &&
                 sanitized.PerformanceMetrics["perf_processor_count"] == 16,
             "metrics must be finite, bounded and allowlisted");
+        Require(sanitized.RegionPerformance.Count == 0 &&
+                sanitized.HostCpuCores.Count == 0,
+            "missing host/region telemetry must clear previous samples");
+
+        bus.Publish(Event("node.heartbeat", new Dictionary<string, string>
+        {
+            ["node_id"] = "sim-a",
+            ["perf_host_cpu_cores_json"] =
+                "[{\"core_id\":0,\"usage_percent\":150.0}]",
+            ["perf_region_heartbeats_json"] =
+                "[{\"region_id\":\"00000000-0000-0000-0000-000000000000\",\"heartbeat_hz\":2," +
+                "\"target_hz\":2,\"window_frames\":1,\"work_p95_ms\":0,\"frame_p95_ms\":0," +
+                "\"frame_p99_ms\":0,\"work_over_budget_percent\":0,\"frame_over_budget_percent\":0}]"
+        }));
+        Require(registry.Get("sim-a").HostCpuCores.Count == 0 &&
+                registry.Get("sim-a").RegionPerformance.Count == 0,
+            "invalid host load and unknown regions must be rejected");
 
         bus.Publish(Event(
             "region.online",
