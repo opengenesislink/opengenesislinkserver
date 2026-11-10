@@ -76,7 +76,9 @@ namespace NexVerse.Core.ControlPlane
             string updateState = "",
             string updateOperationId = "",
             DateTimeOffset? updateAt = null,
-            int npcCount = 0)
+            int npcCount = 0,
+            bool liveUpdaterEnabled = false,
+            string updateType = "download_and_build_only")
         {
             NpcCount = Math.Clamp(npcCount, 0, Math.Max(0, agentCount));
             NodeId = nodeId ?? string.Empty;
@@ -113,6 +115,8 @@ namespace NexVerse.Core.ControlPlane
             UpdateState = updateState ?? string.Empty;
             UpdateOperationId = updateOperationId ?? string.Empty;
             UpdateAt = updateAt;
+            LiveUpdaterEnabled = liveUpdaterEnabled;
+            UpdateType = updateType ?? "download_and_build_only";
         }
 
         public string NodeId { get; }
@@ -147,6 +151,8 @@ namespace NexVerse.Core.ControlPlane
         public string UpdateState { get; }
         public string UpdateOperationId { get; }
         public DateTimeOffset? UpdateAt { get; }
+        public bool LiveUpdaterEnabled { get; }
+        public string UpdateType { get; }
     }
 
     /// <summary>
@@ -268,6 +274,10 @@ namespace NexVerse.Core.ControlPlane
                 case "node.update.stage.accepted":
                 case "node.update.stage.completed":
                 case "node.update.stage.failed":
+                case "node.update.deploy.accepted":
+                case "node.update.deploy.running":
+                case "node.update.deploy.completed":
+                case "node.update.deploy.failed":
                     ApplyNodeUpdateState(nexEvent);
                     break;
 
@@ -297,7 +307,13 @@ namespace NexVerse.Core.ControlPlane
             NodeRecord record = m_Nodes.GetOrAdd(nodeId, id => new NodeRecord(id));
             lock (record.Sync)
             {
-                record.UpdateState = ev.Name.Substring("node.update.stage.".Length);
+                bool deploy = ev.Name.StartsWith("node.update.deploy.",
+                    StringComparison.OrdinalIgnoreCase);
+                record.UpdateState = ev.Name.Substring(
+                    deploy ? "node.update.deploy.".Length :
+                             "node.update.stage.".Length);
+                record.UpdateType = deploy ? "live_git_build_manual_restart" :
+                    "download_and_build_only";
                 record.UpdateOperationId = operationId;
                 record.UpdateAt = DateTimeOffset.UtcNow;
                 record.LastEventAt = record.UpdateAt.Value;
@@ -371,6 +387,8 @@ namespace NexVerse.Core.ControlPlane
                     record.NpcCount = Math.Clamp(value, 0, Math.Max(0, record.AgentCount)));
                 AssignBool(nexEvent, "maintenance_mode", value => record.MaintenanceMode = value);
                 AssignBool(nexEvent, "draining", value => record.Draining = value);
+                AssignBool(nexEvent, "live_updater_enabled",
+                    value => record.LiveUpdaterEnabled = value);
                 AssignBool(
                     nexEvent,
                     "managed_region_commands",
@@ -721,7 +739,9 @@ namespace NexVerse.Core.ControlPlane
                     record.UpdateState,
                     record.UpdateOperationId,
                     record.UpdateAt,
-                    record.NpcCount);
+                    record.NpcCount,
+                    record.LiveUpdaterEnabled,
+                    record.UpdateType);
             }
         }
 
@@ -1028,6 +1048,8 @@ namespace NexVerse.Core.ControlPlane
             public string UpdateState = string.Empty;
             public string UpdateOperationId = string.Empty;
             public DateTimeOffset? UpdateAt;
+            public bool LiveUpdaterEnabled;
+            public string UpdateType = "download_and_build_only";
             public DateTimeOffset LastSeen;
             public DateTimeOffset LastEventAt;
 
