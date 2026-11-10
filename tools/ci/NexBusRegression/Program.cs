@@ -133,6 +133,15 @@ internal static class Program
         Require(!NexBusProtocol.VerifyNodeDeployRequest(
             "simulator-1", updateOperation, issuedAt, controlKey,
             deployAuthorization, issuedAt + 301), "expired live deploy accepted");
+        // Cross-language deterministic vector shared with Python updater.
+        // It pins the exact backslash-n domain separator and UTF-8 canonical
+        // representation so C# and Python cannot silently drift.
+        string vector = NexBusProtocol.SignNodeDeployRequest(
+            "simulator-1", "00000000-0000-0000-0000-000000000001",
+            1700000000L, new string('U', 64));
+        Require(vector == "ddb60ee3ba682022b4176869024b04de7607e702b73c61987adca2975d81e193",
+            "C# live-deploy signature differs from the Python daemon protocol");
+
 
         NexEvent wireEvent = NexBusProtocol.Deserialize(wire);
         Require(wireEvent.EventId == ev.EventId, "wire EventId mismatch");
