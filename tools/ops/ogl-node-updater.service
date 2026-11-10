@@ -1,0 +1,28 @@
+[Unit]
+Description=OpenGenesisLINK Generation 1 Standalone Node Updater
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=oglupdate
+Group=oglupdate
+EnvironmentFile=/etc/opengenesislink/ogl-node-updater.env
+ExecStart=/usr/bin/python3 /usr/local/libexec/ogl-node-updater/ogl-node-updater.py
+Restart=on-failure
+RestartSec=5
+WorkingDirectory=/
+UMask=0077
+NoNewPrivileges=true
+ProtectSystem=full
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+
+[Install]
+WantedBy=multi-user.target
