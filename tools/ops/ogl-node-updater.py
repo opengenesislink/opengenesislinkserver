@@ -103,11 +103,20 @@ def run_update(operation_id: str) -> None:
         change(state="running", message="preflight")
         with log_path.open("a", encoding="utf-8") as logfile:
             os.chmod(log_path, 0o600)
+            # The build executes checked-out repository scripts. Never pass
+            # the HTTP service credential or NexBus control secrets into a
+            # spawned git/dotnet/compiler process.
+            child_env = dict(os.environ)
+            for secret_name in ("OGL_UPDATER_TOKEN",
+                                "OGL_NODE_UPDATER_TOKEN",
+                                "NEXVERSE_UPDATE_CONTROL_KEY"):
+                child_env.pop(secret_name, None)
+            child_env["GIT_TERMINAL_PROMPT"] = "0"
             process = subprocess.Popen(
                 ["bash", str(SCRIPT), str(BASE.resolve()), str(BACKUPS.resolve())],
                 cwd="/", stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT, text=True, bufsize=1,
-                env={**os.environ, "GIT_TERMINAL_PROMPT": "0"},
+                env=child_env,
                 start_new_session=True)
             if process.stdout is None:
                 raise RuntimeError("Updater output stream missing.")
