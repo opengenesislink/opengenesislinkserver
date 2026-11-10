@@ -1,30 +1,30 @@
-# NexVerse Messenger — Generation 1
+# NexVerse Messenger – OpenGenesisLINK Generation 1
 
-Status: architecture foundation, NOT production-ready.
+**Status:** World-API-basiertes **MVP in der Entwicklung**. Der PR ersetzt das reine API-Gerüst durch eine installierbare PWA und einen eigenständigen .NET-10-Server. Noch keine vollständige WhatsApp-Alternative oder produktive Freigabe.
 
-## Scope
-Only local Stadt NexVerse accounts can authenticate in the PWA. Existing avatar credentials are verified by a trusted server-side OpenGenesisLINK adapter. External Hypergrid avatars are **contacts only**; they cannot sign in.
+## Implementiert
 
-The PWA is served over HTTPS. Grid communication can continue using its existing HTTP endpoints; the browser must never call the Grid's HTTP login endpoint directly from an HTTPS origin.
+- PWA für Desktop, Android und iPhone mit responsiver deutschsprachiger Dark-Mode-Oberfläche und Startbildschirm-Installation.
+- Login über die vorhandene World API mit OAuth2 Authorization Code und PKCE S256. Avatarname/Passwort werden im World-API-Login verarbeitet, nicht im Messenger.
+- Nur aktive lokale Stadt-NexVerse-Avatare dürfen sich anmelden. HG-Kontakte sind keine Messenger-Loginidentitäten.
+- 30-Tage-Sitzung mit zufälligem Secure HttpOnly SameSite-Cookie, gespeicherten Cookie-Hashes, verschlüsselten OAuth-Tokens, persistierten Schlüsseldateien und Refresh-Rotation.
+- CSRF-/Origin-Schutz, Login- und Senderate-Limits, 16-KiB-Eingabegrenze, verpflichtendes HTTPS und expliziter Reverse-Proxy-Vertrauensanker.
+- Freundesliste mit vorhandenen Inworld-Präsenzrechten, separate private Mobilonline-Anzeige mittels 90-Sekunden-Heartbeat; fremde HG-Präsenz wird nicht erfunden.
+- Direkt-IM an bestätigte lokale Freunde durch den nativen World-API/Inworld-IM-Pfad. Das SQLite-Ledger verhindert das doppelte Abschicken gleicher clientMessageId innerhalb eines Absenders. Bei unklarer Zustellung gibt es keinen automatischen Retry.
+- Optionales World-API-Nachrichtenarchiv einschließlich nutzerseitiger Einwilligung, Verlauf und Löschmöglichkeit; 5-Sekunden-Vordergrundabfrage.
+- Gruppenmitgliedschaften und lesbare Gruppenmitteilungen aus NexGroups.
+- PWA-Service-Worker cached nur statische Dateien, nie Authentifizierung oder Nutzernachrichten.
 
-## Components
-- OGLMessenger: server-side adapter for avatar authentication, IM, offline IM, friends, presence, group chat and group notices.
-- Messaging API: .NET 10 service, durable MariaDB storage, Redis presence, SignalR realtime delivery, Web Push.
-- PWA: installable React/TypeScript application for iOS 16.4+ home-screen web push, Android and desktop.
+## Noch nicht implementiert
 
-## Invariants
-1. Never store avatar passwords or expose grid password hashes to the PWA.
-2. Authentication must validate **local** account ownership, not a visitor's foreign avatar identity.
-3. Store refresh sessions as hashed opaque tokens, rotate on use, revoke on logout and suspicious reuse; use Secure HttpOnly SameSite cookies with CSRF protection.
-4. Preserve native IM identity and routing; bridge messages to existing OpenGenesisLINK modules, not a second independent inworld IM implementation.
-5. Idempotency keys and durable delivery/outbox prevent duplicate messages on reconnect/retry.
-6. Remote HG offline delivery and remote online state are best effort, not guaranteed.
-7. Group chat and group notices are separate permission-checked operations.
-8. Visibility and block lists must apply to both presence and delivery.
-9. The PWA is not continuously online when suspended; Web Push is only a wake-up notification.
-10. Validate service-to-service requests (mTLS or signed short-lived tokens), rate limit, audit security events and never log message content or credentials by default.
+- Ausgehende HG-IMs, HG-Offline-IM-Garantien. HG-Freunde werden gelistet, Senden ist ausdrücklich deaktiviert.
+- Live-Gruppenchat und Gruppenchat-Brücke zwischen PWA und Inworld. Notices sind nur lesbar.
+- Web Push (einschließlich iOS-Sperrbildschirm), Zustell- und Lesebestätigungen.
+- Mehrere Messenger-API-Nodes mit gemeinsamem zentralem Session-Store.
+- End-to-End-Abnahmetests mit echtem Avatar, Offline-Empfang, HG und mehreren Simulatorregionen.
 
-## Implementation gates
-- Identify existing IM, offline IM, friends, groups, HG routing and login interfaces in current server code.
-- Implement a read-only adapter first, then outbound IM and inbound event hooks.
-- Test local-to-local, local-to-HG, offline, duplicate delivery, logout and group permission cases before enabling production routing.
+## Dokumentation
+
+Installation und OAuth-Registrierung: [DEPLOYMENT.md](DEPLOYMENT.md). Weitere Integrationsgrenzen: [INTEGRATION_AUDIT.md](INTEGRATION_AUDIT.md). API: [protocol.md](protocol.md).
+
+Der Messenger ändert keine bestehenden Login-, IM-, Friends- oder Gruppenmodule.
