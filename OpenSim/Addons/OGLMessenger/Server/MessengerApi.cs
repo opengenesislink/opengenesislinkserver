@@ -106,23 +106,23 @@ public static class MessengerApi
         app.MapGet("/api/v1/friends", async (
             HttpContext ctx, MessengerSessionManager sessions,
             WorldApiGateway world) => await ProxyGet(ctx, sessions, world,
-                async session => "api/v1/relationships/" + session.AvatarId.ToString("D")));
+                session => "api/v1/relationships/" + session.AvatarId.ToString("D")));
 
         app.MapGet("/api/v1/groups", async (
             HttpContext ctx, MessengerSessionManager sessions,
             WorldApiGateway world) => await ProxyGet(ctx, sessions, world,
-                _ => Task.FromResult("api/v1/groups/mine?limit=100")));
+                _ => "api/v1/groups/mine?limit=100"));
 
         app.MapGet("/api/v1/groups/{groupId:guid}/notices", async (
             Guid groupId, HttpContext ctx,
             MessengerSessionManager sessions, WorldApiGateway world) =>
             await ProxyGet(ctx, sessions, world, _ =>
-                Task.FromResult("api/v1/groups/" + groupId.ToString("D") + "/notices")));
+                "api/v1/groups/" + groupId.ToString("D") + "/notices"));
 
         app.MapGet("/api/v1/conversations", async (
             HttpContext ctx, MessengerSessionManager sessions,
             WorldApiGateway world) => await ProxyGet(ctx, sessions, world, _ =>
-                Task.FromResult("api/v1/messages?limit=100")));
+                "api/v1/messages?limit=100"));
 
         app.MapGet("/api/v1/messages", async (
             HttpContext ctx, MessengerSessionManager sessions,
@@ -132,7 +132,7 @@ public static class MessengerApi
                 out long after) || after < 0)
                 return Results.BadRequest(new { error = "invalid_cursor" });
             return await ProxyGet(ctx, sessions, world, _ =>
-                Task.FromResult("api/v1/messages/events?after=" + after + "&limit=100"));
+                "api/v1/messages/events?after=" + after + "&limit=100");
         });
 
         app.MapGet("/api/v1/messages/with/{peer:guid}", async (
@@ -142,14 +142,13 @@ public static class MessengerApi
             if (peer == Guid.Empty)
                 return Results.BadRequest(new { error = "invalid_peer" });
             return await ProxyGet(ctx, sessions, world, _ =>
-                Task.FromResult("api/v1/messages/with/" + peer.ToString("D") +
-                    "?limit=100"));
+                "api/v1/messages/with/" + peer.ToString("D") + "?limit=100");
         });
 
         app.MapGet("/api/v1/messages/settings", async (
             HttpContext ctx, MessengerSessionManager sessions,
             WorldApiGateway world) => await ProxyGet(ctx, sessions, world, _ =>
-                Task.FromResult("api/v1/messages/settings")));
+                "api/v1/messages/settings"));
 
         app.MapPatch("/api/v1/messages/settings", async (
             HttpContext ctx, MessengerSessionManager sessions,
@@ -237,12 +236,12 @@ public static class MessengerApi
 
     private static async Task<IResult> ProxyGet(
         HttpContext ctx, MessengerSessionManager sessions,
-        WorldApiGateway world, Func<MessengerSession, Task<string>> path)
+        WorldApiGateway world, Func<MessengerSession, string> path)
     {
         MessengerSession? session = await sessions.ResolveAsync(
             ctx, ctx.RequestAborted);
         if (session == null) return Results.Unauthorized();
-        string resolvedPath = await path(session);
+        string resolvedPath = path(session);
         WorldApiResponse response = await world.RequestAsync(
             HttpMethod.Get, resolvedPath, session.AccessToken, null,
             ctx.RequestAborted);
