@@ -41,6 +41,12 @@ internal static class Program
                 ["process_id"] = "4242",
                 ["working_set_bytes"] = "1048576",
                 ["cpu_seconds"] = "3.500",
+                ["perf_processor_count"] = "8",
+                ["perf_process_cpu_percent"] = "53.25",
+                ["perf_process_private_bytes"] = "3145728",
+                ["perf_managed_heap_bytes"] = "1048576",
+                ["perf_gc_pause_percent"] = "2.50",
+                ["perf_threadpool_pending_items"] = "7",
                 ["region_count"] = "2",
                 ["agent_count"] = "7",
                 ["npc_count"] = "2",
@@ -90,6 +96,28 @@ internal static class Program
                 first.LunaTextureClassifications["png"] == 3,
             "LunaTexture classification projection mismatch");
         Require(first.Regions.Count == 2, "heartbeat region list mismatch");
+        Require(first.PerformanceMetrics["perf_processor_count"] == 8 &&
+                first.PerformanceMetrics["perf_process_cpu_percent"] == 53.25 &&
+                first.PerformanceMetrics["perf_managed_heap_bytes"] == 1048576 &&
+                first.PerformanceMetrics["perf_gc_pause_percent"] == 2.50 &&
+                first.PerformanceMetrics["perf_threadpool_pending_items"] == 7,
+            "signed process performance projection mismatch");
+
+        // Non-finite, negative and out-of-range values must never reach World API.
+        bus.Publish(Event("node.heartbeat", new Dictionary<string, string>
+        {
+            ["node_id"] = "sim-a",
+            ["perf_processor_count"] = "16",
+            ["perf_process_cpu_percent"] = "NaN",
+            ["perf_managed_heap_bytes"] = "-1",
+            ["perf_gc_pause_percent"] = "101",
+            ["perf_threadpool_pending_items"] = "1e999",
+            ["perf_arbitrary_metric"] = "12345"
+        }));
+        NexNodeSnapshot sanitized = registry.Get("sim-a");
+        Require(sanitized.PerformanceMetrics.Count == 1 &&
+                sanitized.PerformanceMetrics["perf_processor_count"] == 16,
+            "metrics must be finite, bounded and allowlisted");
 
         bus.Publish(Event(
             "region.online",
@@ -149,6 +177,8 @@ internal static class Program
                 ["luna_texture_regions_affected"] = "0",
                 ["luna_texture_last_seen_utc"] = "",
                 ["luna_texture_classifications_json"] = "{}",
+                ["perf_process_cpu_percent"] = "7.25",
+                ["perf_managed_heap_bytes"] = "2097152",
                 ["regions"] =
                     "11111111-1111-1111-1111-111111111111|Alpha"
             }));
@@ -158,6 +188,9 @@ internal static class Program
 
         Require(pruned.Regions.Count == 1,
             "heartbeat must prune regions no longer reported");
+        Require(pruned.PerformanceMetrics["perf_process_cpu_percent"] == 7.25 &&
+                pruned.PerformanceMetrics["perf_managed_heap_bytes"] == 2097152,
+            "performance telemetry must refresh on a later heartbeat");
         Require(pruned.NpcCount == 1,
             "heartbeat must refresh NPC count without counting twice");
         Require(pruned.LunaTextureDiagnosticCount == 0 &&
@@ -181,6 +214,8 @@ internal static class Program
 
         Require(registry.Get("sim-a").State == "offline",
             "node.offline must mark node offline");
+        Require(registry.Get("sim-a").PerformanceMetrics.Count == 0,
+            "offline event must clear stale resource measurements");
 
         bus.Publish(Event(
             "node.heartbeat",
