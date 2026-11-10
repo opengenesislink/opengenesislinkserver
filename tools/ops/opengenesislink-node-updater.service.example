@@ -1,0 +1,35 @@
+[Unit]
+Description=OpenGenesisLINK Generation 1 Independent Node Updater
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# Change to a DEDICATED NON-ROOT account able to write ONLY the target checkout.
+User=ogl-updater
+Group=ogl-updater
+EnvironmentFile=/etc/opengenesislink/updater.env
+WorkingDirectory=/opt/opengenesislink-updater
+ExecStart=/usr/bin/python3 /opt/opengenesislink-updater/ogl-node-live-updater.py
+Restart=on-failure
+RestartSec=5
+UMask=0077
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+# Only these operator-owned directories are mutable; change to match OGL_UPDATER_BIN.
+ReadWritePaths=/opt/robust /opt/ogl-backups /var/lib/opengenesislink-updater
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+CapabilityBoundingSet=
+AmbientCapabilities=
+LockPersonality=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+PrivateDevices=yes
+SystemCallArchitectures=native
+TimeoutStopSec=90
+
+[Install]
+WantedBy=multi-user.target
