@@ -35,6 +35,7 @@ jobs:
       - name: Validate shell and Python source
         run: |
           bash -n tools/ops/ogl-node-live-update.sh
+          bash -n tools/ops/install-ogl-node-live-updater.sh
           python3 -m py_compile tools/ops/ogl-node-live-updater.py tools/ci/test_ogl_live_updater.py
       - name: Test signed localhost update and safe repo/config handling
         run: python3 -m unittest -v tools/ci/test_ogl_live_updater.py
