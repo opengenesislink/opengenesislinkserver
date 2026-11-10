@@ -1,6 +1,7 @@
 using System.Net;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using OpenSim.Addons.OGLMessenger.Contracts;
 
 namespace OpenSim.Addons.OGLMessenger.Server;
@@ -19,6 +20,7 @@ public static class MessengerApi
             localFriendIm = true,
             offlineHistory = "world-api-opt-in-archive",
             groupMemberships = true,
+            mobilePresence = "recent_session_activity_90s",
             groupNoticesRead = true,
             hgOutboundIm = false,
             groupLiveChat = false,
@@ -83,6 +85,23 @@ public static class MessengerApi
             });
         });
 
+        // Presence is a separate mobile signal. It never writes to the
+        // grid's inworld presence service.
+        app.MapPost("/api/v1/presence/heartbeat", async (
+            HttpContext ctx, MessengerSessionManager sessions,
+            MessengerSessionStore store) =>
+        {
+            MessengerSession? session = await sessions.ResolveAsync(
+                ctx, ctx.RequestAborted);
+            if (session == null)
+                return Results.Unauthorized();
+            if (!MessengerSessionManager.CheckCsrf(ctx, session))
+                return Results.StatusCode(403);
+            store.TouchPresence(
+                ctx.Request.Cookies[MessengerSessionManager.SessionCookie] ?? "");
+            return Results.Ok(new { mobile = true, expiresAfterSeconds = 90 });
+        }).RequireRateLimiting("send");
+
         app.MapPost("/api/v1/auth/logout", async (
             HttpContext ctx, MessengerSessionManager sessions,
             WorldApiGateway world) =>
@@ -105,8 +124,51 @@ public static class MessengerApi
 
         app.MapGet("/api/v1/friends", async (
             HttpContext ctx, MessengerSessionManager sessions,
-            WorldApiGateway world) => await ProxyGet(ctx, sessions, world,
-                session => "api/v1/relationships/" + session.AvatarId.ToString("D")));
+            WorldApiGateway world, MessengerSessionStore store) =>
+        {
+            MessengerSession? session = await sessions.ResolveAsync(
+                ctx, ctx.RequestAborted);
+            if (session == null)
+                return Results.Unauthorized();
+            WorldApiResponse upstream = await world.RequestAsync(
+                HttpMethod.Get,
+                "api/v1/relationships/" + session.AvatarId.ToString("D"),
+                session.AccessToken, null, ctx.RequestAborted);
+            if (!upstream.Success)
+                return Relay(upstream);
+
+            JsonNode? content = JsonNode.Parse(upstream.Body);
+            if (content is not JsonObject root ||
+                root["relationships"] is not JsonArray relationships)
+                return Relay(upstream);
+            foreach (JsonNode? item in relationships)
+            {
+                if (item is not JsonObject friend)
+                    continue;
+                bool confirmed = string.Equals(
+                    friend["state"]?.GetValue<string>(), "friends",
+                    StringComparison.Ordinal);
+                bool hypergrid = friend["is_hypergrid"]?.GetValue<bool>() == true;
+                bool visibility = friend["can_see_online"]?.GetValue<bool>() == true;
+                bool mobile = confirmed && !hypergrid && visibility &&
+                    Guid.TryParse(friend["principal_id"]?.GetValue<string>(),
+                        out Guid friendId) &&
+                    store.IsMobileOnline(friendId);
+                // Do not reveal mobile activity for pending/blocklisted,
+                // foreign HG or presence-hidden contacts.
+                friend["mobile_online"] = mobile;
+                if (mobile)
+                    friend["messenger_status"] =
+                        friend["online_status"]?.GetValue<string>() == "online"
+                        ? "inworld_and_mobile" : "mobile";
+                else if (visibility &&
+                    friend["online_status"]?.GetValue<string>() == "online")
+                    friend["messenger_status"] = "inworld";
+                else
+                    friend["messenger_status"] = "unknown";
+            }
+            return Results.Json(root);
+        });
 
         app.MapGet("/api/v1/groups", async (
             HttpContext ctx, MessengerSessionManager sessions,
