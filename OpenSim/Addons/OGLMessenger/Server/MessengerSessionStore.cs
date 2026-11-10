@@ -53,10 +53,13 @@ public sealed class MessengerSessionStore
                 access_expires INTEGER NOT NULL,
                 session_expires INTEGER NOT NULL,
                 csrf_token TEXT NOT NULL,
-                created INTEGER NOT NULL
+                created INTEGER NOT NULL,
+                presence_last_seen INTEGER NOT NULL DEFAULT 0
             );
             CREATE INDEX IF NOT EXISTS ix_messenger_sessions_avatar
               ON messenger_sessions(avatar_id);
+            CREATE INDEX IF NOT EXISTS ix_messenger_sessions_presence
+              ON messenger_sessions(avatar_id,presence_last_seen);
             CREATE TABLE IF NOT EXISTS messenger_sends (
                 avatar_id TEXT NOT NULL,
                 client_id TEXT NOT NULL,
@@ -101,9 +104,10 @@ public sealed class MessengerSessionStore
         sql.CommandText = """
             INSERT INTO messenger_sessions
               (session_hash, avatar_id, access_token, refresh_token,
-               access_expires, session_expires, csrf_token, created)
+               access_expires, session_expires, csrf_token, created,
+               presence_last_seen)
             VALUES (@hash, @id, @access, @refresh, @accessExp,
-                    @sessionExp, @csrf, @created)
+                    @sessionExp, @csrf, @created, @created)
             """;
         sql.Parameters.AddWithValue("@hash", Digest(cookie));
         sql.Parameters.AddWithValue("@id", avatarId.ToString("D"));
@@ -146,6 +150,39 @@ public sealed class MessengerSessionStore
         {
             return null;
         }
+    }
+
+    /// <summary>Only recently active logged-in local sessions count as mobile.</summary>
+    public void TouchPresence(string cookie)
+    {
+        if (string.IsNullOrEmpty(cookie) || cookie.Length > 128)
+            return;
+        using var db = Open();
+        using var cmd = db.CreateCommand();
+        cmd.CommandText = """
+            UPDATE messenger_sessions SET presence_last_seen=@now
+            WHERE session_hash=@hash AND session_expires>@now
+            """;
+        cmd.Parameters.AddWithValue("@now", Now);
+        cmd.Parameters.AddWithValue("@hash", Digest(cookie));
+        cmd.ExecuteNonQuery();
+    }
+
+    public bool IsMobileOnline(Guid avatarId)
+    {
+        if (avatarId == Guid.Empty)
+            return false;
+        using var db = Open();
+        using var cmd = db.CreateCommand();
+        cmd.CommandText = """
+            SELECT 1 FROM messenger_sessions
+            WHERE avatar_id=@avatar AND session_expires>@now
+              AND presence_last_seen>@cutoff LIMIT 1
+            """;
+        cmd.Parameters.AddWithValue("@avatar", avatarId.ToString("D"));
+        cmd.Parameters.AddWithValue("@now", Now);
+        cmd.Parameters.AddWithValue("@cutoff", Now - 90);
+        return cmd.ExecuteScalar() != null;
     }
 
     public void UpdateTokens(string cookie, OAuthTokens tokens)
