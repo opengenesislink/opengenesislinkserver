@@ -41,10 +41,10 @@ OGL_UPDATER_PORT=19090
 OGL_UPDATER_REPO_ROOT=/opt/robust
 OGL_UPDATER_BACKUP_ROOT=/opt/ogl-backups
 OGL_UPDATER_STATE_DIR=/var/lib/ogl-node-updater
-OGL_UPDATER_TOKEN=EIGENER_MIT_OPENSSL_RAND_HEX_32_ERZEUGTER_WERT
+OGL_UPDATER_TOKEN=
 ```
 
-Einen starken Service-Schlüssel erzeugen:
+Einen starken Service-Schlüssel erzeugen und **erst danach** hinter `OGL_UPDATER_TOKEN=` eintragen (die leere Beispielkonfiguration kann nicht starten):
 
 ```bash
 openssl rand -hex 32
