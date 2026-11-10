@@ -1,0 +1,42 @@
+name: OGL Messenger .NET 10 and PWA Security Gate
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'OpenSim/Addons/OGLMessenger/**'
+      - 'tools/ci/OGLMessengerRegression/**'
+      - 'tools/ci/verify_messenger_http.py'
+      - '.github/workflows/ogl-messenger.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'OpenSim/Addons/OGLMessenger/**'
+      - 'tools/ci/OGLMessengerRegression/**'
+      - 'tools/ci/verify_messenger_http.py'
+      - '.github/workflows/ogl-messenger.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  messenger:
+    name: Messenger .NET 10 build, session security and PWA smoke (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: Build standalone Messenger HTTP API and contracts
+        run: dotnet build OpenSim/Addons/OGLMessenger/Server/OGLMessenger.Server.csproj --configuration Release
+      - name: Test session encryption, refresh persistence and safe IM idempotency
+        run: dotnet run --project tools/ci/OGLMessengerRegression/OGLMessengerRegression.csproj --configuration Release
+      - name: Test unconfigured runtime cannot authenticate and PWA files load
+        run: python tools/ci/verify_messenger_http.py
