@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.DataProtection;
+using Microsoft.Data.Sqlite;
 using OpenSim.Addons.OGLMessenger.Server;
 
 static void Check(bool ok, string message)
@@ -39,13 +40,25 @@ try
     MessengerSession? session = store.Find(cookie);
     Check(session?.AvatarId == avatar && session.AccessToken == "access-secret-1" &&
           session.RefreshToken == "refresh-secret-1", "encrypted token session failed");
-    string dbData = Convert.ToBase64String(File.ReadAllBytes(config.DatabasePath));
-    Check(!dbData.Contains(Convert.ToBase64String(
-        System.Text.Encoding.UTF8.GetBytes("access-secret-1")), StringComparison.Ordinal),
-        "plaintext access token present in SQLite database");
-    Check(!dbData.Contains(Convert.ToBase64String(
-        System.Text.Encoding.UTF8.GetBytes("refresh-secret-1")), StringComparison.Ordinal),
-        "plaintext refresh token present in SQLite database");
+    // Inspect SQLite ciphertext through a normal read connection: on Windows
+    // SQLite may hold an open WAL/file handle, making raw File.ReadAllBytes
+    // unsafe. This also verifies encryption without base64-alignment guesses.
+    using (var conn = new SqliteConnection(
+        "Data Source=" + config.DatabasePath + ";Pooling=False"))
+    {
+        conn.Open();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText =
+            "SELECT access_token,refresh_token FROM messenger_sessions LIMIT 1";
+        using var row = cmd.ExecuteReader();
+        Check(row.Read(), "session row missing from SQLite");
+        Check(row.GetString(0) != "access-secret-1" &&
+              !row.GetString(0).Contains("access-secret-1", StringComparison.Ordinal),
+            "plaintext access token stored in SQLite");
+        Check(row.GetString(1) != "refresh-secret-1" &&
+              !row.GetString(1).Contains("refresh-secret-1", StringComparison.Ordinal),
+            "plaintext refresh token stored in SQLite");
+    }
 
     store.UpdateTokens(cookie, new OAuthTokens("access-2", "refresh-2", 3600));
     session = store.Find(cookie);
@@ -79,5 +92,6 @@ try
 }
 finally
 {
+    SqliteConnection.ClearAllPools();
     Directory.Delete(root, true);
 }
