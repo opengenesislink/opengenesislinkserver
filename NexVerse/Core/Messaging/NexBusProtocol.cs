@@ -161,6 +161,49 @@ namespace NexVerse.Core.Messaging
             }
         }
 
+        // A live source deployment is intentionally a DIFFERENT cryptographic
+        // capability from harmless download/build-only staging. Reusing an old
+        // stage approval cannot authorize modifying the active simulator tree.
+        private static byte[] NodeDeployPayload(string nodeId, string operationId, long issuedAt)
+        {
+            if (string.IsNullOrWhiteSpace(nodeId) ||
+                !System.Text.RegularExpressions.Regex.IsMatch(nodeId,
+                    @"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$") ||
+                !Guid.TryParse(operationId, out Guid parsed))
+                throw new ArgumentException("Invalid node live-update identity.");
+
+            string normalized = nodeId.Trim().ToLowerInvariant();
+            string raw = "ogl-node-deploy-v1\\n" +
+                normalized.Length.ToString(System.Globalization.CultureInfo.InvariantCulture) +
+                ":" + normalized + "\\n" + parsed.ToString("D") + "\\n" +
+                issuedAt.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            return Encoding.UTF8.GetBytes(raw);
+        }
+
+        public static string SignNodeDeployRequest(
+            string nodeId, string operationId, long issuedAt, string controlKey)
+        {
+            return Sign(NodeDeployPayload(nodeId, operationId, issuedAt), controlKey);
+        }
+
+        public static bool VerifyNodeDeployRequest(
+            string nodeId, string operationId, long issuedAt, string controlKey,
+            string signature, long currentUnixSeconds)
+        {
+            if (issuedAt > currentUnixSeconds + 60 ||
+                issuedAt < currentUnixSeconds - 300)
+                return false;
+            try
+            {
+                return Verify(NodeDeployPayload(nodeId, operationId, issuedAt),
+                    controlKey, signature);
+            }
+            catch (ArgumentException)
+            {
+                return false;
+            }
+        }
+
         public static void ValidateSharedKey(string sharedKey)
         {
             if (string.IsNullOrEmpty(sharedKey) ||
