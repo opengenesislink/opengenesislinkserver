@@ -855,7 +855,8 @@ body.ogl-sidebar-collapsed .ogl-admin-header,body.ogl-sidebar-collapsed main{gri
 </div>
 <div class="section">
 <h2>Node-Liste</h2><p class="sectionlead" id="nodesTransport">NexBus-Transportstatus noch nicht geladen.</p>
-<div class="tablewrap"><table class="datatable"><thead><tr><th>Node</th><th>Host</th><th>Status</th><th>Version</th><th>Regionen</th><th>Avatare</th><th>Uptime</th><th>RAM</th><th>Letztes Signal</th></tr></thead><tbody id="nodesBody"></tbody></table></div>
+<p class="authnote">Update wird nur für eine online gemeldete Node mit separat aktiviertem Live-Updater angeboten. Der Vorgang überschreibt lokale Git-Dateien auf <code>main</code>, sichert und erhält INI-Konfigurationen, entfernt <code>NexVerse-Deutschland.ini</code> und kompiliert in das aktive <code>bin</code>. Der Simulator wird <strong>nicht</strong> automatisch neugestartet. Die Aktion benötigt <code>simulators:manage</code> und eine ausdrückliche Bestätigung.</p>
+<div class="tablewrap"><table class="datatable"><thead><tr><th>Node</th><th>Host</th><th>Status</th><th>Version</th><th>Regionen</th><th>Avatare</th><th>Uptime</th><th>RAM</th><th>Letztes Signal</th><th>Update</th></tr></thead><tbody id="nodesBody"></tbody></table></div>
 </div>
 <div class="section">
 <h2>Node-Details</h2><pre id="nodeDetail">Noch kein Node ausgewählt.</pre>
@@ -1939,7 +1940,7 @@ function renderNodes(data){
   $('nodesTransport').textContent=(data.transport_enabled?'Verteilter NexBus-Transport aktiv':'Verteilter NexBus-Transport deaktiviert')+' · Stale nach '+(data.stale_after_seconds||'–')+' Sekunden ohne Heartbeat.';
   const body=$('nodesBody');body.replaceChildren();
   if(!nodes.length){
-    const tr=document.createElement('tr');const td=document.createElement('td');td.colSpan=9;td.className='small';td.textContent=data.transport_enabled?'Noch keine NodeAgent-Heartbeats empfangen.':'NexBus-Transport ist deaktiviert; keine Remote-NodeAgents werden empfangen.';tr.append(td);body.append(tr);
+    const tr=document.createElement('tr');const td=document.createElement('td');td.colSpan=10;td.className='small';td.textContent=data.transport_enabled?'Noch keine NodeAgent-Heartbeats empfangen.':'NexBus-Transport ist deaktiviert; keine Remote-NodeAgents werden empfangen.';tr.append(td);body.append(tr);
   }
   nodes.forEach(node=>{
     const tr=document.createElement('tr');tr.className='noderow';
@@ -1959,10 +1960,80 @@ function renderNodes(data){
       if(index===2)td.className='node-state-'+(node.state||'');
       tr.append(td);
     });
+    const updateCell=document.createElement('td');
+    const updateButton=document.createElement('button');
+    updateButton.type='button';
+    updateButton.className='action';
+    updateButton.textContent='Update';
+    const busy=node.update && (node.update.state==='accepted'||node.update.state==='running');
+    updateButton.disabled=node.state!=='online'||node.live_updater_enabled!==true||!data.transport_enabled||busy;
+    updateButton.title=!node.live_updater_enabled?'LiveUpdaterEnabled ist auf der Node ausgeschaltet':busy?'Update bereits in Bearbeitung':'Aktuellen main-Stand in bin kompilieren (manueller Neustart)';
+    updateButton.addEventListener('click',event=>{
+      event.stopPropagation();
+      requestNodeDeploy(node);
+    });
+    updateCell.append(updateButton);
+    if(node.update?.state){
+      const label=document.createElement('div');
+      label.className='small';
+      label.textContent=(node.update.type==='live_git_build_manual_restart'?'Live: ':'Stage: ')+node.update.state;
+      updateCell.append(label);
+    }
+    tr.append(updateCell);
     tr.addEventListener('click',()=>{$('nodeDetail').textContent=JSON.stringify(node,null,2)});
     body.append(tr);
   });
   setNodesStatus('Live · '+nodes.length+' Nodes','good');
+}
+let oglLivePollHandle=null;
+async function requestNodeDeploy(node){
+  if(!node||node.state!=='online'||node.live_updater_enabled!==true)return;
+  const text='LIVE-UPDATE für '+String(node.hostname||node.node_id)+' ausführen?\\n\\n'+
+    'Der Updater sichert Konfigurationen, löscht NexVerse-Deutschland.ini, führt git reset --hard origin/main aus und kompiliert ROBUST/OpenSim/Addons in bin. '+
+    'Lokale Änderungen an getrackten Git-Dateien gehen verloren. Eine laufende Simulatorinstanz startet NICHT neu. Neustart anschließend manuell durchführen.';
+  if(!window.confirm(text))return;
+  setNodesStatus('Live-Update an '+String(node.node_id)+' wird angefordert…','');
+  try{
+    const res=await fetch('/api/v1/nodes/'+encodeURIComponent(node.node_id)+'/control',{
+      method:'POST',headers:{...nodeHeaders(),'Content-Type':'application/json'},
+      credentials:'same-origin',cache:'no-store',
+      body:JSON.stringify({action:'deploy_update',confirm:'live_git_reset_and_manual_restart'})
+    });
+    const raw=await res.text();let data=null;try{data=JSON.parse(raw)}catch{}
+    if(!res.ok||data?.status!=='accepted'){
+      setNodesStatus('Update-Auftrag abgewiesen (HTTP '+res.status+')','bad');
+      $('nodeDetail').textContent=data?JSON.stringify(data,null,2):raw;
+      return;
+    }
+    const id=data.operation_id;
+    setNodesStatus('Update angefordert · '+String(node.node_id)+' · '+String(id),'good');
+    $('nodeDetail').textContent='ROBUST hat den signierten Auftrag angenommen. Der lokale Dienst bestätigt später den tatsächlichen Beginn.\\n'+JSON.stringify(data,null,2);
+    if(oglLivePollHandle)clearTimeout(oglLivePollHandle);
+    let polls=0;
+    async function poll(){
+      if(++polls>720)return;
+      try{
+        const response=await fetch('/api/v1/nodes',{headers:nodeHeaders(),cache:'no-store',credentials:'same-origin'});
+        if(!response.ok)return;
+        const list=await response.json();
+        renderNodes(list);
+        const current=(list.nodes||[]).find(x=>x.node_id===node.node_id);
+        if(current?.update?.operation_id===id){
+          $('nodeDetail').textContent=JSON.stringify(current.update,null,2);
+          if(['completed','failed'].includes(current.update.state)){
+            setNodesStatus(current.update.state==='completed'?'Update kompiliert · manueller Simulator-Neustart nötig':'Update fehlgeschlagen · Updater-Logs prüfen',
+              current.update.state==='completed'?'good':'bad');
+            return;
+          }
+        }
+      }catch(error){setNodesStatus('Update-Status zeitweise nicht erreichbar','bad');}
+      oglLivePollHandle=setTimeout(poll,5000);
+    }
+    oglLivePollHandle=setTimeout(poll,5000);
+  }catch(error){
+    setNodesStatus('Node-Updater API nicht erreichbar','bad');
+    $('nodeDetail').textContent=String(error);
+  }
 }
 async function loadNodes(){
   setNodesStatus('Lade Simulatoren…','');
