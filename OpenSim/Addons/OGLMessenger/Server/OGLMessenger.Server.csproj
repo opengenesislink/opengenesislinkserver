@@ -7,5 +7,7 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../Contracts/OGLMessenger.Contracts.csproj" />
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.14" />
+    <Content Update="wwwroot/**/*" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>
