@@ -94,6 +94,9 @@ namespace NexVerse.RegionModules.NodeAgent
         private IDisposable m_RegionLifecycleSubscription;
         private IDisposable m_NodeControlSubscription;
         private IDisposable m_NodeUpdateSubscription;
+        private IDisposable m_NodeDeploySubscription;
+        private bool m_LiveUpdaterEnabled;
+        private Uri m_LiveUpdaterUri;
         private bool m_UpdateStagingEnabled;
         private bool m_UpdateStagingBuild = true;
         private string m_UpdateStagingRoot = string.Empty;
@@ -176,6 +179,23 @@ namespace NexVerse.RegionModules.NodeAgent
             m_UpdateStagingRoot = config.GetString("UpdateStagingRoot", string.Empty).Trim();
             m_UpdateStagingBuild = config.GetBoolean("UpdateStagingBuild", true);
             m_UpdateControlKey = Environment.GetEnvironmentVariable("NEXVERSE_UPDATE_CONTROL_KEY") ?? string.Empty;
+            m_LiveUpdaterEnabled = config.GetBoolean("LiveUpdaterEnabled", false);
+            string liveUrl = config.GetString("LiveUpdaterUrl", "http://127.0.0.1:8097").Trim();
+            if (m_LiveUpdaterEnabled)
+            {
+                if (!Uri.TryCreate(liveUrl, UriKind.Absolute, out Uri local) ||
+                    local.Scheme != Uri.UriSchemeHttp ||
+                    !System.Net.IPAddress.TryParse(local.Host, out IPAddress address) ||
+                    !IPAddress.IsLoopback(address) ||
+                    local.AbsolutePath != "/" || !string.IsNullOrEmpty(local.Query) ||
+                    !string.IsNullOrEmpty(local.UserInfo))
+                {
+                    m_Log.Error("[OGL LIVE UPDATE]: LiveUpdaterUrl must be HTTP on a numeric loopback address.");
+                    m_LiveUpdaterEnabled = false;
+                }
+                else
+                    m_LiveUpdaterUri = local;
+            }
             m_InboundPath = config.GetString(
                 "InboundPath",
                 "/internal/nexbus/v1/events").Trim();
@@ -340,6 +360,7 @@ namespace NexVerse.RegionModules.NodeAgent
                     HandleRegionLifecycleCommand);
             m_NodeControlSubscription = m_Bus.Subscribe("node.control.requested", HandleNodeControlCommand);
             m_NodeUpdateSubscription = m_Bus.Subscribe("node.update.stage.requested", HandleStageUpdateCommand);
+            m_NodeDeploySubscription = m_Bus.Subscribe("node.update.deploy.requested", HandleDeployUpdateCommand);
             m_OarControlSubscription = m_Bus.Subscribe("archive.oar.requested", HandleOarCommand);
             m_IarControlSubscription = m_Bus.Subscribe("archive.iar.requested", HandleIarCommand);
             if (m_ObjectMessagingEnabled)
@@ -424,6 +445,8 @@ namespace NexVerse.RegionModules.NodeAgent
             m_NodeControlSubscription = null;
             m_NodeUpdateSubscription?.Dispose();
             m_NodeUpdateSubscription = null;
+            m_NodeDeploySubscription?.Dispose();
+            m_NodeDeploySubscription = null;
             m_OarControlSubscription?.Dispose();
             m_OarControlSubscription = null;
             m_IarControlSubscription?.Dispose();
@@ -1441,6 +1464,7 @@ namespace NexVerse.RegionModules.NodeAgent
                 ["draining"] = m_Draining.ToString(),
                 ["update_staging_enabled"] = m_UpdateStagingEnabled.ToString(),
                 ["update_staging_running"] = (Volatile.Read(ref m_NodeUpdateRunning) != 0).ToString(),
+                ["live_updater_enabled"] = m_LiveUpdaterEnabled.ToString(),
                 ["managed_region_commands"] =
                     (NexVerseManagedRegionHostPlugin.Current?.Enabled == true)
                         .ToString(),
@@ -2511,6 +2535,144 @@ namespace NexVerse.RegionModules.NodeAgent
                         m_NodeId, e.GetType().Name);
                     PublishOperationState("node.update.stage.failed", request, operationId,
                         "stage_update", "stage_failed_check_node_logs");
+                }
+                finally
+                {
+                    Interlocked.Exchange(ref m_NodeUpdateRunning, 0);
+                    PublishHeartbeatSafe();
+                }
+            });
+        }
+
+        // ROBUST already checked the authenticated simulators:manage scope.
+        // The node then verifies a separate deploy-purpose HMAC, and forwards
+        // ONLY that approved operation to the localhost, standalone updater.
+        // No repo URL, script, shell command or filesystem path comes from
+        // the remote event. The daemon, not this simulator, runs the build.
+        private void HandleDeployUpdateCommand(NexEvent request)
+        {
+            if (!IsCommandForThisNode(request) ||
+                !string.Equals(request.Source, "nexverse.robust", StringComparison.Ordinal) ||
+                !TryCommandData(request, "operation_id", out string operationId) ||
+                !Guid.TryParse(operationId, out Guid parsed) ||
+                !TryCommandData(request, "issued_at", out string issuedRaw) ||
+                !long.TryParse(issuedRaw, System.Globalization.NumberStyles.Integer,
+                    System.Globalization.CultureInfo.InvariantCulture, out long issuedAt) ||
+                !TryCommandData(request, "approval_hmac", out string signature) ||
+                !NexBusProtocol.VerifyNodeDeployRequest(m_NodeId, operationId,
+                    issuedAt, m_UpdateControlKey, signature,
+                    DateTimeOffset.UtcNow.ToUnixTimeSeconds()))
+            {
+                m_Log.Warn("[OGL LIVE UPDATE]: Invalid or expired deploy approval rejected.");
+                return;
+            }
+
+            long now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+            foreach (KeyValuePair<string, long> item in m_NodeUpdateReplay)
+            {
+                if (item.Value < now - 600)
+                    m_NodeUpdateReplay.TryRemove(item.Key, out _);
+            }
+            if (m_NodeUpdateReplay.Count >= 1024 ||
+                !m_NodeUpdateReplay.TryAdd(parsed.ToString("D"), now))
+                return;
+
+            if (!m_LiveUpdaterEnabled || m_LiveUpdaterUri == null)
+            {
+                PublishOperationState("node.update.deploy.failed", request,
+                    operationId, "deploy_update", "standalone_updater_not_enabled");
+                return;
+            }
+            if (Interlocked.CompareExchange(ref m_NodeUpdateRunning, 1, 0) != 0)
+            {
+                PublishOperationState("node.update.deploy.failed", request,
+                    operationId, "deploy_update", "node_update_already_running");
+                return;
+            }
+
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    using HttpClient client = new HttpClient(
+                        new HttpClientHandler { UseProxy = false, AllowAutoRedirect = false })
+                    {
+                        Timeout = TimeSpan.FromSeconds(10)
+                    };
+                    string baseUrl = m_LiveUpdaterUri.AbsoluteUri;
+                    byte[] payload = JsonSerializer.SerializeToUtf8Bytes(new
+                    {
+                        node_id = m_NodeId,
+                        operation_id = parsed.ToString("D"),
+                        issued_at = issuedAt,
+                        approval_hmac = signature
+                    });
+                    using HttpResponseMessage submit = await client.PostAsync(
+                        new Uri(m_LiveUpdaterUri, "/v1/update"),
+                        new ByteArrayContent(payload)).ConfigureAwait(false);
+                    if (submit.StatusCode != HttpStatusCode.Accepted &&
+                        submit.StatusCode != HttpStatusCode.OK)
+                        throw new InvalidOperationException(
+                            "Standalone updater rejected signed deploy request.");
+
+                    PublishOperationState("node.update.deploy.accepted", request,
+                        operationId, "deploy_update", "standalone_updater_accepted");
+
+                    string previousState = "accepted";
+                    // Polling serves ONLY as an event bridge back to ROBUST.
+                    // The independent systemd service keeps running if this
+                    // simulator process is stopped/restarted.
+                    for (int attempt = 0; attempt < 720; attempt++)
+                    {
+                        await Task.Delay(TimeSpan.FromSeconds(5)).ConfigureAwait(false);
+                        long timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+                        using HttpRequestMessage status = new HttpRequestMessage(
+                            HttpMethod.Get, new Uri(m_LiveUpdaterUri, "/v1/status"));
+                        status.Headers.TryAddWithoutValidation("X-OGL-Timestamp",
+                            timestamp.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                        status.Headers.TryAddWithoutValidation("X-OGL-Signature",
+                            NexBusProtocol.SignNodeDeployRequest(m_NodeId, operationId,
+                                timestamp, m_UpdateControlKey));
+                        using HttpResponseMessage reply = await client.SendAsync(
+                            status).ConfigureAwait(false);
+                        if (!reply.IsSuccessStatusCode)
+                            throw new InvalidOperationException(
+                                "Standalone updater status endpoint unavailable.");
+                        using JsonDocument doc = JsonDocument.Parse(
+                            await reply.Content.ReadAsStringAsync().ConfigureAwait(false));
+                        JsonElement root = doc.RootElement;
+                        string state = root.TryGetProperty("state", out JsonElement st) &&
+                            st.ValueKind == JsonValueKind.String ? st.GetString() : "";
+                        string returnedId = root.TryGetProperty("operation_id",
+                            out JsonElement op) && op.ValueKind == JsonValueKind.String ?
+                            op.GetString() : "";
+                        if (!string.Equals(returnedId, operationId,
+                                StringComparison.OrdinalIgnoreCase))
+                            throw new InvalidOperationException(
+                                "Standalone updater operation ID mismatch.");
+                        if (state != previousState &&
+                            (state == "running" || state == "completed" ||
+                             state == "failed"))
+                        {
+                            PublishOperationState("node.update.deploy." + state,
+                                request, operationId, "deploy_update",
+                                state == "completed" ? "build_complete_manual_restart_required" :
+                                state == "failed" ? "update_failed_check_service_logs" :
+                                "git_fetch_and_compile_running");
+                            previousState = state;
+                        }
+                        if (state == "completed" || state == "failed")
+                            return;
+                    }
+                    throw new TimeoutException("Updater did not complete within one hour.");
+                }
+                catch (Exception error)
+                {
+                    m_Log.ErrorFormat("[OGL LIVE UPDATE]: Node {0} update bridge failed: {1}",
+                        m_NodeId, error.GetType().Name);
+                    PublishOperationState("node.update.deploy.failed", request,
+                        operationId, "deploy_update",
+                        "updater_unavailable_or_status_unknown_check_systemd");
                 }
                 finally
                 {
