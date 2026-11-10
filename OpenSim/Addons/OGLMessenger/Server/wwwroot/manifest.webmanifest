@@ -1,0 +1,15 @@
+{
+  "id": "/",
+  "name": "Stadt NexVerse Messenger",
+  "short_name": "NexVerse",
+  "description": "Private Avatar-Nachrichten und Gruppen in Stadt NexVerse",
+  "lang": "de",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#091721",
+  "theme_color": "#091721",
+  "icons": [
+    {"src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable"}
+  ]
+}
