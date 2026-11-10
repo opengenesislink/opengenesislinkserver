@@ -47,7 +47,7 @@ namespace NexVerse.Core.Observability
 
     public sealed class OglPerformanceSampler
     {
-        private const int MaximumReportedRegions = 32;
+        private const int MaximumReportedRegions = 64;
         private const int MaximumReportedHostCores = 128;
         private readonly Dictionary<int, (long Total, long Idle)> m_PreviousHostCores = new();
         private readonly object m_Sync = new object();
