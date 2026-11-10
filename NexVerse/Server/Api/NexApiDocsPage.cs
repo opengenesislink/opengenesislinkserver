@@ -1990,9 +1990,9 @@ function oglRecordPerformance(node){
     time:t,
     cpu:oglPerfNumber(p,'perf_process_cpu_percent'),
     ram:Number(node.working_set_bytes||0)/1073741824,
-    heap:(oglPerfNumber(p,'perf_managed_heap_bytes')??null)/1073741824,
+    heap:oglPerfNumber(p,'perf_managed_heap_bytes')===null?null:p.perf_managed_heap_bytes/1073741824,
     gc:oglPerfNumber(p,'perf_gc_pause_percent'),
-    alloc:(oglPerfNumber(p,'perf_allocated_bytes_per_second')??null)/1048576
+    alloc:oglPerfNumber(p,'perf_allocated_bytes_per_second')===null?null:p.perf_allocated_bytes_per_second/1048576
   });
   if(history.length>120)history.splice(0,history.length-120);
   if(oglPerfHistory.size>24)oglPerfHistory.delete(oglPerfHistory.keys().next().value);
