@@ -166,13 +166,13 @@ namespace NexVerse.Core.Messaging
         private static byte[] NodeLivePayload(string nodeId, string operationId, long issuedAt)
         {
             if (string.IsNullOrWhiteSpace(nodeId) ||
-                nodeId.IndexOfAny(new[] { '\\r', '\\n' }) >= 0 ||
+                nodeId.IndexOfAny(new[] { '\r', '\n' }) >= 0 ||
                 !Guid.TryParse(operationId, out Guid parsed))
                 throw new ArgumentException("Invalid live update authorization identity.");
             string normalizedNode = nodeId.Trim().ToLowerInvariant();
-            string normalized = "ogl-node-live-v1\\n" +
+            string normalized = "ogl-node-live-v1\n" +
                 normalizedNode.Length.ToString(System.Globalization.CultureInfo.InvariantCulture) +
-                ":" + normalizedNode + "\\n" + parsed.ToString("D") + "\\n" +
+                ":" + normalizedNode + "\n" + parsed.ToString("D") + "\n" +
                 issuedAt.ToString(System.Globalization.CultureInfo.InvariantCulture);
             return Encoding.UTF8.GetBytes(normalized);
         }
