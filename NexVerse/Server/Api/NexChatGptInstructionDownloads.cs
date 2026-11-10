@@ -278,6 +278,8 @@ namespace NexVerse.Server.Api
             md.AppendLine("- /grid/layout, /grid/cells/{x}/{y}, /grid/validate-placement.");
             md.AppendLine("- /regions, /regions/{regionId}/placement, /regions/{regionId}/lifecycle und /region-operations/{operationId}.");
             md.AppendLine("- /nodes und /nodes/{nodeId}.");
+            md.AppendLine("- POST /nodes/{nodeId}/control: signierte, explizite Node-Aktionen, action=update ruft den separat installierten Live-Update-Dienst auf; git reset --hard und manueller Simulator-Neustart, nur mit simulators:manage.");
+            md.AppendLine("- POST /nodes/updates: nur nicht-destruktives stage_update auf online Nodes; nicht mit direktem Update verwechseln.");
             md.AppendLine("- Start, Stop, Restart und Placement immer gegen Region-ID, Ziel-Node und aktuelle Grid-Belegung verifizieren.");
             md.AppendLine();
             md.AppendLine("### Estates");
@@ -697,7 +699,9 @@ namespace NexVerse.Server.Api
                 "/api/v1/inventory/items");
             AppendCatalogGroup(md, requestedAudience, "admin", "Simulator-Nodes",
                 "/api/v1/nodes",
-                "/api/v1/nodes/{nodeId}");
+                "/api/v1/nodes/{nodeId}",
+                "/api/v1/nodes/{nodeId}/control",
+                "/api/v1/nodes/updates");
             AppendCatalogGroup(md, requestedAudience, "admin", "Asynchrone Regionenoperationen",
                 "/api/v1/region-operations/{operationId}");
             AppendCatalogGroup(md, requestedAudience, "admin", "Regionen",
