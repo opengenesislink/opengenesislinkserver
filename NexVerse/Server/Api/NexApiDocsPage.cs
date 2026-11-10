@@ -87,7 +87,19 @@ input,textarea,select{width:100%;background:#08131e;color:var(--text);border:1px
 .empty{color:var(--muted);padding:18px;border:1px dashed var(--line);border-radius:9px;text-align:center}
 .portalgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.portalcard{border:1px solid var(--line);background:#0b1621;border-radius:11px;padding:18px}.portalcard h3{margin:0 0 7px;font-size:17px}.portalcard p{margin:0 0 12px;color:var(--muted)}.portalactions{display:flex;gap:8px;flex-wrap:wrap}.actionlink{display:inline-block;text-decoration:none;flex:0 0 auto}.portalmeta{margin-top:12px;color:var(--muted);font-size:12px}
 .tablewrap{overflow:auto;border:1px solid var(--line);border-radius:9px}.datatable{width:100%;border-collapse:collapse;min-width:720px}.datatable th,.datatable td{padding:10px 12px;text-align:left;border-bottom:1px solid var(--line);white-space:nowrap}.datatable th{font-size:12px;color:var(--muted);background:#0a1520}.datatable tr:last-child td{border-bottom:0}.datatable td:first-child{font-weight:600}.authnote{margin-top:10px;color:var(--muted);font-size:12px}
-.planner-controls{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}.planner-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.planner-actions .action{flex:0 0 auto}.gridlegend{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}.legenditem{display:inline-flex;gap:6px;align-items:center;color:var(--muted);font-size:12px}.legendswatch{width:13px;height:13px;border-radius:3px;border:1px solid var(--line)}.gridboardwrap{overflow:auto;max-height:680px;border:1px solid var(--line);border-radius:10px;background:#06101a;padding:12px}.gridboard{--cell:30px;display:grid;gap:2px;width:max-content;min-width:100%}.gridcell{width:var(--cell);height:var(--cell);min-width:var(--cell);padding:0;border:1px solid #22384b;border-radius:3px;background:#0c1a26;color:transparent;position:relative}.gridcell:hover{outline:2px solid var(--accent);z-index:2}.gridcell.free{background:#123326}.gridcell.occupied{background:#1d4c6a}.gridcell.reserved{background:#5a461c}.gridcell.conflict{background:#6a2323}.gridcell.selected{outline:2px solid #fff;z-index:3}.gridcell.preview-ok{box-shadow:inset 0 0 0 2px var(--good)}.gridcell.preview-bad{box-shadow:inset 0 0 0 2px var(--danger)}.gridcell.dimmed{opacity:.22}.gridcell[data-region-name]:after{content:'';position:absolute;inset:35%;border-radius:50%;background:rgba(255,255,255,.72)}.gridinfo{display:grid;grid-template-columns:1fr 1fr;gap:12px}.gridinfo pre{margin:0;min-height:150px}.gridcoord{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}.planner-note{padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:#0a1520;color:var(--muted);font-size:12px}.noderow{cursor:pointer}.noderow:hover{background:var(--panel2)}.node-state-online{color:var(--good)}.node-state-stale{color:var(--warn)}.node-state-offline{color:var(--danger)}.node-update-status{display:block;font-size:11px;margin-top:6px;white-space:normal;max-width:230px;color:var(--muted)}.node-update-status.good{color:var(--good)}.node-update-status.bad{color:var(--danger)}.node-update-status.warn{color:var(--warn)}
+.planner-controls{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}.planner-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.planner-actions .action{flex:0 0 auto}.gridlegend{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}.legenditem{display:inline-flex;gap:6px;align-items:center;color:var(--muted);font-size:12px}.legendswatch{width:13px;height:13px;border-radius:3px;border:1px solid var(--line)}.gridboardwrap{overflow:auto;max-height:680px;border:1px solid var(--line);border-radius:10px;background:#06101a;padding:12px}.gridboard{--cell:30px;display:grid;gap:2px;width:max-content;min-width:100%}.gridcell{width:var(--cell);height:var(--cell);min-width:var(--cell);padding:0;border:1px solid #22384b;border-radius:3px;background:#0c1a26;color:transparent;position:relative}.gridcell:hover{outline:2px solid var(--accent);z-index:2}.gridcell.free{background:#123326}.gridcell.occupied{background:#1d4c6a}.gridcell.reserved{background:#5a461c}.gridcell.conflict{background:#6a2323}.gridcell.selected{outline:2px solid #fff;z-index:3}.gridcell.preview-ok{box-shadow:inset 0 0 0 2px var(--good)}.gridcell.preview-bad{box-shadow:inset 0 0 0 2px var(--danger)}.gridcell.dimmed{opacity:.22}.gridcell[data-region-name]:after{content:'';position:absolute;inset:35%;border-radius:50%;background:rgba(255,255,255,.72)}.gridinfo{display:grid;grid-template-columns:1fr 1fr;gap:12px}.gridinfo pre{margin:0;min-height:150px}.gridcoord{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}.planner-note{padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:#0a1520;color:var(--muted);font-size:12px}.noderow{cursor:pointer}.noderow:hover{background:var(--panel2)}.node-state-online{color:var(--good)}.node-state-stale{color:var(--warn)}.node-state-offline{color:var(--danger)}
+.ogl-perf-chart{width:100%;height:148px;display:block;background:var(--panel2);border:1px solid var(--line);border-radius:8px}
+.ogl-perf-stat{padding:12px;background:var(--panel2);border:1px solid var(--line);border-radius:9px;min-width:0}
+.ogl-perf-stat strong{display:block;font-size:21px;padding:6px 0}
+.ogl-perf-cpus{display:grid;grid-template-columns:repeat(auto-fill,minmax(114px,1fr));gap:8px;max-height:250px;overflow:auto;margin:12px 0}
+.ogl-perf-core{border:1px solid var(--line);border-radius:7px;padding:7px;background:var(--panel2);font-size:12px}
+.ogl-perf-core .meter{height:7px;margin-top:6px;background:var(--line);border-radius:5px;overflow:hidden}
+.ogl-perf-core .fill{height:7px;background:var(--good);border-radius:5px}
+.ogl-perf-core .fill.hot{background:var(--danger)}
+.ogl-perf-plots{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.ogl-perf-plots>div{min-width:0}
+@media(max-width:820px){.ogl-perf-plots{grid-template-columns:1fr}}
+.node-update-status{display:block;font-size:11px;margin-top:6px;white-space:normal;max-width:230px;color:var(--muted)}.node-update-status.good{color:var(--good)}.node-update-status.bad{color:var(--danger)}.node-update-status.warn{color:var(--warn)}
 @media(max-width:1100px){.cards,.roadmap-summary{grid-template-columns:repeat(2,1fr)}.changegrid{grid-template-columns:1fr}.explorer{grid-template-columns:1fr}.endpointlist{max-height:420px;overflow:auto}.planner-controls{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:760px){.portalgrid{grid-template-columns:1fr}.shell{display:block}nav{position:static;height:auto;border-right:0;border-bottom:1px solid var(--line)}.navmeta{display:none}.navbtn{display:inline-block;width:auto}.brand{padding-bottom:12px}main{padding:22px 14px}.hero{display:block}.hero .pill{margin-top:14px}.cards,.roadmap-summary{grid-template-columns:1fr}.grid2,.version,.gridinfo{grid-template-columns:1fr}.planner-controls{grid-template-columns:1fr 1fr}.milestonehead{display:block}.milestonehead .status{margin-top:8px}}
 
@@ -860,6 +872,32 @@ body.ogl-sidebar-collapsed .ogl-admin-header,body.ogl-sidebar-collapsed main{gri
 </div>
 <div class="section">
 <h2>Node-Details</h2><div class="authnote">„Update“ sichert die INIs, setzt Git auf origin/main zurück, kompiliert mit .NET 10 und entfernt die alte NexVerse-Deutschland.ini. Die Node wird NICHT automatisch neugestartet. Die Aktion verändert den produktiven Checkout. Vorher Backup und Wartungsfenster einplanen.</div><p role="status" aria-live="polite" id="nodesUpdateInfo">Kein Update beauftragt.</p><pre id="nodeDetail">Noch kein Node ausgewählt.</pre>
+</div>
+<div class="section" id="oglPerformanceDetails">
+<h2>OGLPerformance · CPU, RAM, GC und Regionen</h2>
+<p class="sectionlead" id="oglPerfSelected">Wähle einen Simulator in der Node-Tabelle, um die Diagnose anzuzeigen.</p>
+<div class="cards">
+<div class="card"><div class="label">Prozess-CPU</div><div class="value" id="oglPerfCpu">–</div><div class="sub">Alle verfügbaren Kerne gemittelt</div></div>
+<div class="card"><div class="label">RAM-Working-Set</div><div class="value" id="oglPerfRam">–</div><div class="sub">Speicher des Simulatorprozesses</div></div>
+<div class="card"><div class="label">GC-Fragmentierung</div><div class="value" id="oglPerfFragmented">–</div><div class="sub">Managed GC Heap</div></div>
+<div class="card"><div class="label">GC-Pause</div><div class="value" id="oglPerfGc">–</div><div class="sub">Anteil des Messintervalls</div></div>
+</div>
+<p class="authnote">Die Verlaufskurven werden ausschließlich während dieser geöffneten Browser-Sitzung gesammelt (maximal 120 Messpunkte pro Node). Sie sind kein serverseitig gespeichertes Langzeitmonitoring. Fehlende Werte werden nicht als Null interpretiert.</p>
+<div class="ogl-perf-plots">
+<div><h3>CPU · Prozess (%)</h3><canvas class="ogl-perf-chart" id="oglPerfChartCpu" width="720" height="148" role="img" aria-label="Verlauf Prozess CPU"></canvas></div>
+<div><h3>RAM · Working Set und Heap (GiB)</h3><canvas class="ogl-perf-chart" id="oglPerfChartRam" width="720" height="148" role="img" aria-label="Verlauf RAM Working Set und Managed Heap"></canvas></div>
+<div><h3>GC-Pausen (%)</h3><canvas class="ogl-perf-chart" id="oglPerfChartGc" width="720" height="148" role="img" aria-label="Verlauf Garbage Collector Pausen"></canvas></div>
+<div><h3>Allokationsrate (MiB/s)</h3><canvas class="ogl-perf-chart" id="oglPerfChartAlloc" width="720" height="148" role="img" aria-label="Verlauf .NET Allokationsrate"></canvas></div>
+</div>
+<h3>Linux-Host · CPU pro logischem Kern</h3>
+<p class="sectionlead" id="oglPerfHostInfo">Host-Kernlast noch nicht verfügbar. Dies ist keine Zuordnung der OpenSim-Threads zu einem Kern; auf Windows kann diese Linux-Messung fehlen.</p>
+<div class="ogl-perf-cpus" id="oglPerfHostCores"></div>
+<h3>Regionen · Frame-Laufzeit und tatsächliche Heartbeats</h3>
+<p class="sectionlead" id="oglPerfRegionInfo">Nur Regionen mit aktivierter OGLPerformance-Telemetrie, begrenzt auf 32 Messwerte je Heartbeat.</p>
+<div class="tablewrap"><table class="datatable"><thead><tr><th>Region</th><th>Heartbeat</th><th>Ziel</th><th>Frames</th><th>Work P95</th><th>Frame P95</th><th>Frame P99</th><th>Work über Budget</th><th>Frame über Budget</th></tr></thead><tbody id="oglPerfRegionBody"></tbody></table></div>
+<h3>Assetcache · Flotsam</h3>
+<p class="sectionlead" id="oglPerfCacheInfo">Diagnose des optionalen RAM-Caches, Cache-Treffern und unabhängigen Disk-Schreibworkern. Messwerte werden aus dem bestehenden signierten Heartbeat geliefert.</p>
+<div class="grid2" id="oglPerfCacheGrid"></div>
 </div>
 <div class="section">
 <h2><span class="icon">✦</span> OGL Feature Control · Simulator-Lizenzen</h2>
