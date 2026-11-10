@@ -2622,7 +2622,7 @@ namespace NexVerse.RegionModules.NodeAgent
                     // Polling serves ONLY as an event bridge back to ROBUST.
                     // The independent systemd service keeps running if this
                     // simulator process is stopped/restarted.
-                    for (int attempt = 0; attempt < 720; attempt++)
+                    for (int attempt = 0; attempt < 2880; attempt++)
                     {
                         await Task.Delay(TimeSpan.FromSeconds(5)).ConfigureAwait(false);
                         long timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
