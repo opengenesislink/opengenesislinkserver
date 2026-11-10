@@ -36,6 +36,10 @@ try
         new OAuthTokens("access-secret-1", "refresh-secret-1", 600), 30);
 
     Check(cookie.Length >= 32, "cookie entropy too small");
+    Check(store.IsMobileOnline(avatar), "new active PWA session must be mobile-online");
+    Check(!store.IsMobileOnline(friend), "presence leaked to unrelated avatar");
+    store.TouchPresence(cookie);
+    Check(store.IsMobileOnline(avatar), "mobile heartbeat failed");
     Check(store.Find("invalid") == null, "invalid cookie accepted");
     MessengerSession? session = store.Find(cookie);
     Check(session?.AvatarId == avatar && session.AccessToken == "access-secret-1" &&
@@ -87,6 +91,7 @@ try
         "server restart lost persistent encrypted session");
     reopened.Revoke(cookie);
     Check(store.Find(cookie) == null, "logout did not revoke the device session");
+    Check(!store.IsMobileOnline(avatar), "mobile presence remained online after logout");
 
     Console.WriteLine("PASS: Messenger encrypted cookies, session persistence, refresh rotation and exactly-once IM keys");
 }
