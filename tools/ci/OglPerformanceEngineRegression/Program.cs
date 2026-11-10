@@ -25,6 +25,27 @@ static class Program
             "frame counter rollover");
         Require(OglPerformanceSampler.CalculateHeartbeatHz(0, 0, 0) == 0, "zero interval");
 
+        // /proc/stat is host-wide Linux CPU usage, not per-process scheduling.
+        // Parser must exclude the aggregate "cpu" line and guest double counts.
+        var linuxCpu = OglPerformanceSampler.ParseLinuxHostCpu(new[]
+        {
+            "cpu  500 0 200 1000 100 0 0 0 20 10",
+            "cpu0 100 0 50 200 10 0 0 0 3 2",
+            "cpu1 50 0 20 100 0 0 0 0 0 0",
+            "cpu2 invalid 0 3 4"
+        });
+        Require(linuxCpu.Count == 2 &&
+                linuxCpu[0].Total == 360 && linuxCpu[0].Idle == 210 &&
+                linuxCpu[1].Total == 170 && linuxCpu[1].Idle == 100,
+            "Linux CPU core counters must exclude guest fields and invalid lines");
+        var boundedCpu = OglPerformanceSampler.ParseLinuxHostCpu(new[]
+        {
+            "cpu0 100 0 50 200",
+            "cpu1 100 0 50 200"
+        }, maximumCores: 1);
+        Require(boundedCpu.Count == 1,
+            "host CPU observation must respect configured core bound");
+
         var sampler = new OglPerformanceSampler();
         IReadOnlyDictionary<string, string> first =
             sampler.Capture(new[] { new OglRegionFrame("region-test", 100, 0.0909f) });
