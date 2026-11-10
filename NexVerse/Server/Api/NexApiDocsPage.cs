@@ -1970,6 +1970,169 @@ function setNodesStatus(text,kind){
   $('nodesStatus').textContent=text;
   $('nodesDot').className='dot'+(kind?' '+kind:'');
 }
+// Bounded browser-session trends. They are not persisted to server or storage.
+const oglPerfHistory=new Map();
+let oglPerfNodeId='';
+let oglPerfLastNode=null;
+function oglPerfNumber(values,key){
+  return values&&Object.prototype.hasOwnProperty.call(values,key)&&
+    Number.isFinite(Number(values[key]))?Number(values[key]):null;
+}
+function oglRecordPerformance(node){
+  if(!node?.node_id||node.state!=='online')return;
+  const t=Date.parse(node.last_seen||'');
+  if(!Number.isFinite(t))return;
+  let history=oglPerfHistory.get(node.node_id);
+  if(!history){history=[];oglPerfHistory.set(node.node_id,history)}
+  if(history.length&&history[history.length-1].time===t)return;
+  const p=node.performance||{};
+  history.push({
+    time:t,
+    cpu:oglPerfNumber(p,'perf_process_cpu_percent'),
+    ram:Number(node.working_set_bytes||0)/1073741824,
+    heap:(oglPerfNumber(p,'perf_managed_heap_bytes')??null)/1073741824,
+    gc:oglPerfNumber(p,'perf_gc_pause_percent'),
+    alloc:(oglPerfNumber(p,'perf_allocated_bytes_per_second')??null)/1048576
+  });
+  if(history.length>120)history.splice(0,history.length-120);
+  if(oglPerfHistory.size>24)oglPerfHistory.delete(oglPerfHistory.keys().next().value);
+}
+function oglPlotPerf(id,history,series,minimumMax){
+  const canvas=$(id),ctx=canvas.getContext('2d');
+  const width=canvas.width,height=canvas.height,left=39,right=10,top=25,bottom=24;
+  const w=width-left-right,h=height-top-bottom;
+  ctx.clearRect(0,0,width,height);
+  ctx.fillStyle='#142335';ctx.fillRect(0,0,width,height);
+  const values=[];
+  for(const point of history)for(const line of series)
+    if(Number.isFinite(point[line.key]))values.push(point[line.key]);
+  if(!values.length){
+    ctx.fillStyle='#a4b4c6';ctx.font='14px sans-serif';
+    ctx.fillText('Noch keine Messwerte',left+10,top+32);return;
+  }
+  const max=Math.max(minimumMax||0,Math.max(...values)*1.15,0.01);
+  ctx.strokeStyle='rgba(155,174,195,.25)';ctx.lineWidth=1;
+  ctx.font='11px sans-serif';ctx.fillStyle='#a4b4c6';
+  for(let i=0;i<=3;i++){
+    const y=top+h*i/3;ctx.beginPath();ctx.moveTo(left,y);ctx.lineTo(width-right,y);ctx.stroke();
+    ctx.fillText((max*(3-i)/3).toFixed(max>=10?0:1),3,y+4);
+  }
+  const first=history[0].time,last=history[history.length-1].time;
+  ctx.fillText(new Date(first).toLocaleTimeString('de-DE'),left,height-6);
+  if(first!==last)ctx.fillText(new Date(last).toLocaleTimeString('de-DE'),width-78,height-6);
+  series.forEach((line,index)=>{
+    ctx.strokeStyle=line.color;ctx.fillStyle=line.color;ctx.lineWidth=2;
+    ctx.font='11px sans-serif';ctx.fillText(line.label,left+index*165,14);
+    let active=false;
+    for(const point of history){
+      const value=point[line.key],valid=Number.isFinite(value);
+      if(!valid){if(active){ctx.stroke();active=false}continue}
+      const x=left+((point.time-first)/Math.max(1,last-first))*w;
+      const y=top+h*(1-Math.min(1,Math.max(0,value/max)));
+      if(!active){ctx.beginPath();ctx.moveTo(x,y);active=true}
+      else ctx.lineTo(x,y);
+      if(history.length===1)ctx.fillRect(x-2,y-2,4,4);
+    }
+    if(active)ctx.stroke();
+  });
+}
+function oglPerfTextMetric(perf,key,suffix=''){
+  const value=oglPerfNumber(perf,key);
+  return value===null?'–':value.toLocaleString('de-DE',{maximumFractionDigits:1})+suffix;
+}
+function oglShowNodePerformance(node){
+  oglPerfLastNode=node||null;
+  if(!node)return;
+  const p=node.performance||{};
+  $('oglPerfSelected').textContent='Node '+node.node_id+' · '+(node.hostname||'')+
+    ' · '+node.state+' · letzter Heartbeat '+(node.last_seen||'–');
+  $('oglPerfCpu').textContent=node.state==='online'?oglPerfTextMetric(p,'perf_process_cpu_percent',' %'):'–';
+  $('oglPerfRam').textContent=formatBytes(node.working_set_bytes);
+  $('oglPerfFragmented').textContent=oglPerfNumber(p,'perf_gc_fragmented_bytes')===null?
+    '–':formatBytes(p.perf_gc_fragmented_bytes);
+  $('oglPerfGc').textContent=node.state==='online'?oglPerfTextMetric(p,'perf_gc_pause_percent',' %'):'–';
+  const history=oglPerfHistory.get(node.node_id)||[];
+  oglPlotPerf('oglPerfChartCpu',history,[{key:'cpu',label:'Prozess-CPU',color:'#4bc6e1'}],5);
+  oglPlotPerf('oglPerfChartRam',history,[
+    {key:'ram',label:'Working Set',color:'#4bc6e1'},
+    {key:'heap',label:'Managed Heap',color:'#f5b969'}],0.2);
+  oglPlotPerf('oglPerfChartGc',history,[{key:'gc',label:'GC-Pause',color:'#f5b969'}],2);
+  oglPlotPerf('oglPerfChartAlloc',history,[{key:'alloc',label:'Allokationen',color:'#79d6a1'}],1);
+  const cores=Array.isArray(node.host_cpu_cores)&&node.state==='online'?
+    node.host_cpu_cores:[];
+  $('oglPerfHostInfo').textContent=cores.length?
+    cores.length+' Linux-Host-Kerne gemessen, '+(oglPerfNumber(p,'perf_host_cpu_cores_omitted')||0)+
+      ' ausgelassen. Systemweite Last pro Kern, nicht CPU-Zeit des OpenSim-Prozesses.':
+    'Keine Host-Kernmesswerte verfügbar (Linux /proc/stat; erster Messpunkt ist eine Baseline).';
+  const coreRoot=$('oglPerfHostCores');coreRoot.replaceChildren();
+  cores.forEach(core=>{
+    const value=Number(core.usage_percent);
+    if(!Number.isFinite(value)||value<0||value>100)return;
+    const box=document.createElement('div');box.className='ogl-perf-core';
+    const label=document.createElement('div');
+    label.textContent='CPU '+core.core_id+' · '+value.toFixed(1)+' %';box.append(label);
+    const bar=document.createElement('div');bar.className='meter';
+    const fill=document.createElement('div');fill.className='fill'+(value>=85?' hot':'');
+    fill.style.width=value+'%';bar.append(fill);box.append(bar);coreRoot.append(box);
+  });
+  const names=new Map((node.regions||[]).map(r=>[r.region_id,r.name||r.region_id]));
+  const regions=Array.isArray(node.performance_regions)&&node.state==='online'?
+    node.performance_regions.slice():[];
+  regions.sort((a,b)=>(Number(b.work_over_budget_percent)||0)-
+    (Number(a.work_over_budget_percent)||0));
+  $('oglPerfRegionInfo').textContent=regions.length?
+    regions.length+' Region(en) mit Messwerten; '+(oglPerfNumber(p,'perf_region_sample_omitted')||0)+
+      ' weitere ausgelassen. Sortiert nach Arbeitszeit-Budgetüberschreitungen.':
+    'Noch keine Regionsmesswerte vorhanden; [OGLPerformance] auf dieser Node aktivieren.';
+  const body=$('oglPerfRegionBody');body.replaceChildren();
+  if(!regions.length){
+    const tr=document.createElement('tr'),td=document.createElement('td');
+    td.colSpan=9;td.textContent='Keine Messwerte';tr.append(td);body.append(tr);
+  }
+  for(const item of regions){
+    const tr=document.createElement('tr');
+    const vals=[
+      names.get(item.region_id)||item.region_id,
+      Number(item.heartbeat_hz).toFixed(1)+' Hz',
+      Number(item.target_hz).toFixed(1)+' Hz',
+      item.window_frames,
+      Number(item.work_p95_ms).toFixed(1)+' ms',
+      Number(item.frame_p95_ms).toFixed(1)+' ms',
+      Number(item.frame_p99_ms).toFixed(1)+' ms',
+      Number(item.work_over_budget_percent).toFixed(1)+' %',
+      Number(item.frame_over_budget_percent).toFixed(1)+' %'
+    ];
+    for(const val of vals){const td=document.createElement('td');td.textContent=String(val);tr.append(td)}
+    body.append(tr);
+  }
+  const cacheRoot=$('oglPerfCacheGrid');cacheRoot.replaceChildren();
+  const assetFields=[
+    ['Gesamtrequests','perf_asset_requests','count'],
+    ['RAM-Cache-Treffer','perf_asset_memory_hits','count'],
+    ['Disk-Cache-Treffer','perf_asset_disk_hits','count'],
+    ['RAM-LRU-Belegung','perf_asset_ram_bytes','bytes'],
+    ['RAM-LRU-Budget','perf_asset_ram_limit_bytes','bytes'],
+    ['Cacheeinträge','perf_asset_ram_entries','count'],
+    ['Disk-Writer (aktiv konfiguriert)','perf_asset_file_writers','count'],
+    ['Adaptive Writer-Ziel','perf_asset_writer_target','count'],
+    ['Aktive adaptive Writer','perf_asset_writer_active','count'],
+    ['Disk-Queue (wartend)','perf_asset_writer_pending_jobs','count'],
+    ['RAM für I/O reserviert','perf_asset_inflight_bytes','bytes'],
+    ['Abgewiesene Cache-Writes','perf_asset_writes_rejected','count'],
+    ['RAM-Pressure Evictions','perf_asset_memory_trims','count']
+  ];
+  const hasAsset=oglPerfNumber(p,'perf_asset_requests')!==null&&node.state==='online';
+  $('oglPerfCacheInfo').textContent=hasAsset?
+    'Kumulative Cache-Zähler seit Simulatorstart und aktuelle Grenzen; ausschließlich Flotsam, kein globales RAM-Limit.':
+    'Keine Flotsam-Diagnose vorhanden: OGLPerformance/Flotsam ist auf dieser Node nicht verfügbar.';
+  assetFields.forEach(([label,key,type])=>{
+    const card=document.createElement('div');card.className='ogl-perf-stat';
+    const title=document.createElement('span');title.className='small';title.textContent=label;
+    const value=document.createElement('strong');const n=hasAsset?oglPerfNumber(p,key):null;
+    value.textContent=n===null?'–':type==='bytes'?formatBytes(n):n.toLocaleString('de-DE');
+    card.append(title,value);cacheRoot.append(card);
+  });
+}
 function renderNodes(data){
   const nodes=data.nodes||[];
   $('nodesCount').textContent=nodes.length;
@@ -1982,6 +2145,7 @@ function renderNodes(data){
     const tr=document.createElement('tr');const td=document.createElement('td');td.colSpan=12;td.className='small';td.textContent=data.transport_enabled?'Noch keine NodeAgent-Heartbeats empfangen.':'NexBus-Transport ist deaktiviert; keine Remote-NodeAgents werden empfangen.';tr.append(td);body.append(tr);
   }
   nodes.forEach(node=>{
+    oglRecordPerformance(node);
     const tr=document.createElement('tr');tr.className='noderow';
     const perf=node.performance||{};
     const numberMetric=key=>Object.prototype.hasOwnProperty.call(perf,key)&&
@@ -2034,9 +2198,20 @@ function renderNodes(data){
     else if(updateActive)updateInfo.classList.add('warn');
     if(node.update?.updated_at)updateInfo.title=new Date(node.update.updated_at).toLocaleString('de-DE');
     actionCell.append(updateInfo);tr.append(actionCell);
-    tr.addEventListener('click',()=>{$('nodeDetail').textContent=JSON.stringify(node,null,2)});
+    tr.addEventListener('click',()=>{
+      oglPerfNodeId=node.node_id;
+      $('nodeDetail').textContent=JSON.stringify(node,null,2);
+      oglShowNodePerformance(node);
+    });
     body.append(tr);
   });
+  if(oglPerfNodeId){
+    const selected=nodes.find(n=>n.node_id===oglPerfNodeId);
+    if(selected){
+      $('nodeDetail').textContent=JSON.stringify(selected,null,2);
+      oglShowNodePerformance(selected);
+    }
+  }
   setNodesStatus(nodes.filter(x=>x.state==='online').length+' online · '+nodes.length+' Nodes',data.transport_enabled?'good':'bad');
 }
 let oglLiveUpdatePoll=null;
