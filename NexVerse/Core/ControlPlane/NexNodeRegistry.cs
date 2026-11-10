@@ -76,7 +76,8 @@ namespace NexVerse.Core.ControlPlane
             string updateState = "",
             string updateOperationId = "",
             DateTimeOffset? updateAt = null,
-            int npcCount = 0)
+            int npcCount = 0,
+            IReadOnlyDictionary<string, double> performanceMetrics = null)
         {
             NpcCount = Math.Clamp(npcCount, 0, Math.Max(0, agentCount));
             NodeId = nodeId ?? string.Empty;
@@ -113,6 +114,7 @@ namespace NexVerse.Core.ControlPlane
             UpdateState = updateState ?? string.Empty;
             UpdateOperationId = updateOperationId ?? string.Empty;
             UpdateAt = updateAt;
+            PerformanceMetrics = performanceMetrics ?? new Dictionary<string, double>(StringComparer.Ordinal);
         }
 
         public string NodeId { get; }
@@ -147,6 +149,8 @@ namespace NexVerse.Core.ControlPlane
         public string UpdateState { get; }
         public string UpdateOperationId { get; }
         public DateTimeOffset? UpdateAt { get; }
+        // Only allowlisted, validated read-only process metrics from signed NodeAgent heartbeats.
+        public IReadOnlyDictionary<string, double> PerformanceMetrics { get; }
     }
 
     /// <summary>
@@ -156,6 +160,26 @@ namespace NexVerse.Core.ControlPlane
     /// </summary>
     public sealed class NexNodeRegistry : IDisposable
     {
+        // Keep remote telemetry bounded: omit high-cardinality region JSON and non-finite numbers.
+        private static readonly string[] s_PerformanceFields =
+        {
+            "perf_processor_count",
+            "perf_process_cpu_percent",
+            "perf_process_private_bytes",
+            "perf_managed_heap_bytes",
+            "perf_gc_heap_size_bytes",
+            "perf_gc_fragmented_bytes",
+            "perf_gc_memory_load_bytes",
+            "perf_gc_total_available_bytes",
+            "perf_gc_pause_percent",
+            "perf_allocated_bytes_per_second",
+            "perf_threadpool_threads",
+            "perf_threadpool_pending_items",
+            "perf_threadpool_busy_workers",
+            "perf_region_sample_count",
+            "perf_region_sample_omitted"
+        };
+
         private readonly ConcurrentDictionary<string, NodeRecord> m_Nodes =
             new ConcurrentDictionary<string, NodeRecord>(
                 StringComparer.OrdinalIgnoreCase);
@@ -421,6 +445,18 @@ namespace NexVerse.Core.ControlPlane
                     nexEvent,
                     "luna_texture_classifications_json",
                     value => record.LunaTextureClassifications = value);
+
+                // Missing opt-in metrics clear the previous sample on the next heartbeat.
+                // Only explicitly allowlisted finite scalars are retained.
+                Dictionary<string, double> metrics = new Dictionary<string, double>(StringComparer.Ordinal);
+                foreach (string field in s_PerformanceFields)
+                {
+                    if (TryParseDouble(nexEvent, field, out double value) &&
+                        double.IsFinite(value) && value >= 0 && value <= 1e15 &&
+                        (!field.EndsWith("_percent", StringComparison.Ordinal) || value <= 100))
+                        metrics[field] = value;
+                }
+                record.PerformanceMetrics = metrics;
 
                 if (TryData(
                         nexEvent,
@@ -727,7 +763,8 @@ namespace NexVerse.Core.ControlPlane
                     record.UpdateState,
                     record.UpdateOperationId,
                     record.UpdateAt,
-                    record.NpcCount);
+                    record.NpcCount,
+                    new Dictionary<string, double>(record.PerformanceMetrics, StringComparer.Ordinal));
             }
         }
 
@@ -1034,6 +1071,8 @@ namespace NexVerse.Core.ControlPlane
             public string UpdateState = string.Empty;
             public string UpdateOperationId = string.Empty;
             public DateTimeOffset? UpdateAt;
+            public Dictionary<string, double> PerformanceMetrics =
+                new Dictionary<string, double>(StringComparer.Ordinal);
             public DateTimeOffset LastSeen;
             public DateTimeOffset LastEventAt;
 

@@ -113,3 +113,18 @@ dotnet run --configuration Release --project tools/ci/NexBusRegression/NexBusReg
 ```
 
 Zusätzlich auf einer Test-Node den gesamten Pfad über World API → signierten NexBus → NodeAgent → eigenen Update-Dienst mit vorhandener .NET-10-Installation prüfen. **Keinen produktiven Live-Update-Klick als ersten Integrationstest verwenden.**
+
+## Node-Statusanzeige im ROBUST-Webinterface
+
+Die Node-Tabelle zeigt den gemeldeten `online`-, `stale`- oder `offline`-
+Zustand und darunter im Update-Feld je Node `live.accepted`,
+`live.running`, `live.completed` oder `live.failed`. Laufende Updates
+sperren den Button fuer diese Node gegen erneutes versehentliches Ausloesen.
+Bei Erfolg erinnert die Tabelle an den **manuellen Simulator-Neustart**.
+
+Die Tabelle wird bei Aufruf sowie bei geoeffneter Node-Seite alle 15 Sekunden
+ueber den vorhandenen, geschuetzten `GET /api/v1/nodes`-Endpunkt erneuert.
+Ein fehlender Heartbeat wird als `stale` angezeigt; dies ist keine sichere
+Aussage ueber den Zustand eines bereits lokal angenommenen separaten
+systemd-Update-Workers. Dessen private Status-/Logdateien bleiben im Fehlerfall
+die Quelle fuer den letzten lokalen Fortschritt.

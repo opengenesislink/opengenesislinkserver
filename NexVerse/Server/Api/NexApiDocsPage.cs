@@ -87,7 +87,7 @@ input,textarea,select{width:100%;background:#08131e;color:var(--text);border:1px
 .empty{color:var(--muted);padding:18px;border:1px dashed var(--line);border-radius:9px;text-align:center}
 .portalgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.portalcard{border:1px solid var(--line);background:#0b1621;border-radius:11px;padding:18px}.portalcard h3{margin:0 0 7px;font-size:17px}.portalcard p{margin:0 0 12px;color:var(--muted)}.portalactions{display:flex;gap:8px;flex-wrap:wrap}.actionlink{display:inline-block;text-decoration:none;flex:0 0 auto}.portalmeta{margin-top:12px;color:var(--muted);font-size:12px}
 .tablewrap{overflow:auto;border:1px solid var(--line);border-radius:9px}.datatable{width:100%;border-collapse:collapse;min-width:720px}.datatable th,.datatable td{padding:10px 12px;text-align:left;border-bottom:1px solid var(--line);white-space:nowrap}.datatable th{font-size:12px;color:var(--muted);background:#0a1520}.datatable tr:last-child td{border-bottom:0}.datatable td:first-child{font-weight:600}.authnote{margin-top:10px;color:var(--muted);font-size:12px}
-.planner-controls{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}.planner-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.planner-actions .action{flex:0 0 auto}.gridlegend{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}.legenditem{display:inline-flex;gap:6px;align-items:center;color:var(--muted);font-size:12px}.legendswatch{width:13px;height:13px;border-radius:3px;border:1px solid var(--line)}.gridboardwrap{overflow:auto;max-height:680px;border:1px solid var(--line);border-radius:10px;background:#06101a;padding:12px}.gridboard{--cell:30px;display:grid;gap:2px;width:max-content;min-width:100%}.gridcell{width:var(--cell);height:var(--cell);min-width:var(--cell);padding:0;border:1px solid #22384b;border-radius:3px;background:#0c1a26;color:transparent;position:relative}.gridcell:hover{outline:2px solid var(--accent);z-index:2}.gridcell.free{background:#123326}.gridcell.occupied{background:#1d4c6a}.gridcell.reserved{background:#5a461c}.gridcell.conflict{background:#6a2323}.gridcell.selected{outline:2px solid #fff;z-index:3}.gridcell.preview-ok{box-shadow:inset 0 0 0 2px var(--good)}.gridcell.preview-bad{box-shadow:inset 0 0 0 2px var(--danger)}.gridcell.dimmed{opacity:.22}.gridcell[data-region-name]:after{content:'';position:absolute;inset:35%;border-radius:50%;background:rgba(255,255,255,.72)}.gridinfo{display:grid;grid-template-columns:1fr 1fr;gap:12px}.gridinfo pre{margin:0;min-height:150px}.gridcoord{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}.planner-note{padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:#0a1520;color:var(--muted);font-size:12px}.noderow{cursor:pointer}.noderow:hover{background:var(--panel2)}.node-state-online{color:var(--good)}.node-state-stale{color:var(--warn)}.node-state-offline{color:var(--danger)}
+.planner-controls{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}.planner-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.planner-actions .action{flex:0 0 auto}.gridlegend{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}.legenditem{display:inline-flex;gap:6px;align-items:center;color:var(--muted);font-size:12px}.legendswatch{width:13px;height:13px;border-radius:3px;border:1px solid var(--line)}.gridboardwrap{overflow:auto;max-height:680px;border:1px solid var(--line);border-radius:10px;background:#06101a;padding:12px}.gridboard{--cell:30px;display:grid;gap:2px;width:max-content;min-width:100%}.gridcell{width:var(--cell);height:var(--cell);min-width:var(--cell);padding:0;border:1px solid #22384b;border-radius:3px;background:#0c1a26;color:transparent;position:relative}.gridcell:hover{outline:2px solid var(--accent);z-index:2}.gridcell.free{background:#123326}.gridcell.occupied{background:#1d4c6a}.gridcell.reserved{background:#5a461c}.gridcell.conflict{background:#6a2323}.gridcell.selected{outline:2px solid #fff;z-index:3}.gridcell.preview-ok{box-shadow:inset 0 0 0 2px var(--good)}.gridcell.preview-bad{box-shadow:inset 0 0 0 2px var(--danger)}.gridcell.dimmed{opacity:.22}.gridcell[data-region-name]:after{content:'';position:absolute;inset:35%;border-radius:50%;background:rgba(255,255,255,.72)}.gridinfo{display:grid;grid-template-columns:1fr 1fr;gap:12px}.gridinfo pre{margin:0;min-height:150px}.gridcoord{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}.planner-note{padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:#0a1520;color:var(--muted);font-size:12px}.noderow{cursor:pointer}.noderow:hover{background:var(--panel2)}.node-state-online{color:var(--good)}.node-state-stale{color:var(--warn)}.node-state-offline{color:var(--danger)}.node-update-status{display:block;font-size:11px;margin-top:6px;white-space:normal;max-width:230px;color:var(--muted)}.node-update-status.good{color:var(--good)}.node-update-status.bad{color:var(--danger)}.node-update-status.warn{color:var(--warn)}
 @media(max-width:1100px){.cards,.roadmap-summary{grid-template-columns:repeat(2,1fr)}.changegrid{grid-template-columns:1fr}.explorer{grid-template-columns:1fr}.endpointlist{max-height:420px;overflow:auto}.planner-controls{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:760px){.portalgrid{grid-template-columns:1fr}.shell{display:block}nav{position:static;height:auto;border-right:0;border-bottom:1px solid var(--line)}.navmeta{display:none}.navbtn{display:inline-block;width:auto}.brand{padding-bottom:12px}main{padding:22px 14px}.hero{display:block}.hero .pill{margin-top:14px}.cards,.roadmap-summary{grid-template-columns:1fr}.grid2,.version,.gridinfo{grid-template-columns:1fr}.planner-controls{grid-template-columns:1fr 1fr}.milestonehead{display:block}.milestonehead .status{margin-top:8px}}
 
@@ -854,8 +854,9 @@ body.ogl-sidebar-collapsed .ogl-admin-header,body.ogl-sidebar-collapsed main{gri
 <div class="card"><div class="label">Offline</div><div class="value" id="nodesOffline">–</div><div class="sub">explizit abgemeldet</div></div>
 </div>
 <div class="section">
-<h2>Node-Liste</h2><p class="sectionlead" id="nodesTransport">NexBus-Transportstatus noch nicht geladen.</p>
-<div class="tablewrap"><table class="datatable"><thead><tr><th>Node</th><th>Host</th><th>Status</th><th>Version</th><th>Regionen</th><th>Avatare</th><th>Uptime</th><th>RAM</th><th>Letztes Signal</th><th>Update</th></tr></thead><tbody id="nodesBody"></tbody></table></div>
+<h2>Node-Status und Live-Update</h2><p class="sectionlead" id="nodesTransport">NexBus-Transportstatus noch nicht geladen.</p>
+<div class="authnote">Automatische Aktualisierung alle 15 Sekunden, solange diese Seite geöffnet ist. CPU zeigt die durchschnittliche Auslastung aller verfügbaren Prozessorkerne. CPU und GC-Pause sind nur bei aktivierter <code>[OGLPerformance]</code>-Telemetrie verfügbar. RAM bezeichnet den Prozess-Working-Set, nicht die gesamte Systembelegung.</div>
+<div class="tablewrap"><table class="datatable"><thead><tr><th>Node</th><th>Host</th><th>Status</th><th>Version</th><th>Regionen</th><th>Avatare</th><th>Uptime</th><th>CPU</th><th>RAM</th><th>GC-Pause</th><th>Letztes Signal</th><th>Update / Status</th></tr></thead><tbody id="nodesBody"></tbody></table></div>
 </div>
 <div class="section">
 <h2>Node-Details</h2><div class="authnote">„Update“ sichert die INIs, setzt Git auf origin/main zurück, kompiliert mit .NET 10 und entfernt die alte NexVerse-Deutschland.ini. Die Node wird NICHT automatisch neugestartet. Die Aktion verändert den produktiven Checkout. Vorher Backup und Wartungsfenster einplanen.</div><p role="status" aria-live="polite" id="nodesUpdateInfo">Kein Update beauftragt.</p><pre id="nodeDetail">Noch kein Node ausgewählt.</pre>
@@ -1614,6 +1615,7 @@ function showPage(name){
   if(name==='logs')oglLoadLogIndex();
   if(name==='viewers')oglLoadViewerStats();
   if(name==='console')oglLoadConsoleHelp();
+  if(name==='nodes')setTimeout(()=>loadNodes(true),0);
   if(name==='audit')oglLoadAudit(false);
   if(oglWorkspaceGroups[name])oglRenderWorkspaces();
   document.querySelector('main')?.scrollTo({top:0,behavior:'auto'});
@@ -1939,10 +1941,15 @@ function renderNodes(data){
   $('nodesTransport').textContent=(data.transport_enabled?'Verteilter NexBus-Transport aktiv':'Verteilter NexBus-Transport deaktiviert')+' · Stale nach '+(data.stale_after_seconds||'–')+' Sekunden ohne Heartbeat.';
   const body=$('nodesBody');body.replaceChildren();
   if(!nodes.length){
-    const tr=document.createElement('tr');const td=document.createElement('td');td.colSpan=10;td.className='small';td.textContent=data.transport_enabled?'Noch keine NodeAgent-Heartbeats empfangen.':'NexBus-Transport ist deaktiviert; keine Remote-NodeAgents werden empfangen.';tr.append(td);body.append(tr);
+    const tr=document.createElement('tr');const td=document.createElement('td');td.colSpan=12;td.className='small';td.textContent=data.transport_enabled?'Noch keine NodeAgent-Heartbeats empfangen.':'NexBus-Transport ist deaktiviert; keine Remote-NodeAgents werden empfangen.';tr.append(td);body.append(tr);
   }
   nodes.forEach(node=>{
     const tr=document.createElement('tr');tr.className='noderow';
+    const perf=node.performance||{};
+    const numberMetric=key=>Object.prototype.hasOwnProperty.call(perf,key)&&
+      Number.isFinite(Number(perf[key]))?Number(perf[key]):null;
+    const cpu=numberMetric('perf_process_cpu_percent');
+    const gcPause=numberMetric('perf_gc_pause_percent');
     const vals=[
       node.node_id||'',
       node.hostname||'',
@@ -1951,7 +1958,9 @@ function renderNodes(data){
       node.region_count??0,
       node.agent_count??0,
       formatDuration(node.uptime_seconds),
+      node.state==='online'&&cpu!==null?cpu.toFixed(1)+' %':'–',
       formatBytes(node.working_set_bytes),
+      node.state==='online'&&gcPause!==null?gcPause.toFixed(1)+' %':'–',
       node.last_seen?new Date(node.last_seen).toLocaleString('de-DE'):'–'
     ];
     vals.forEach((value,index)=>{
@@ -1963,14 +1972,34 @@ function renderNodes(data){
     const updateBtn=document.createElement('button');
     updateBtn.type='button';updateBtn.className='action';
     updateBtn.textContent='Update';
-    updateBtn.disabled=node.state!=='online';
-    updateBtn.title=node.state==='online'?'Live-Update auf main mit manuellem Neustart':'Node muss für die Anforderung online sein';
+    const updateState=node.update?.state||'';
+    const updateActive=updateState==='live.accepted'||updateState==='live.running';
+    updateBtn.disabled=node.state!=='online'||updateActive;
+    updateBtn.title=updateActive?'Auf dieser Node läuft bereits ein Update':
+      node.state==='online'?'Live-Update auf main mit manuellem Neustart':'Node muss für die Anforderung online sein';
     updateBtn.addEventListener('click',event=>{event.stopPropagation();updateSimulatorNode(node.node_id)});
-    actionCell.append(updateBtn);tr.append(actionCell);
+    actionCell.append(updateBtn);
+    const updateInfo=document.createElement('span');
+    updateInfo.className='node-update-status';
+    const updateLabels={
+      'live.accepted':'Update angenommen',
+      'live.running':'Update läuft',
+      'live.completed':'Update abgeschlossen · Neustart manuell',
+      'live.failed':'Update fehlgeschlagen',
+      'accepted':'Staging angenommen',
+      'completed':'Staging abgeschlossen',
+      'failed':'Staging fehlgeschlagen'
+    };
+    updateInfo.textContent=updateLabels[updateState]||'Kein Update gemeldet';
+    if(updateState==='live.completed'||updateState==='completed')updateInfo.classList.add('good');
+    else if(updateState==='live.failed'||updateState==='failed')updateInfo.classList.add('bad');
+    else if(updateActive)updateInfo.classList.add('warn');
+    if(node.update?.updated_at)updateInfo.title=new Date(node.update.updated_at).toLocaleString('de-DE');
+    actionCell.append(updateInfo);tr.append(actionCell);
     tr.addEventListener('click',()=>{$('nodeDetail').textContent=JSON.stringify(node,null,2)});
     body.append(tr);
   });
-  setNodesStatus('Live · '+nodes.length+' Nodes','good');
+  setNodesStatus(nodes.filter(x=>x.state==='online').length+' online · '+nodes.length+' Nodes',data.transport_enabled?'good':'bad');
 }
 let oglLiveUpdatePoll=null;
 async function updateSimulatorNode(nodeId){
@@ -2021,8 +2050,11 @@ async function updateSimulatorNode(nodeId){
     },5000);
   }catch(err){$('nodesUpdateInfo').textContent='Update-Anforderung fehlgeschlagen: '+String(err)}
 }
-async function loadNodes(){
-  setNodesStatus('Lade Simulatoren…','');
+let oglNodesLoading=false;
+async function loadNodes(silent=false){
+  if(oglNodesLoading)return;
+  oglNodesLoading=true;
+  if(!silent)setNodesStatus('Lade Simulatoren…','');
   try{
     const res=await fetch('/api/v1/nodes',{headers:nodeHeaders(),cache:'no-store',credentials:'same-origin'});
     const txt=await res.text();let data=null;try{data=JSON.parse(txt)}catch{}
@@ -2034,8 +2066,11 @@ async function loadNodes(){
     renderNodes(data||{});
   }catch(err){
     setNodesStatus('Node-Registry nicht erreichbar','bad');$('nodeDetail').textContent=String(err);
+  }finally{
+    oglNodesLoading=false;
   }
 }
+setInterval(()=>{if($('page-nodes').classList.contains('active'))loadNodes(true)},15000);
 
 let oglLicenseNodes=[];
 function selectedLicense(){
@@ -3155,7 +3190,7 @@ $('licenseNode').addEventListener('change',showFeatureLicense);
 $('loadFeatureLicenses').addEventListener('click',loadFeatureLicenses);
 $('saveFeatureLicense').addEventListener('click',()=>saveFeatureLicense(false));
 $('revokeFeatureLicense').addEventListener('click',()=>saveFeatureLicense(true));
-$('loadNodes').addEventListener('click',loadNodes);$('clearNodesCredentials').addEventListener('click',()=>{$('nodesBearer').value='';$('nodesApiKey').value=''});
+$('loadNodes').addEventListener('click',()=>loadNodes());$('clearNodesCredentials').addEventListener('click',()=>{$('nodesBearer').value='';$('nodesApiKey').value=''});
 $('gridWest').addEventListener('click',()=>panGrid(-1,0));$('gridEast').addEventListener('click',()=>panGrid(1,0));$('gridSouth').addEventListener('click',()=>panGrid(0,-1));$('gridNorth').addEventListener('click',()=>panGrid(0,1));
 $('validateGridPlacement').addEventListener('click',validateGridPlacement);$('gridRegionSizeX').addEventListener('change',()=>{if(gridSelected)validateGridPlacement()});$('gridRegionSizeY').addEventListener('change',()=>{if(gridSelected)validateGridPlacement()});
 $('gridCellPixels').addEventListener('input',()=>{$('gridBoard').style.setProperty('--cell',$('gridCellPixels').value+'px')});$('gridFilter').addEventListener('change',applyGridFilter);$('gridShowWarp3d').addEventListener('change',applyGridImagery);
