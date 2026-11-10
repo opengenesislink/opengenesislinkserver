@@ -197,6 +197,10 @@ namespace NexVerse.Server.Api
                     ("get", "Vom NexVerse NodeAgent beobachtete Simulator-Nodes auflisten", "simulators:read", "200")),
                 ["/api/v1/nodes/{nodeId}"] = AuthenticatedOperations(
                     ("get", "Simulator-Node mit Gesundheits- und Regionszustand lesen", "simulators:read", "200")),
+                ["/api/v1/nodes/{nodeId}/control"] = AuthenticatedOperations(
+                    ("post", "Node-Aktion: maintenance_on/off, drain, resume, stage_update oder signiertes eigenständiges Live-Update (manueller Neustart)", "simulators:manage", "202")),
+                ["/api/v1/nodes/updates"] = AuthenticatedOperations(
+                    ("post", "Nicht-destruktives Git-Staging aller online gemeldeten Simulator-Nodes, kein Live-Update", "simulators:manage", "202")),
                 ["/api/v1/feature-control/nodes"] = AuthenticatedOperations(
                     ("get", "Simulator-Funktionsfreigaben auflisten", "simulators:read", "200")),
                 ["/api/v1/feature-control/nodes/{nodeId}"] = AuthenticatedOperations(

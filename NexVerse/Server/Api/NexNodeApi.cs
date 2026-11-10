@@ -190,9 +190,9 @@ namespace NexVerse.Server.Api
             {
                 using JsonDocument doc = JsonDocument.Parse(request.InputStream);
                 string action = doc.RootElement.TryGetProperty("action", out JsonElement a) ? (a.GetString() ?? "").Trim().ToLowerInvariant() : "";
-                if (action != "maintenance_on" && action != "maintenance_off" && action != "drain" && action != "resume" && action != "stage_update")
-                { WriteError(response, HttpStatusCode.BadRequest, "invalid_action", "Supported actions: maintenance_on, maintenance_off, drain, resume, stage_update."); return; }
-                if (action == "stage_update" && !EnsureStageAuthorized(response))
+                if (action != "maintenance_on" && action != "maintenance_off" && action != "drain" && action != "resume" && action != "stage_update" && action != "update")
+                { WriteError(response, HttpStatusCode.BadRequest, "invalid_action", "Supported actions: maintenance_on, maintenance_off, drain, resume, stage_update, update."); return; }
+                if ((action == "stage_update" || action == "update") && !EnsureStageAuthorized(response))
                     return;
                 string operationId = Guid.NewGuid().ToString("D");
                 System.Collections.Generic.Dictionary<string, string> payload =
@@ -204,8 +204,12 @@ namespace NexVerse.Server.Api
                     };
                 if (action == "stage_update")
                     SignStageRequest(payload, nodeId, operationId);
+                else if (action == "update")
+                    SignLiveRequest(payload, nodeId, operationId);
                 m_EventBus.Publish(new NexEvent(
-                    action == "stage_update" ? "node.update.stage.requested" : "node.control.requested",
+                    action == "stage_update" ? "node.update.stage.requested"
+                    : action == "update" ? "node.update.live.requested"
+                    : "node.control.requested",
                     "nexverse.robust", payload));
                 WriteJson(response, new { status = "accepted", node_id = nodeId, action, operation_id = operationId }, HttpStatusCode.Accepted);
             }
@@ -294,6 +298,16 @@ namespace NexVerse.Server.Api
                 operationId, issuedAt, m_UpdateControlKey);
         }
 
+        private void SignLiveRequest(
+            System.Collections.Generic.Dictionary<string, string> data,
+            string nodeId, string operationId)
+        {
+            long issuedAt = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+            data["issued_at"] = issuedAt.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            data["approval_hmac"] = NexBusProtocol.SignNodeLiveRequest(nodeId,
+                operationId, issuedAt, m_UpdateControlKey);
+        }
+
         private static object NodePayload(
             NexNodeSnapshot node)
         {
@@ -351,7 +365,8 @@ namespace NexVerse.Server.Api
                     state = node.UpdateState,
                     operation_id = node.UpdateOperationId,
                     updated_at = node.UpdateAt,
-                    type = "download_and_build_only"
+                    type = node.UpdateState.StartsWith("live.", StringComparison.Ordinal)
+                        ? "in_place_update_manual_restart" : "download_and_build_only"
                 },
                 luna_texture =
                     LunaTextureNodePayload(node),

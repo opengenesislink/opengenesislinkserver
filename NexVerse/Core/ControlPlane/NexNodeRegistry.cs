@@ -268,6 +268,10 @@ namespace NexVerse.Core.ControlPlane
                 case "node.update.stage.accepted":
                 case "node.update.stage.completed":
                 case "node.update.stage.failed":
+                case "node.update.live.accepted":
+                case "node.update.live.running":
+                case "node.update.live.completed":
+                case "node.update.live.failed":
                     ApplyNodeUpdateState(nexEvent);
                     break;
 
@@ -297,7 +301,9 @@ namespace NexVerse.Core.ControlPlane
             NodeRecord record = m_Nodes.GetOrAdd(nodeId, id => new NodeRecord(id));
             lock (record.Sync)
             {
-                record.UpdateState = ev.Name.Substring("node.update.stage.".Length);
+                record.UpdateState = ev.Name.StartsWith("node.update.live.", StringComparison.Ordinal)
+                    ? "live." + ev.Name.Substring("node.update.live.".Length)
+                    : ev.Name.Substring("node.update.stage.".Length);
                 record.UpdateOperationId = operationId;
                 record.UpdateAt = DateTimeOffset.UtcNow;
                 record.LastEventAt = record.UpdateAt.Value;

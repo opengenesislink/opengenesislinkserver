@@ -108,6 +108,35 @@ internal static class Program
             "simulator-1", "invalid-operation-id", issuedAt, controlKey,
             authorization, issuedAt), "invalid node update operation accepted");
 
+        // Direct deploy and build must use a separate HMAC domain. A
+        // read-only/staging approval can NEVER be upgraded into live write.
+        string liveSignature = NexBusProtocol.SignNodeLiveRequest(
+            "simulator-1", updateOperation, issuedAt, controlKey);
+        Require(NexBusProtocol.VerifyNodeLiveRequest(
+            "simulator-1", updateOperation, issuedAt, controlKey,
+            liveSignature, issuedAt), "valid live-update HMAC rejected");
+        Require(!NexBusProtocol.VerifyNodeLiveRequest(
+            "simulator-1", updateOperation, issuedAt, controlKey,
+            authorization, issuedAt), "staging signature authorized live update");
+        Require(!NexBusProtocol.VerifyNodeStageRequest(
+            "simulator-1", updateOperation, issuedAt, controlKey,
+            liveSignature, issuedAt), "live signature authorized staging");
+        Require(!NexBusProtocol.VerifyNodeLiveRequest(
+            "simulator-2", updateOperation, issuedAt, controlKey,
+            liveSignature, issuedAt), "live HMAC reused for different node");
+        Require(!NexBusProtocol.VerifyNodeLiveRequest(
+            "simulator-1", Guid.NewGuid().ToString("D"), issuedAt, controlKey,
+            liveSignature, issuedAt), "live HMAC reused for different operation");
+        Require(!NexBusProtocol.VerifyNodeLiveRequest(
+            "simulator-1", updateOperation, issuedAt, sharedKey,
+            liveSignature, issuedAt), "transport secret authorized live deployment");
+        Require(!NexBusProtocol.VerifyNodeLiveRequest(
+            "simulator-1", updateOperation, issuedAt, controlKey,
+            liveSignature, issuedAt + 301), "expired live request accepted");
+        Require(!NexBusProtocol.VerifyNodeLiveRequest(
+            "simulator-1", updateOperation, issuedAt, controlKey,
+            liveSignature, issuedAt - 61), "future live request accepted");
+
         NexEvent wireEvent = NexBusProtocol.Deserialize(wire);
         Require(wireEvent.EventId == ev.EventId, "wire EventId mismatch");
         Require(wireEvent.Name == ev.Name, "wire event name mismatch");
