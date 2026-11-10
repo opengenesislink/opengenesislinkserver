@@ -58,6 +58,7 @@ def check_paths() -> None:
         raise RuntimeError("Updater executable must live outside the checkout.")
     BACKUPS.mkdir(parents=True, exist_ok=True, mode=0o700)
     STATE_DIR.mkdir(parents=True, exist_ok=True, mode=0o700)
+    os.chmod(BACKUPS, 0o700)
     os.chmod(STATE_DIR, 0o700)
 
 
@@ -183,6 +184,8 @@ class Handler(BaseHTTPRequestHandler):
             request = json.loads(self.rfile.read(size))
             if (not isinstance(request, dict) or
                     set(request) != {"node_id", "operation_id"} or
+                    not isinstance(request["node_id"], str) or
+                    not isinstance(request["operation_id"], str) or
                     request["node_id"] != NODE_ID):
                 self.reply(400, {"error": "invalid_request"})
                 return
