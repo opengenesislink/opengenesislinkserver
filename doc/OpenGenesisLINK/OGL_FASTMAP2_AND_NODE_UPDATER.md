@@ -38,6 +38,25 @@ Abnahme: Mehrere Regionen starten; Zeiten, Grid-Registrierung, sichtbare
 Karten-UUIDs, Firestorm-Map, manuellen Refresh, Shutdown und fehlende
 Asset-UUID prüfen. CPU-/RAM-/Watchdog-Vergleich auf identischen Assets messen.
 
+## Updater-Stufe 2: eigenständiger Live-Update-Dienst
+
+Neu in Generation 1: In der World-API-Oberfläche **Simulator-Nodes**
+kann ein Operator mit `simulators:manage` pro Online-Node auf **Update**
+klicken. Anders als `stage_update` startet die zusätzliche, getrennt
+signierte Aktion `{"action":"update"}` einen **außerhalb des Simulator-
+Prozesses und des Git-Checkouts installierten Dienst**. Dieser sichert die
+Konfiguration, setzt Git auf `main`, baut mit .NET 10 und entfernt
+`bin/Regions/NexVerse-Deutschland.ini` (auch bei kleiner Schreibung
+`bin/regions`). Simulator-/ROBUST-Neustarts bleiben manuell.
+
+Die opt-in Installation, Rechte, Schlüsseltrennung, HTTP-Routen und
+Rollback-Grenzen stehen vollständig unter
+[`G1_STANDALONE_NODE_UPDATER.md`](G1_STANDALONE_NODE_UPDATER.md).
+
+**Wichtig:** Das folgende bisherige Update-Staging ist weiterhin
+**nicht-destruktiv**. `UpdateStagingEnabled` und `LiveUpdateEnabled`
+sind unterschiedliche Konfigurationsschalter.
+
 ## Updater-Stufe 1: von ROBUST angestoßenes Source/Build-Staging
 
 ROBUST bietet bereits einen authentifizierten Node-API-Endpunkt. Die
@@ -55,7 +74,7 @@ UpdateStagingEnabled=false vorbelegt. Der NodeAgent muss mit einem signierten
 NexBus an ROBUST angebunden sein. Das Skript ist im Repository unter
 tools/ops/ogl-node-stage-update.sh verfügbar und wird relativ zur
 Simulatorkopie (neben dem bin-Verzeichnis) aufgerufen. Bash, Git, flock,
-realpath, Python 3 sowie beim Build das .NET-8-SDK sind erforderlich.
+realpath, Python 3 sowie beim Build das .NET-10-SDK sind erforderlich.
 
 Einzelne Node:
 
