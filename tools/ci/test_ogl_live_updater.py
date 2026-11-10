@@ -139,9 +139,10 @@ exit 3
             file.chmod(0o755)
         (self.root / "runprebuild.sh").write_text("#!/bin/bash\ntouch project-generated\n")
         (self.root / "compile.sh").write_text("""#!/usr/bin/env bash
-touch bin/Robust.dll bin/OpenSim.dll
+printf 'built-robust' > bin/Robust.dll
+printf 'built-opensim' > bin/OpenSim.dll
 for addon in NexTraffic NexTransit NexSmartLight OGLWeather OGLEnergy; do
-  touch "bin/OpenGenesisLINK.Addons.$addon.dll"
+  printf 'built-addon' > "bin/OpenGenesisLINK.Addons.$addon.dll"
 done
 """)
         (self.root / "bin/OpenSim.ini").write_text("[Grid]\nSECRET=keep\n")
