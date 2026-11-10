@@ -1,6 +1,7 @@
 using System.Net;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.DataProtection;
 using OpenSim.Addons.OGLMessenger.Server;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -13,7 +14,7 @@ if (options.IsReady)
     string keys = Path.GetFullPath(options.DataProtectionKeysPath);
     Directory.CreateDirectory(keys);
     if (OperatingSystem.IsLinux())
-        Directory.SetUnixFileMode(keys, UnixFileMode.UserRead |
+        File.SetUnixFileMode(keys, UnixFileMode.UserRead |
             UnixFileMode.UserWrite | UnixFileMode.UserExecute);
     builder.Services.AddDataProtection()
         .SetApplicationName("OpenGenesisLINK.OGLMessenger")
