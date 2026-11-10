@@ -28,3 +28,16 @@ Inspected current main code paths on 2026-11-10:
 - Add integration tests using a disposable local grid before enabling write operations.
 
 The contracts project is intentionally independent of region binaries. It can be compiled with `dotnet build OpenSim/Addons/OGLMessenger/Contracts/OGLMessenger.Contracts.csproj` on .NET 10. This is a source-only scaffold; compilation has not yet been verified in CI.
+
+## Umsetzung in PR #418 (nach dem ersten Audit)
+
+- Die bisherige Aussage, ein lokaler Passwortadapter müsse vor dem Login neu gebaut werden, gilt für das vorliegende MVP **nicht mehr**. Das bereits vorhandene World-API-OAuth2/OIDC-Authorization-Code-Verfahren mit PKCE S256 verifiziert Avatarname und Passwort direkt im vertrauenswürdigen World-API-Loginformular; der Messenger sieht kein Avatarpasswort.
+- Der API-Server überprüft danach per GET /api/v1/users/me, dass der Principal ein **aktiver lokaler** Avatar ist. Fremde HG-Avatare können nicht als lokale Accounts auftreten.
+- Direkte lokale IMs nutzen den bestehenden POST /api/v1/messages aus NexCitizenImApi. Dessen bestehende Prüfungen für bestätigt befreundete lokale Avatare, Limits und native IM/Offline-Zustellung bleiben maßgeblich. Der Messenger übernimmt diese Rechte nicht selbst und behauptet keine Empfangsquittung.
+- Opt-in-Historie nutzt GET/PATCH /api/v1/messages/settings sowie die bereits bestehende Speicherung. Es wird **kein** zweiter Inworld-Offline-IM-Eigentümer erstellt.
+- Gruppen: GET /api/v1/groups/mine und GET /api/v1/groups/{groupId}/notices. Kein direkter Aufruf von IGroupsMessagingModule aus dem Webprozess; das würde ohne kontrollierte Authentifizierung Gruppenrechte umgehen.
+- HG-Kontaktliste: vorhandenes GET /api/v1/relationships/{owner} bewahrt die Identität/Home-Grid-Herkunft und das im Freundesprofil vorliegende Präsenz-Sichtbarkeitsrecht. Ausgehende HG-IMs bleiben gesperrt.
+- Separate Mobil-Präsenz speichert nur einen zeitlich begrenzten Heartbeat in der Messenger-Sitzung und modifiziert die autoritative Inworld-Presence **nicht**.
+- Noch kein eigenes Redis-/MariaDB-Messenger-Cluster, keine WebPush- oder Server-zu-Server-Ingress-Brücke. Die eingeführte SQLite-Persistenz ist eine isolierte **Single-Node-Session-/Idempotenzdatenbank**, nicht ein Ersatz für den OpenSim-Nachrichtenspeicher.
+
+Das Verhalten muss vor der produktiven Freischaltung noch mit mindestens zwei echten lokalen Avataren sowie vorhandener HG-Verbindung durchgespielt werden.
