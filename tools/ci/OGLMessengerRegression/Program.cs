@@ -1,0 +1,83 @@
+using Microsoft.AspNetCore.DataProtection;
+using OpenSim.Addons.OGLMessenger.Server;
+
+static void Check(bool ok, string message)
+{
+    if (!ok)
+        throw new InvalidOperationException(message);
+}
+
+string root = Path.Combine(Path.GetTempPath(),
+    "ogl-messenger-regression-" + Guid.NewGuid().ToString("N"));
+string keys = Path.Combine(root, "keys");
+Directory.CreateDirectory(keys);
+try
+{
+    var config = new MessengerOptions
+    {
+        WorldApiBaseUrl = "https://world.example.invalid",
+        PublicBaseUrl = "https://messenger.example.invalid",
+        ClientId = "registered-pkce-public-client",
+        DatabasePath = Path.Combine(root, "messenger.sqlite"),
+        DataProtectionKeysPath = keys
+    };
+    Check(config.IsReady, "valid production HTTPS configuration refused");
+    config.WorldApiBaseUrl = "http://world.example.invalid";
+    Check(!config.IsReady, "insecure upstream was accepted");
+    config.WorldApiBaseUrl = "https://world.example.invalid";
+
+    var protection = DataProtectionProvider.Create(new DirectoryInfo(keys));
+    var store = new MessengerSessionStore(config, protection);
+    Guid avatar = Guid.NewGuid();
+    Guid friend = Guid.NewGuid();
+    Guid messageId = Guid.NewGuid();
+    string cookie = store.Create(avatar,
+        new OAuthTokens("access-secret-1", "refresh-secret-1", 600), 30);
+
+    Check(cookie.Length >= 32, "cookie entropy too small");
+    Check(store.Find("invalid") == null, "invalid cookie accepted");
+    MessengerSession? session = store.Find(cookie);
+    Check(session?.AvatarId == avatar && session.AccessToken == "access-secret-1" &&
+          session.RefreshToken == "refresh-secret-1", "encrypted token session failed");
+    string dbData = Convert.ToBase64String(File.ReadAllBytes(config.DatabasePath));
+    Check(!dbData.Contains(Convert.ToBase64String(
+        System.Text.Encoding.UTF8.GetBytes("access-secret-1")), StringComparison.Ordinal),
+        "plaintext access token present in SQLite database");
+    Check(!dbData.Contains(Convert.ToBase64String(
+        System.Text.Encoding.UTF8.GetBytes("refresh-secret-1")), StringComparison.Ordinal),
+        "plaintext refresh token present in SQLite database");
+
+    store.UpdateTokens(cookie, new OAuthTokens("access-2", "refresh-2", 3600));
+    session = store.Find(cookie);
+    Check(session?.AccessToken == "access-2" &&
+          session.RefreshToken == "refresh-2", "refresh token rotation failed");
+
+    SendReservation first = store.ReserveSend(avatar, messageId, friend, "hello");
+    Check(first.Status == SendReservationStatus.Started, "first IM rejected");
+    Check(store.ReserveSend(avatar, messageId, friend, "hello").Status ==
+          SendReservationStatus.Pending, "duplicate send re-entered upstream");
+    Check(store.ReserveSend(avatar, messageId, friend, "different").Status ==
+          SendReservationStatus.Conflict, "reused ID with different content was accepted");
+    Check(store.ReserveSend(avatar, messageId, Guid.NewGuid(), "hello").Status ==
+          SendReservationStatus.Conflict, "reused ID with different recipient was accepted");
+    store.CompleteSend(avatar, messageId, 202, "{\"status\":\"accepted\"}");
+    SendReservation duplicate = store.ReserveSend(avatar, messageId, friend, "hello");
+    Check(duplicate.Status == SendReservationStatus.Completed &&
+          duplicate.HttpStatus == 202 && duplicate.Response!.Contains("accepted"),
+          "idempotent accepted IM was not replayed safely");
+    Check(store.ReserveSend(Guid.NewGuid(), messageId, friend, "hello").Status ==
+          SendReservationStatus.Started, "idempotency keys leaked between senders");
+
+    var reopened = new MessengerSessionStore(config,
+        DataProtectionProvider.Create(new DirectoryInfo(keys)));
+    Check(reopened.Find(cookie)?.RefreshToken == "refresh-2",
+        "server restart lost persistent encrypted session");
+    reopened.Revoke(cookie);
+    Check(store.Find(cookie) == null, "logout did not revoke the device session");
+
+    Console.WriteLine("PASS: Messenger encrypted cookies, session persistence, refresh rotation and exactly-once IM keys");
+}
+finally
+{
+    Directory.Delete(root, true);
+}
