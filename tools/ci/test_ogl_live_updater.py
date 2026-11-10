@@ -52,6 +52,13 @@ class TestUpdater(unittest.TestCase):
             script=self.stub, state_dir=self.parent / "state",
             backup_dir=self.parent / "backups", key=KEY)
 
+    def test_csharp_python_hmac_protocol_vector(self):
+        fixed = updater.signed_payload(
+            "simulator-1", "00000000-0000-0000-0000-000000000001", 1700000000)
+        result = hmac.new(("U" * 64).encode(), fixed, hashlib.sha256).hexdigest()
+        self.assertEqual(result,
+            "ddb60ee3ba682022b4176869024b04de7607e702b73c61987adca2975d81e193")
+
     def test_security_replay_persistence(self):
         op = str(uuid.uuid4())
         now = int(time.time())
