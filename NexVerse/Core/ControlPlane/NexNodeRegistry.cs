@@ -848,14 +848,14 @@ namespace NexVerse.Core.ControlPlane
             NexEvent nexEvent, Dictionary<string, RegionRecord> liveRegions)
         {
             if (!TryData(nexEvent, "perf_region_heartbeats_json", out string json) ||
-                json.Length > 24576)
+                json.Length > 49152)
                 return Array.Empty<NexRegionPerformanceSnapshot>();
             try
             {
                 using JsonDocument doc = JsonDocument.Parse(json,
                     new JsonDocumentOptions { MaxDepth = 8 });
                 if (doc.RootElement.ValueKind != JsonValueKind.Array ||
-                    doc.RootElement.GetArrayLength() > 32)
+                    doc.RootElement.GetArrayLength() > 64)
                     return Array.Empty<NexRegionPerformanceSnapshot>();
                 var result = new List<NexRegionPerformanceSnapshot>();
                 var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
