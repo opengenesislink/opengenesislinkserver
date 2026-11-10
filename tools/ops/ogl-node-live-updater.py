@@ -17,6 +17,7 @@ import json
 import os
 from pathlib import Path
 import re
+import signal
 import subprocess
 import sys
 import threading
@@ -60,8 +61,9 @@ class UpdateService:
                  state_dir: Path, backup_dir: Path, key: str):
         if not NODE_RE.fullmatch(node_id):
             raise ValueError("invalid configured node ID")
-        if len(key.encode("utf-8")) < 32:
-            raise ValueError("NEXVERSE_UPDATE_CONTROL_KEY must have at least 32 bytes")
+        if len(key.encode("utf-8")) < 32 or key.startswith(
+                ("SET_THE_SAME", "REPLACE_", "CHANGE_ME")):
+            raise ValueError("A separate random NEXVERSE_UPDATE_CONTROL_KEY (>=32 bytes) is required")
         self.node_id = node_id
         self.key = key
         self.bin_dir = Path(os.path.realpath(bin_dir))
@@ -162,7 +164,19 @@ class UpdateService:
                                           stderr=subprocess.STDOUT, close_fds=True,
                                           start_new_session=True,
                                           env={**os.environ, "GIT_TERMINAL_PROMPT": "0"}) as process:
-                        returncode = process.wait()
+                        # Independent service has a bounded execution budget.
+                        # A timed-out build must not leave orphan git/dotnet jobs.
+                        timeout = min(14400, max(300, int(os.environ.get(
+                            "OGL_UPDATER_TIMEOUT_SECONDS", "3600"))))
+                        try:
+                            returncode = process.wait(timeout=timeout)
+                        except subprocess.TimeoutExpired:
+                            try:
+                                os.killpg(process.pid, signal.SIGKILL)
+                            except ProcessLookupError:
+                                pass
+                            process.wait()
+                            returncode = 124
                 with self._lock:
                     self._status.update(
                         state="completed" if returncode == 0 else "failed",
