@@ -130,7 +130,7 @@ with tempfile.TemporaryDirectory(prefix="ogl-live-checkout-regression-") as tmp:
         names = archive.getnames()
         assert "bin/Regions/NexVerse-Deutschland.ini" in names
         assert "bin/regions/NexVerse-Deutschland.ini" in names
-    assert not (root / "prebuild-complete").is_file() or (root / "prebuild-complete").is_file()
+    assert (root / "prebuild-complete").is_file(), "runprebuild did not execute"
 
     # Unsafe branch must be rejected BEFORE running git reset or any build.
     run(REAL_GIT, "checkout", "-b", "not-main", cwd=root)
