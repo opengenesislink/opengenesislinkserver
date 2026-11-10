@@ -697,7 +697,9 @@ namespace NexVerse.Server.Api
                 "/api/v1/inventory/items");
             AppendCatalogGroup(md, requestedAudience, "admin", "Simulator-Nodes",
                 "/api/v1/nodes",
-                "/api/v1/nodes/{nodeId}");
+                "/api/v1/nodes/{nodeId}",
+                "/api/v1/nodes/{nodeId}/control",
+                "/api/v1/nodes/updates");
             AppendCatalogGroup(md, requestedAudience, "admin", "Asynchrone Regionenoperationen",
                 "/api/v1/region-operations/{operationId}");
             AppendCatalogGroup(md, requestedAudience, "admin", "Regionen",
