@@ -193,6 +193,17 @@ namespace NexVerse.Server.Api
                 if (action != "maintenance_on" && action != "maintenance_off" && action != "drain" && action != "resume" && action != "stage_update" &&
                     action != "deploy_update")
                 { WriteError(response, HttpStatusCode.BadRequest, "invalid_action", "Supported actions: maintenance_on, maintenance_off, drain, resume, stage_update, deploy_update."); return; }
+                if (action == "deploy_update" &&
+                    (doc.RootElement.ValueKind != JsonValueKind.Object ||
+                     !doc.RootElement.TryGetProperty("confirm", out JsonElement confirmation) ||
+                     confirmation.ValueKind != JsonValueKind.String ||
+                     confirmation.GetString() != "live_git_reset_and_manual_restart"))
+                {
+                    WriteError(response, HttpStatusCode.BadRequest,
+                        "deploy_confirmation_required",
+                        "Explicit live_git_reset_and_manual_restart confirmation is required.");
+                    return;
+                }
                 if ((action == "stage_update" || action == "deploy_update") &&
                     !EnsureStageAuthorized(response))
                     return;
@@ -355,6 +366,7 @@ namespace NexVerse.Server.Api
                     node.NpcCount,
                 managed_region_commands =
                     node.ManagedRegionCommands,
+                live_updater_enabled = node.LiveUpdaterEnabled,
                 cross_region_object_messaging =
                     node.CrossRegionObjectMessaging,
                 cross_owner_object_messaging =
@@ -370,7 +382,7 @@ namespace NexVerse.Server.Api
                     state = node.UpdateState,
                     operation_id = node.UpdateOperationId,
                     updated_at = node.UpdateAt,
-                    type = "download_and_build_only"
+                    type = node.UpdateType
                 },
                 luna_texture =
                     LunaTextureNodePayload(node),
