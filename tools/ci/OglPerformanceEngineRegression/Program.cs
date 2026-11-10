@@ -64,6 +64,17 @@ static class Program
             Require(json.RootElement[0].GetProperty("heartbeat_hz").GetDouble() > 0,
                 "heartbeat rate must be measured from samples");
         sampler.Capture(Array.Empty<OglRegionFrame>());
+        var manyRegions = Enumerable.Range(0, 42)
+            .Select(i => new OglRegionFrame("region-" + i, (uint)i, 0.0909f))
+            .ToArray();
+        var manySamples = sampler.Capture(manyRegions);
+        Require(manySamples["perf_region_sample_count"] == "42" &&
+                manySamples["perf_region_sample_omitted"] == "0",
+            "42 regions must fit into the bounded 64-region heartbeat");
+        using (JsonDocument bigRegionJson =
+               JsonDocument.Parse(manySamples["perf_region_heartbeats_json"]))
+            Require(bigRegionJson.RootElement.GetArrayLength() == 42,
+                "64-region telemetry cap unexpectedly truncated 42 regions");
 
         using var firstStarted = new ManualResetEventSlim(false);
         using var releaseFirst = new ManualResetEventSlim(false);
