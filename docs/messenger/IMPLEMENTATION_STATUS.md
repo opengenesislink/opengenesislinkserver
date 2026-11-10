@@ -1,20 +1,21 @@
-# Messenger implementation status
+# NexVerse Messenger – Implementierungsstatus
 
-## Added
-- A standalone .NET 10 contracts project with local-avatar authentication, message bridge, presence, group membership and idempotent storage interfaces.
-- A standalone ASP.NET Core API skeleton with `GET /healthz` and `GET /api/v1/capabilities`.
-- A fail-closed `POST /api/v1/auth/login` returning 503 until the trusted local account adapter is implemented.
-- Integration review of the concrete `IMessageTransferModule.SendInstantMessage(GridInstantMessage, MessageResultNotification)` interface and `IAuthenticationService.Authenticate(UUID, string, int)`.
+## Fertig im PR-Zweig
+- .NET-10-Contracts und eigenständiger ASP.NET-Core-Messenger-Dienst mit PWA.
+- Echter Avatar-Login über World-API-OAuth2/OIDC Authorization Code + PKCE S256 statt eigener Passwortdatenbank.
+- Lokale und aktive Avatar-Identität gegen World API geprüft.
+- Gehashte dauerhafte Sitzungscookies, verschlüsselte Tokens, Rotationslogik und CSRF-Schutz.
+- World-API-Proxies für Freunde, lokale Direkt-IM, opt-in Archiv und NexGroups.
+- Persistente Absicherung gegen mehrfaches Senden gleicher Clientnachrichten-ID.
+- Mobilonline via aktuellem PWA-Heartbeat und Sichtbarkeit nur für entsprechend berechtigte bestätigte Freunde.
+- PWA mit responsive Layout und statischem Offline-Cache ohne persönliche API-Daten.
+- Linux/Windows-.NET10-Tests und HTTP-Smoke-Gate.
 
-## Critical integration notes
-- `IMessageTransferModule` documentation says that for `MessageFromAgent` failure, the result callback may not be invoked; the `OnUndeliveredMessage` event must also be accounted for. A callback cannot be interpreted as proof of durable recipient delivery.
-- `IAuthenticationService` requires a principal UUID, so the avatar-name-to-UUID resolution must be restricted to local user accounts before authenticating. Do not pass raw password hashes through HTTP.
-- The current API is not a functioning messenger. It intentionally refuses login until secure integration is available.
-- Run with `dotnet run --project OpenSim/Addons/OGLMessenger/Server/OGLMessenger.Server.csproj` on .NET 10 for local development. Build and runtime have not yet been tested.
+## Noch offen
+- Echte HG-Sendeintegration, Live-Gruppenchat/Inworld-Gruppensitzungen und Web Push.
+- Push auf iOS nach Suspended/Lockscreen ist derzeit ausdrücklich nicht unterstützt.
+- Echte Grid-End-to-End-Prüfung inklusive Viewer, Offline-IM, Blocks, Archiv-Opt-in und Datenschutzlöschung.
+- Cluster-fähiger Session-/Idempotenz-Store; die aktuelle SQLite-Lösung muss als einzelner API-Prozess laufen.
+- Das im PR hinterlegte SVG ist ein Platzhalter: Das zuvor genehmigte Messengerlogo muss als echte PWA-Icons (auch PNG für iOS) übernommen werden.
 
-## Next tasks
-1. Local user account lookup + password verification adapter, locked to local identities.
-2. Hashed refresh session persistence and secure cookies, CSRF protection, logout.
-3. MariaDB message/outbox schema with idempotency constraints.
-4. Bridge routing and inbound events, handling offline ownership and HG routing.
-5. PWA client and Web Push.
+Dies ist ein testbares MVP, aber noch keine vollständig fertige Messenger-Plattform.
