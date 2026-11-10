@@ -1,0 +1,44 @@
+name: OGL G1 Standalone Live Updater Security and Backup Gate
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'tools/ops/ogl-node-live-*'
+      - 'tools/ops/ogl-node-updater.env.example'
+      - 'tools/ops/opengenesislink-node-updater.service.example'
+      - 'tools/ci/test_ogl_live_updater.py'
+      - 'NexVerse/Core/Messaging/NexBusProtocol.cs'
+      - 'NexVerse/RegionModules/NodeAgent/NexVerseNodeAgentModule.cs'
+      - 'NexVerse/Server/Api/NexNodeApi.cs'
+      - 'NexVerse/Server/Api/NexApiDocsPage.cs'
+      - 'NexVerse/Core/ControlPlane/NexNodeRegistry.cs'
+      - '.github/workflows/ogl-live-updater.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'tools/ops/ogl-node-live-*'
+      - 'tools/ci/test_ogl_live_updater.py'
+      - '.github/workflows/ogl-live-updater.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  source-updater:
+    name: Linux standalone updater security and backup regression
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate shell and Python source
+        run: |
+          bash -n tools/ops/ogl-node-live-update.sh
+          python3 -m py_compile tools/ops/ogl-node-live-updater.py tools/ci/test_ogl_live_updater.py
+      - name: Test signed localhost update and safe repo/config handling
+        run: python3 -m unittest -v tools/ci/test_ogl_live_updater.py
+      - name: Verify operator configs preserve opt-in default
+        run: |
+          grep -q 'LiveUpdaterEnabled = false' bin/OpenSim.ini.example
+          grep -q 'LiveUpdaterEnabled = false' bin/OpenSimDefaults.ini
