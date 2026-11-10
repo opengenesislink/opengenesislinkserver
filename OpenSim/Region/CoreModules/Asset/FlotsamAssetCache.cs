@@ -110,6 +110,12 @@ namespace OpenSim.Region.CoreModules.Asset
         private OglBudgetedLruCache<string, AssetBase> m_BudgetedMemoryCache;
         private int m_MemoryCacheMaxMiB = 0;
         private int m_MemoryCacheMaxEntries = 8192;
+        // Optional RAM relief under high .NET GC memory load, disabled by default.
+        private bool m_MemoryPressureTrimEnabled;
+        private int m_MemoryPressureTrimThresholdPercent = 85;
+        private int m_MemoryPressureTrimTargetPercent = 50;
+        private System.Threading.Timer m_MemoryPressureTrimTimer;
+        private long m_MemoryPressureTrimmed;
 
         private ExpiringKey<string> m_negativeCache;
         private bool m_negativeCacheEnabled = true;
@@ -214,6 +220,14 @@ namespace OpenSim.Region.CoreModules.Asset
                             assetConfig.GetInt("MemoryCacheMaxMiB", m_MemoryCacheMaxMiB), 0, 16384);
                         m_MemoryCacheMaxEntries = Math.Clamp(
                             assetConfig.GetInt("MemoryCacheMaxEntries", m_MemoryCacheMaxEntries), 1, 65536);
+                        m_MemoryPressureTrimEnabled = assetConfig.GetBoolean(
+                            "MemoryPressureTrimEnabled", m_MemoryPressureTrimEnabled);
+                        m_MemoryPressureTrimThresholdPercent = Math.Clamp(
+                            assetConfig.GetInt("MemoryPressureTrimThresholdPercent",
+                                m_MemoryPressureTrimThresholdPercent), 70, 99);
+                        m_MemoryPressureTrimTargetPercent = Math.Clamp(
+                            assetConfig.GetInt("MemoryPressureTrimTargetPercent",
+                                m_MemoryPressureTrimTargetPercent), 10, 90);
                         m_MemoryExpiration = assetConfig.GetDouble("MemoryCacheTimeout", m_MemoryExpiration);
                         m_MemoryExpiration *= 3600.0; // config in hours to seconds
 
@@ -323,6 +337,8 @@ namespace OpenSim.Region.CoreModules.Asset
                 m_AdaptiveFileWriteGate?.Dispose();
                 m_WeakReferencePruneTimer?.Dispose();
                 m_WeakReferencePruneTimer = null;
+                m_MemoryPressureTrimTimer?.Dispose();
+                m_MemoryPressureTrimTimer = null;
                 m_BudgetedMemoryCache?.Dispose();
             }
         }
@@ -366,6 +382,8 @@ namespace OpenSim.Region.CoreModules.Asset
                         // No active scenes: release the opt-in RAM cache now
                         // instead of pinning stale assets until the next TTL.
                         m_BudgetedMemoryCache?.Clear();
+                        m_MemoryPressureTrimTimer?.Dispose();
+                        m_MemoryPressureTrimTimer = null;
                         m_WeakReferencePruneTimer?.Dispose();
                         m_WeakReferencePruneTimer = null;
                         m_AdaptiveFileWriteTimer?.Dispose();
@@ -427,6 +445,16 @@ namespace OpenSim.Region.CoreModules.Asset
                             SampleAdaptiveFileWritePressure, null, interval, interval);
                     }
 
+                    if (m_MemoryPressureTrimEnabled &&
+                        m_BudgetedMemoryCache != null &&
+                        m_MemoryPressureTrimTimer == null)
+                    {
+                        // Slow, independent of scene heartbeat and asset hot paths.
+                        TimeSpan memoryInterval = TimeSpan.FromSeconds(30);
+                        m_MemoryPressureTrimTimer = new System.Threading.Timer(
+                            SampleMemoryPressure, null, memoryInterval, memoryInterval);
+                    }
+
                     if (m_WeakReferencePruneSeconds > 0 &&
                         m_WeakReferencePruneTimer == null)
                     {
@@ -480,6 +508,30 @@ namespace OpenSim.Region.CoreModules.Asset
                 discarded.reservation?.Dispose();
                 lock (m_CurrentlyWriting)
                     m_CurrentlyWriting.Remove(discarded.filename);
+            }
+        }
+
+        private void SampleMemoryPressure(object unused)
+        {
+            OglBudgetedLruCache<string, AssetBase> cache = m_BudgetedMemoryCache;
+            if (!m_MemoryPressureTrimEnabled || cache == null)
+                return;
+
+            try
+            {
+                // No forced GC and no authority over the real asset store.
+                GCMemoryInfo memory = GC.GetGCMemoryInfo();
+                int trimmed = cache.TrimForMemoryPressure(
+                    memory.MemoryLoadBytes, memory.TotalAvailableMemoryBytes,
+                    m_MemoryPressureTrimThresholdPercent,
+                    m_MemoryPressureTrimTargetPercent);
+                if (trimmed > 0)
+                    Interlocked.Add(ref m_MemoryPressureTrimmed, trimmed);
+            }
+            catch (Exception error)
+            {
+                m_log.Warn("[FLOTSAM ASSET CACHE]: Optional RAM-pressure sample skipped: " +
+                    error.GetType().Name);
             }
         }
 
@@ -1637,9 +1689,15 @@ namespace OpenSim.Region.CoreModules.Asset
                                     m_BudgetedMemoryCache.Count,
                                     m_BudgetedMemoryCache.EstimatedBytes / (1024 * 1024),
                                     m_MemoryCacheMaxMiB);
-                            else if (m_MemoryCacheEnabled)
+                            if (m_MemoryPressureTrimEnabled && m_BudgetedMemoryCache != null)
+                                con.Output(
+                                    "[FLOTSAM ASSET CACHE] RAM pressure trim: enabled at {0}% GC load, LRU target {1}% of budget; {2} assets evicted",
+                                    m_MemoryPressureTrimThresholdPercent,
+                                    m_MemoryPressureTrimTargetPercent,
+                                    Interlocked.Read(ref m_MemoryPressureTrimmed));
+                            if (m_MemoryCacheEnabled && m_BudgetedMemoryCache == null)
                                 con.Output("[FLOTSAM ASSET CACHE] Memory Cache: {0} assets", m_MemoryCache.Count);
-                            else
+                            else if (!m_MemoryCacheEnabled)
                                 con.Output("[FLOTSAM ASSET CACHE] Memory cache disabled");
 
                             if (m_FileCacheEnabled)

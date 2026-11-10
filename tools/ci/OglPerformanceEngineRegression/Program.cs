@@ -98,6 +98,35 @@ static class Program
                 "zero TTL must preserve non-expiring legacy semantics");
         }
 
+        // High GC memory load must release only least-recently-used disposable
+        // RAM entries; normal pressure and invalid samples leave cache intact.
+        using (var cache = new OglBudgetedLruCache<string, byte[]>(
+                   1000, 5, value => value.LongLength))
+        {
+            Require(cache.AddOrUpdate("a", new byte[300], TimeSpan.FromMinutes(5)),
+                "pressure fixture a");
+            Require(cache.AddOrUpdate("b", new byte[300], TimeSpan.FromMinutes(5)),
+                "pressure fixture b");
+            Require(cache.AddOrUpdate("c", new byte[300], TimeSpan.FromMinutes(5)),
+                "pressure fixture c");
+            Require(cache.TryGetValue("a", out _), "pressure fixture must update LRU order");
+            Require(cache.TrimForMemoryPressure(84, 100, 85, 50) == 0 &&
+                    cache.EstimatedBytes == 900,
+                "normal pressure should not trim the RAM cache");
+            Require(cache.TrimForMemoryPressure(100, 0) == 0 &&
+                    cache.TrimForMemoryPressure(-1, 100) == 0,
+                "unavailable/invalid GC pressure must not evict assets");
+            Require(cache.TrimForMemoryPressure(90, 100, 85, 50) == 2 &&
+                    cache.Count == 1 && cache.EstimatedBytes == 300 &&
+                    cache.Contains("a") && !cache.Contains("b") && !cache.Contains("c"),
+                "high pressure must evict oldest RAM assets to half budget");
+            Require(cache.TrimForMemoryPressure(90, 100, 85, 50) == 0,
+                "repeated pressure sampling must not overtrim below target");
+            Require(cache.TrimToBytes(0) == 1 && cache.Count == 0 &&
+                    cache.EstimatedBytes == 0,
+                "explicit zero target must release all disposable entries");
+        }
+
         using (var cache = new OglBudgetedLruCache<int, byte[]>(
                    4096, 8, value => value.LongLength))
         {

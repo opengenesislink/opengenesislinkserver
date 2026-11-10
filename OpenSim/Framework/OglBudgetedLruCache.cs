@@ -142,6 +142,45 @@ namespace OpenSim.Framework
                 return RemoveCore(key);
         }
 
+        /// <summary>
+        /// Releases only disposable LRU entries down to the requested byte target.
+        /// Does not force a GC, alter authoritative assets, or block on I/O.
+        /// </summary>
+        public int TrimToBytes(long targetBytes)
+        {
+            if (targetBytes < 0) throw new ArgumentOutOfRangeException(nameof(targetBytes));
+            lock (m_Sync)
+            {
+                if (m_Disposed) return 0;
+                int removed = 0;
+                while (m_Bytes > targetBytes && m_Lru.Last != null)
+                {
+                    if (RemoveCore(m_Lru.Last.Value))
+                        removed++;
+                }
+                return removed;
+            }
+        }
+
+        /// <summary>
+        /// Low-frequency optional high-memory-pressure relief. MemoryLoadBytes
+        /// and TotalAvailableMemoryBytes come from GC.GetGCMemoryInfo.
+        /// This is deliberately hysteresis-free on allocation: no background
+        /// repopulation, no GC. Refill uses normal bounded cache behavior.
+        /// </summary>
+        public int TrimForMemoryPressure(long memoryLoadBytes, long totalAvailableBytes,
+            int thresholdPercent = 85, int targetCachePercent = 50)
+        {
+            if (totalAvailableBytes <= 0 || memoryLoadBytes < 0 ||
+                thresholdPercent < 1 || thresholdPercent > 100 ||
+                targetCachePercent < 0 || targetCachePercent > 100)
+                return 0;
+
+            if (100.0 * memoryLoadBytes / totalAvailableBytes < thresholdPercent)
+                return 0;
+            return TrimToBytes(m_MaxBytes * targetCachePercent / 100);
+        }
+
         public void Clear()
         {
             lock (m_Sync)
