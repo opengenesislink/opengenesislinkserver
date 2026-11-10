@@ -333,6 +333,25 @@ namespace NexVerse.Server.Api
                 // An empty object means OGLPerformance telemetry is disabled/unavailable.
                 performance =
                     node.PerformanceMetrics,
+                // Signed opt-in resource/region telemetry. Never returned by
+                // unauthenticated public endpoints; all arrays bounded at ingress.
+                performance_regions = node.RegionPerformance.Select(region => new
+                {
+                    region_id = region.RegionId,
+                    heartbeat_hz = region.HeartbeatHz,
+                    target_hz = region.TargetHz,
+                    window_frames = region.WindowFrames,
+                    work_p95_ms = region.WorkP95Ms,
+                    frame_p95_ms = region.FrameP95Ms,
+                    frame_p99_ms = region.FrameP99Ms,
+                    work_over_budget_percent = region.WorkOverBudgetPercent,
+                    frame_over_budget_percent = region.FrameOverBudgetPercent
+                }).ToArray(),
+                host_cpu_cores = node.HostCpuCores.Select(core => new
+                {
+                    core_id = core.CoreId,
+                    usage_percent = core.UsagePercent
+                }).ToArray(),
                 disk_free_bytes =
                     node.DiskFreeBytes,
                 disk_total_bytes =
