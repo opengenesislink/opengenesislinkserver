@@ -64,3 +64,27 @@ Die Felder werden als Teil des bestehenden intern signierten NodeAgent-Events ge
 - Verbindliche Performance-Gewinne: diese werden erst durch Benchmarks bestaetigt.
 
 Diese Aufgaben brauchen getrennte Regressionen, insbesondere fuer Objektreihenfolge, Physikdeterminismus und regionsuebergreifende Synchronisierung.
+
+## ROBUST-Control-Center: CPU/RAM-Transparenz (nach Foundation)
+
+Die Seite **Simulator-Nodes** zeigt im Abstand von 15 Sekunden den NodeAgent-Zustand
+`online`, `stale` und `offline`, CPU-Prozent relativ zu allen fuer den Prozess
+verfuegbaren Kernen, RAM-Working-Set sowie den GC-Pausenanteil. Die Werte werden
+ausschliesslich aus vorhandenen, signierten NexBus-Heartbeats bezogen. Die World API
+gibt sie als begrenztes `node.performance`-Objekt unter den bestehenden
+`simulators:read`-Berechtigungen aus. Es gibt keinen neuen oeffentlichen Endpoint.
+
+Bei deaktiviertem `[OGLPerformance] Enabled=false` ist `performance` leer und
+die UI zeigt **–** fuer CPU/GC statt faelschlich 0 %. RAM bleibt als normales
+NodeAgent-Working-Set sichtbar. Prozentangaben zeigen keine einzelnen Kerne,
+und RAM bezeichnet nicht die komplette Systembelegung. Die API uebernimmt nur
+vorab erlaubte, endliche, nichtnegative skalare Metriken; fehlende oder ungueltige
+Angaben bleiben nicht als veraltete Daten stehen. Ein neueres Sample ersetzt das
+vorherige, auch wenn die Performance Engine nachtraeglich abgeschaltet wird.
+
+**Naechste CPU-/RAM-Phase:** Diese Sichtbarkeit dient als Ausgangspunkt fuer
+reproduzierbare Tests von Flotsam-Parallelitaet, RAM-LRU-Budget, Cache-Hit-Rate,
+GC/Allocation-Pressure und Frame-P95/P99 unter echter Regions-/Avatar-Last.
+Anzeige und Telemetrie allein beschleunigen den Simulator nicht; neue
+automatische Scheduling-, GC- und Physik-Eingriffe werden aus dieser Phase
+ausdruecklich nicht abgeleitet.
