@@ -57,6 +57,8 @@ with tempfile.TemporaryDirectory(prefix="ogl-live-updater-ci-") as temp:
     script = sandbox / "trusted-stub.sh"
     script.write_text("#!/usr/bin/env bash\n"
                       "set -e\n"
+                      "[[ -z ${OGL_UPDATER_TOKEN-} ]] || exit 91\n"
+                      "[[ -z ${NEXVERSE_UPDATE_CONTROL_KEY-} ]] || exit 92\n"
                       "echo '[1/7] prerequisites'\n"
                       "sleep 0.3\n"
                       "echo '[7/7] complete'\n")
@@ -66,6 +68,10 @@ with tempfile.TemporaryDirectory(prefix="ogl-live-updater-ci-") as temp:
     assert spec.loader
     spec.loader.exec_module(module)
     module.NODE_ID = "test-sim-1"
+    # Confirm the supervisor does not leak its own API token into Git,
+    # compile.sh or any other checkout-controlled subprocess.
+    os.environ["OGL_UPDATER_TOKEN"] = "S" * 64
+    os.environ["NEXVERSE_UPDATE_CONTROL_KEY"] = "K" * 64
     module.TOKEN = "T" * 64
     module.BASE = live
     module.BACKUPS = backups
