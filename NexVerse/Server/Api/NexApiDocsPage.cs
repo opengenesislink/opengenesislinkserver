@@ -2011,7 +2011,7 @@ async function requestNodeDeploy(node){
     if(oglLivePollHandle)clearTimeout(oglLivePollHandle);
     let polls=0;
     async function poll(){
-      if(++polls>720)return;
+      if(++polls>2880)return;
       try{
         const response=await fetch('/api/v1/nodes',{headers:nodeHeaders(),cache:'no-store',credentials:'same-origin'});
         if(!response.ok)return;
