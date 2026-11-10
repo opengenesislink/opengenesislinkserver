@@ -42,8 +42,12 @@ public sealed class MessengerSessionManager(
     public OAuthFlow? ConsumeFlow(HttpContext ctx, string state)
     {
         string? protectedFlow = ctx.Request.Cookies[FlowCookie];
-        ctx.Response.Cookies.Delete(FlowCookie, new CookieOptions { Path = "/" });
-        if (string.IsNullOrWhiteSpace(protectedFlow) || string.IsNullOrEmpty(state))
+        ctx.Response.Cookies.Delete(FlowCookie, new CookieOptions
+        {
+            Path = "/", HttpOnly = true, Secure = true, SameSite = SameSiteMode.Lax
+        });
+        if (string.IsNullOrWhiteSpace(protectedFlow) ||
+            protectedFlow.Length > 4096 || string.IsNullOrEmpty(state))
             return null;
         try
         {
@@ -59,6 +63,7 @@ public sealed class MessengerSessionManager(
         }
         catch (CryptographicException) { return null; }
         catch (JsonException) { return null; }
+        catch (FormatException) { return null; }
     }
 
     public void Login(HttpContext ctx, Guid avatarId, OAuthTokens tokens)
