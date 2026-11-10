@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#091721">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="NexVerse">
+  <title>NexVerse Messenger</title>
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/icon.svg">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="stylesheet" href="/style.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <div id="app" class="app-shell">
+    <aside class="sidebar">
+      <header class="brand">
+        <img src="/icon.svg" alt="" width="42" height="42">
+        <div><strong>NexVerse</strong><small>Messenger · Generation 1</small></div>
+      </header>
+      <div id="identity" class="identity" role="status">Verbindung wird geprüft …</div>
+      <div class="navigation" id="navigation" hidden>
+        <button id="showFriends" class="tab active" type="button">Freunde</button>
+        <button id="showGroups" class="tab" type="button">Gruppen</button>
+      </div>
+      <div id="contacts" class="contact-list" aria-label="Kontakte"></div>
+      <div id="loginPanel" class="login-panel" hidden>
+        <p>Mit deinem registrierten Stadt-NexVerse-Avatar anmelden.</p>
+        <a href="/auth/start" class="primary-link">Mit Avatar anmelden</a>
+        <p class="muted">Die Anmeldung erfolgt über die bestehende World API. Dein Passwort wird nicht an die Messenger-App übertragen.</p>
+      </div>
+      <footer class="sidebar-footer">
+        <label id="historySetting" hidden>
+          <input type="checkbox" id="archiveToggle"> IM-Verlauf speichern
+        </label>
+        <button id="signout" hidden type="button">Abmelden</button>
+      </footer>
+    </aside>
+    <main class="conversation">
+      <header id="conversationHeader" class="conversation-header">
+        <button id="back" type="button" hidden aria-label="Zurück zu Kontakten">‹</button>
+        <div><h1>Stadt NexVerse</h1><p>Wähle einen Freund oder eine Gruppe.</p></div>
+      </header>
+      <div id="messageList" class="message-list" role="log" aria-live="polite">
+        <div class="intro">
+          <img src="/icon.svg" width="88" height="88" alt="">
+          <h2>Willkommen im NexVerse Messenger</h2>
+          <p>Deine Kontakte und Nachrichten aus Stadt NexVerse – auch wenn du nicht im Viewer bist.</p>
+        </div>
+      </div>
+      <form id="messageForm" class="compose" hidden>
+        <label class="sr-only" for="messageText">Nachricht</label>
+        <textarea id="messageText" maxlength="1024" rows="2" placeholder="Nachricht schreiben …" required></textarea>
+        <button id="send" type="submit">Senden</button>
+      </form>
+      <p id="notice" class="notice" role="status" aria-live="polite"></p>
+    </main>
+  </div>
+</body>
+</html>
