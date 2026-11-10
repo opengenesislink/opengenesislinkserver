@@ -103,7 +103,12 @@ echo "Commit: $(git log -1 --format='%h %s')"
 # git reset can re-create tracked INIs; restore only old runtime configs, never
 # git source, then remove the obsolete Germany file again.
 if [[ -f "$BACKUP_DIR/configs.tar.gz" ]]; then
-    tar -xzf "$BACKUP_DIR/configs.tar.gz" -C "$ROOT" --
+    # Preserve active operator INIs, not stale versioned templates/defaults.
+    # New generation defaults must come from origin/main.
+    tar -xzf "$BACKUP_DIR/configs.tar.gz" -C "$ROOT" \
+        --exclude='bin/OpenSimDefaults.ini' \
+        --exclude='bin/*.example.ini' \
+        --exclude='bin/*.example'
 fi
 for region_dir in bin/Regions bin/regions; do
     if [[ -f "$region_dir/NexVerse-Deutschland.ini" &&
