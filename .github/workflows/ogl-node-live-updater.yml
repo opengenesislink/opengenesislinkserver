@@ -10,6 +10,7 @@ on:
       - 'tools/ops/ogl-node-updater.env.example'
       - 'tools/ops/install-ogl-node-updater.sh'
       - 'tools/ci/verify_ogl_node_live_updater.py'
+      - 'tools/ci/test_ogl_node_update_live_checkout.py'
       - '.github/workflows/ogl-node-live-updater.yml'
       - 'NexVerse/**'
       - 'bin/OpenSim.ini*'
@@ -22,6 +23,7 @@ on:
       - 'tools/ops/ogl-node-updater.env.example'
       - 'tools/ops/install-ogl-node-updater.sh'
       - 'tools/ci/verify_ogl_node_live_updater.py'
+      - 'tools/ci/test_ogl_node_update_live_checkout.py'
       - '.github/workflows/ogl-node-live-updater.yml'
   workflow_dispatch:
 
@@ -39,7 +41,10 @@ jobs:
         run: |
           python3 -m py_compile tools/ops/ogl-node-updater.py
           python3 -m py_compile tools/ci/verify_ogl_node_live_updater.py
+          python3 -m py_compile tools/ci/test_ogl_node_update_live_checkout.py
           bash -n tools/ops/ogl-node-update-live.sh
           bash -n tools/ops/install-ogl-node-updater.sh
       - name: Verify loopback-only updater and command-authorization regressions
         run: python3 tools/ci/verify_ogl_node_live_updater.py
+      - name: Test real git reset, backup/restore, Germany file removal and compile sequence
+        run: python3 tools/ci/test_ogl_node_update_live_checkout.py
