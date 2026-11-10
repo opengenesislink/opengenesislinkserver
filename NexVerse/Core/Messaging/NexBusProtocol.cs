@@ -161,6 +161,46 @@ namespace NexVerse.Core.Messaging
             }
         }
 
+        // A live checkout reset/build requires a separate authorization
+        // domain. A stage signature must NEVER authorize direct deployment.
+        private static byte[] NodeLivePayload(string nodeId, string operationId, long issuedAt)
+        {
+            if (string.IsNullOrWhiteSpace(nodeId) ||
+                nodeId.IndexOfAny(new[] { '\\r', '\\n' }) >= 0 ||
+                !Guid.TryParse(operationId, out Guid parsed))
+                throw new ArgumentException("Invalid live update authorization identity.");
+            string normalizedNode = nodeId.Trim().ToLowerInvariant();
+            string normalized = "ogl-node-live-v1\\n" +
+                normalizedNode.Length.ToString(System.Globalization.CultureInfo.InvariantCulture) +
+                ":" + normalizedNode + "\\n" + parsed.ToString("D") + "\\n" +
+                issuedAt.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            return Encoding.UTF8.GetBytes(normalized);
+        }
+
+        public static string SignNodeLiveRequest(
+            string nodeId, string operationId, long issuedAt, string controlKey)
+        {
+            return Sign(NodeLivePayload(nodeId, operationId, issuedAt), controlKey);
+        }
+
+        public static bool VerifyNodeLiveRequest(
+            string nodeId, string operationId, long issuedAt, string controlKey,
+            string signature, long currentUnixSeconds)
+        {
+            if (issuedAt > currentUnixSeconds + 60 ||
+                issuedAt < currentUnixSeconds - 300)
+                return false;
+            try
+            {
+                return Verify(NodeLivePayload(nodeId, operationId, issuedAt),
+                    controlKey, signature);
+            }
+            catch (ArgumentException)
+            {
+                return false;
+            }
+        }
+
         public static void ValidateSharedKey(string sharedKey)
         {
             if (string.IsNullOrEmpty(sharedKey) ||
