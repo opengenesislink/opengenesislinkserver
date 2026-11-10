@@ -87,7 +87,19 @@ input,textarea,select{width:100%;background:#08131e;color:var(--text);border:1px
 .empty{color:var(--muted);padding:18px;border:1px dashed var(--line);border-radius:9px;text-align:center}
 .portalgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.portalcard{border:1px solid var(--line);background:#0b1621;border-radius:11px;padding:18px}.portalcard h3{margin:0 0 7px;font-size:17px}.portalcard p{margin:0 0 12px;color:var(--muted)}.portalactions{display:flex;gap:8px;flex-wrap:wrap}.actionlink{display:inline-block;text-decoration:none;flex:0 0 auto}.portalmeta{margin-top:12px;color:var(--muted);font-size:12px}
 .tablewrap{overflow:auto;border:1px solid var(--line);border-radius:9px}.datatable{width:100%;border-collapse:collapse;min-width:720px}.datatable th,.datatable td{padding:10px 12px;text-align:left;border-bottom:1px solid var(--line);white-space:nowrap}.datatable th{font-size:12px;color:var(--muted);background:#0a1520}.datatable tr:last-child td{border-bottom:0}.datatable td:first-child{font-weight:600}.authnote{margin-top:10px;color:var(--muted);font-size:12px}
-.planner-controls{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}.planner-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.planner-actions .action{flex:0 0 auto}.gridlegend{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}.legenditem{display:inline-flex;gap:6px;align-items:center;color:var(--muted);font-size:12px}.legendswatch{width:13px;height:13px;border-radius:3px;border:1px solid var(--line)}.gridboardwrap{overflow:auto;max-height:680px;border:1px solid var(--line);border-radius:10px;background:#06101a;padding:12px}.gridboard{--cell:30px;display:grid;gap:2px;width:max-content;min-width:100%}.gridcell{width:var(--cell);height:var(--cell);min-width:var(--cell);padding:0;border:1px solid #22384b;border-radius:3px;background:#0c1a26;color:transparent;position:relative}.gridcell:hover{outline:2px solid var(--accent);z-index:2}.gridcell.free{background:#123326}.gridcell.occupied{background:#1d4c6a}.gridcell.reserved{background:#5a461c}.gridcell.conflict{background:#6a2323}.gridcell.selected{outline:2px solid #fff;z-index:3}.gridcell.preview-ok{box-shadow:inset 0 0 0 2px var(--good)}.gridcell.preview-bad{box-shadow:inset 0 0 0 2px var(--danger)}.gridcell.dimmed{opacity:.22}.gridcell[data-region-name]:after{content:'';position:absolute;inset:35%;border-radius:50%;background:rgba(255,255,255,.72)}.gridinfo{display:grid;grid-template-columns:1fr 1fr;gap:12px}.gridinfo pre{margin:0;min-height:150px}.gridcoord{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}.planner-note{padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:#0a1520;color:var(--muted);font-size:12px}.noderow{cursor:pointer}.noderow:hover{background:var(--panel2)}.node-state-online{color:var(--good)}.node-state-stale{color:var(--warn)}.node-state-offline{color:var(--danger)}.node-update-status{display:block;font-size:11px;margin-top:6px;white-space:normal;max-width:230px;color:var(--muted)}.node-update-status.good{color:var(--good)}.node-update-status.bad{color:var(--danger)}.node-update-status.warn{color:var(--warn)}
+.planner-controls{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}.planner-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.planner-actions .action{flex:0 0 auto}.gridlegend{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}.legenditem{display:inline-flex;gap:6px;align-items:center;color:var(--muted);font-size:12px}.legendswatch{width:13px;height:13px;border-radius:3px;border:1px solid var(--line)}.gridboardwrap{overflow:auto;max-height:680px;border:1px solid var(--line);border-radius:10px;background:#06101a;padding:12px}.gridboard{--cell:30px;display:grid;gap:2px;width:max-content;min-width:100%}.gridcell{width:var(--cell);height:var(--cell);min-width:var(--cell);padding:0;border:1px solid #22384b;border-radius:3px;background:#0c1a26;color:transparent;position:relative}.gridcell:hover{outline:2px solid var(--accent);z-index:2}.gridcell.free{background:#123326}.gridcell.occupied{background:#1d4c6a}.gridcell.reserved{background:#5a461c}.gridcell.conflict{background:#6a2323}.gridcell.selected{outline:2px solid #fff;z-index:3}.gridcell.preview-ok{box-shadow:inset 0 0 0 2px var(--good)}.gridcell.preview-bad{box-shadow:inset 0 0 0 2px var(--danger)}.gridcell.dimmed{opacity:.22}.gridcell[data-region-name]:after{content:'';position:absolute;inset:35%;border-radius:50%;background:rgba(255,255,255,.72)}.gridinfo{display:grid;grid-template-columns:1fr 1fr;gap:12px}.gridinfo pre{margin:0;min-height:150px}.gridcoord{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}.planner-note{padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:#0a1520;color:var(--muted);font-size:12px}.noderow{cursor:pointer}.noderow:hover{background:var(--panel2)}.node-state-online{color:var(--good)}.node-state-stale{color:var(--warn)}.node-state-offline{color:var(--danger)}
+.ogl-perf-chart{width:100%;height:148px;display:block;background:var(--panel2);border:1px solid var(--line);border-radius:8px}
+.ogl-perf-stat{padding:12px;background:var(--panel2);border:1px solid var(--line);border-radius:9px;min-width:0}
+.ogl-perf-stat strong{display:block;font-size:21px;padding:6px 0}
+.ogl-perf-cpus{display:grid;grid-template-columns:repeat(auto-fill,minmax(114px,1fr));gap:8px;max-height:250px;overflow:auto;margin:12px 0}
+.ogl-perf-core{border:1px solid var(--line);border-radius:7px;padding:7px;background:var(--panel2);font-size:12px}
+.ogl-perf-core .meter{height:7px;margin-top:6px;background:var(--line);border-radius:5px;overflow:hidden}
+.ogl-perf-core .fill{height:7px;background:var(--good);border-radius:5px}
+.ogl-perf-core .fill.hot{background:var(--danger)}
+.ogl-perf-plots{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.ogl-perf-plots>div{min-width:0}
+@media(max-width:820px){.ogl-perf-plots{grid-template-columns:1fr}}
+.node-update-status{display:block;font-size:11px;margin-top:6px;white-space:normal;max-width:230px;color:var(--muted)}.node-update-status.good{color:var(--good)}.node-update-status.bad{color:var(--danger)}.node-update-status.warn{color:var(--warn)}
 @media(max-width:1100px){.cards,.roadmap-summary{grid-template-columns:repeat(2,1fr)}.changegrid{grid-template-columns:1fr}.explorer{grid-template-columns:1fr}.endpointlist{max-height:420px;overflow:auto}.planner-controls{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:760px){.portalgrid{grid-template-columns:1fr}.shell{display:block}nav{position:static;height:auto;border-right:0;border-bottom:1px solid var(--line)}.navmeta{display:none}.navbtn{display:inline-block;width:auto}.brand{padding-bottom:12px}main{padding:22px 14px}.hero{display:block}.hero .pill{margin-top:14px}.cards,.roadmap-summary{grid-template-columns:1fr}.grid2,.version,.gridinfo{grid-template-columns:1fr}.planner-controls{grid-template-columns:1fr 1fr}.milestonehead{display:block}.milestonehead .status{margin-top:8px}}
 
@@ -860,6 +872,32 @@ body.ogl-sidebar-collapsed .ogl-admin-header,body.ogl-sidebar-collapsed main{gri
 </div>
 <div class="section">
 <h2>Node-Details</h2><div class="authnote">„Update“ sichert die INIs, setzt Git auf origin/main zurück, kompiliert mit .NET 10 und entfernt die alte NexVerse-Deutschland.ini. Die Node wird NICHT automatisch neugestartet. Die Aktion verändert den produktiven Checkout. Vorher Backup und Wartungsfenster einplanen.</div><p role="status" aria-live="polite" id="nodesUpdateInfo">Kein Update beauftragt.</p><pre id="nodeDetail">Noch kein Node ausgewählt.</pre>
+</div>
+<div class="section" id="oglPerformanceDetails">
+<h2>OGLPerformance · CPU, RAM, GC und Regionen</h2>
+<p class="sectionlead" id="oglPerfSelected">Wähle einen Simulator in der Node-Tabelle, um die Diagnose anzuzeigen.</p>
+<div class="cards">
+<div class="card"><div class="label">Prozess-CPU</div><div class="value" id="oglPerfCpu">–</div><div class="sub">Alle verfügbaren Kerne gemittelt</div></div>
+<div class="card"><div class="label">RAM-Working-Set</div><div class="value" id="oglPerfRam">–</div><div class="sub">Speicher des Simulatorprozesses</div></div>
+<div class="card"><div class="label">GC-Fragmentierung</div><div class="value" id="oglPerfFragmented">–</div><div class="sub">Managed GC Heap</div></div>
+<div class="card"><div class="label">GC-Pause</div><div class="value" id="oglPerfGc">–</div><div class="sub">Anteil des Messintervalls</div></div>
+</div>
+<p class="authnote">Die Verlaufskurven werden ausschließlich während dieser geöffneten Browser-Sitzung gesammelt (maximal 120 Messpunkte pro Node). Sie sind kein serverseitig gespeichertes Langzeitmonitoring. Fehlende Werte werden nicht als Null interpretiert.</p>
+<div class="ogl-perf-plots">
+<div><h3>CPU · Prozess (%)</h3><canvas class="ogl-perf-chart" id="oglPerfChartCpu" width="720" height="148" role="img" aria-label="Verlauf Prozess CPU"></canvas></div>
+<div><h3>RAM · Working Set und Heap (GiB)</h3><canvas class="ogl-perf-chart" id="oglPerfChartRam" width="720" height="148" role="img" aria-label="Verlauf RAM Working Set und Managed Heap"></canvas></div>
+<div><h3>GC-Pausen (%)</h3><canvas class="ogl-perf-chart" id="oglPerfChartGc" width="720" height="148" role="img" aria-label="Verlauf Garbage Collector Pausen"></canvas></div>
+<div><h3>Allokationsrate (MiB/s)</h3><canvas class="ogl-perf-chart" id="oglPerfChartAlloc" width="720" height="148" role="img" aria-label="Verlauf .NET Allokationsrate"></canvas></div>
+</div>
+<h3>Linux-Host · CPU pro logischem Kern</h3>
+<p class="sectionlead" id="oglPerfHostInfo">Host-Kernlast noch nicht verfügbar. Dies ist keine Zuordnung der OpenSim-Threads zu einem Kern; auf Windows kann diese Linux-Messung fehlen.</p>
+<div class="ogl-perf-cpus" id="oglPerfHostCores"></div>
+<h3>Regionen · Frame-Laufzeit und tatsächliche Heartbeats</h3>
+<p class="sectionlead" id="oglPerfRegionInfo">Nur Regionen mit aktivierter OGLPerformance-Telemetrie, begrenzt auf 64 Messwerte je Heartbeat.</p>
+<div class="tablewrap"><table class="datatable"><thead><tr><th>Region</th><th>Heartbeat</th><th>Ziel</th><th>Frames</th><th>Work P95</th><th>Frame P95</th><th>Frame P99</th><th>Work über Budget</th><th>Frame über Budget</th></tr></thead><tbody id="oglPerfRegionBody"></tbody></table></div>
+<h3>Assetcache · Flotsam</h3>
+<p class="sectionlead" id="oglPerfCacheInfo">Diagnose des optionalen RAM-Caches, Cache-Treffern und unabhängigen Disk-Schreibworkern. Messwerte werden aus dem bestehenden signierten Heartbeat geliefert.</p>
+<div class="grid2" id="oglPerfCacheGrid"></div>
 </div>
 <div class="section">
 <h2><span class="icon">✦</span> OGL Feature Control · Simulator-Lizenzen</h2>
@@ -1932,6 +1970,179 @@ function setNodesStatus(text,kind){
   $('nodesStatus').textContent=text;
   $('nodesDot').className='dot'+(kind?' '+kind:'');
 }
+// Bounded browser-session trends. They are not persisted to server or storage.
+const oglPerfHistory=new Map();
+let oglPerfNodeId='';
+let oglPerfLastNode=null;
+function oglPerfNumber(values,key){
+  return values&&Object.prototype.hasOwnProperty.call(values,key)&&
+    Number.isFinite(Number(values[key]))?Number(values[key]):null;
+}
+function oglRecordPerformance(node){
+  if(!node?.node_id||node.state!=='online')return;
+  const t=Date.parse(node.last_seen||'');
+  if(!Number.isFinite(t))return;
+  let history=oglPerfHistory.get(node.node_id);
+  if(!history){history=[];oglPerfHistory.set(node.node_id,history)}
+  const previous=history.length?history[history.length-1]:null;
+  const pid=Number(node.process_id||0),uptime=Number(node.uptime_seconds||0);
+  if(previous&&((pid>0&&previous.pid>0&&pid!==previous.pid)||
+      (Number.isFinite(uptime)&&uptime<previous.uptime)))history.splice(0);
+  if(history.length&&history[history.length-1].time===t)return;
+  const p=node.performance||{};
+  history.push({
+    time:t,pid,uptime,
+    cpu:oglPerfNumber(p,'perf_process_cpu_percent'),
+    ram:Number(node.working_set_bytes||0)/1073741824,
+    heap:oglPerfNumber(p,'perf_managed_heap_bytes')===null?null:p.perf_managed_heap_bytes/1073741824,
+    gc:oglPerfNumber(p,'perf_gc_pause_percent'),
+    alloc:oglPerfNumber(p,'perf_allocated_bytes_per_second')===null?null:p.perf_allocated_bytes_per_second/1048576
+  });
+  if(history.length>120)history.splice(0,history.length-120);
+  if(oglPerfHistory.size>24)oglPerfHistory.delete(oglPerfHistory.keys().next().value);
+}
+function oglPlotPerf(id,history,series,minimumMax){
+  const canvas=$(id),ctx=canvas.getContext('2d');
+  const width=canvas.width,height=canvas.height,left=39,right=10,top=25,bottom=24;
+  const w=width-left-right,h=height-top-bottom;
+  ctx.clearRect(0,0,width,height);
+  ctx.fillStyle='#142335';ctx.fillRect(0,0,width,height);
+  const values=[];
+  for(const point of history)for(const line of series)
+    if(Number.isFinite(point[line.key]))values.push(point[line.key]);
+  if(!values.length){
+    ctx.fillStyle='#a4b4c6';ctx.font='14px sans-serif';
+    ctx.fillText('Noch keine Messwerte',left+10,top+32);return;
+  }
+  const max=Math.max(minimumMax||0,Math.max(...values)*1.15,0.01);
+  ctx.strokeStyle='rgba(155,174,195,.25)';ctx.lineWidth=1;
+  ctx.font='11px sans-serif';ctx.fillStyle='#a4b4c6';
+  for(let i=0;i<=3;i++){
+    const y=top+h*i/3;ctx.beginPath();ctx.moveTo(left,y);ctx.lineTo(width-right,y);ctx.stroke();
+    ctx.fillText((max*(3-i)/3).toFixed(max>=10?0:1),3,y+4);
+  }
+  const first=history[0].time,last=history[history.length-1].time;
+  ctx.fillText(new Date(first).toLocaleTimeString('de-DE'),left,height-6);
+  if(first!==last)ctx.fillText(new Date(last).toLocaleTimeString('de-DE'),width-78,height-6);
+  series.forEach((line,index)=>{
+    ctx.strokeStyle=line.color;ctx.fillStyle=line.color;ctx.lineWidth=2;
+    ctx.font='11px sans-serif';ctx.fillText(line.label,left+index*165,14);
+    let active=false;
+    for(const point of history){
+      const value=point[line.key],valid=Number.isFinite(value);
+      if(!valid){if(active){ctx.stroke();active=false}continue}
+      const x=left+((point.time-first)/Math.max(1,last-first))*w;
+      const y=top+h*(1-Math.min(1,Math.max(0,value/max)));
+      if(!active){ctx.beginPath();ctx.moveTo(x,y);active=true}
+      else ctx.lineTo(x,y);
+      if(history.length===1)ctx.fillRect(x-2,y-2,4,4);
+    }
+    if(active)ctx.stroke();
+  });
+}
+function oglPerfTextMetric(perf,key,suffix=''){
+  const value=oglPerfNumber(perf,key);
+  return value===null?'–':value.toLocaleString('de-DE',{maximumFractionDigits:1})+suffix;
+}
+function oglShowNodePerformance(node){
+  oglPerfLastNode=node||null;
+  if(!node)return;
+  const p=node.performance||{};
+  $('oglPerfSelected').textContent='Node '+node.node_id+' · '+(node.hostname||'')+
+    ' · '+node.state+' · letzter Heartbeat '+(node.last_seen||'–');
+  $('oglPerfCpu').textContent=node.state==='online'?oglPerfTextMetric(p,'perf_process_cpu_percent',' %'):'–';
+  $('oglPerfRam').textContent=formatBytes(node.working_set_bytes);
+  $('oglPerfFragmented').textContent=oglPerfNumber(p,'perf_gc_fragmented_bytes')===null?
+    '–':formatBytes(p.perf_gc_fragmented_bytes);
+  $('oglPerfGc').textContent=node.state==='online'?oglPerfTextMetric(p,'perf_gc_pause_percent',' %'):'–';
+  const history=oglPerfHistory.get(node.node_id)||[];
+  oglPlotPerf('oglPerfChartCpu',history,[{key:'cpu',label:'Prozess-CPU',color:'#4bc6e1'}],5);
+  oglPlotPerf('oglPerfChartRam',history,[
+    {key:'ram',label:'Working Set',color:'#4bc6e1'},
+    {key:'heap',label:'Managed Heap',color:'#f5b969'}],0.2);
+  oglPlotPerf('oglPerfChartGc',history,[{key:'gc',label:'GC-Pause',color:'#f5b969'}],2);
+  oglPlotPerf('oglPerfChartAlloc',history,[{key:'alloc',label:'Allokationen',color:'#79d6a1'}],1);
+  const cores=Array.isArray(node.host_cpu_cores)&&node.state==='online'?
+    node.host_cpu_cores:[];
+  $('oglPerfHostInfo').textContent=cores.length?
+    cores.length+' Linux-Host-Kerne gemessen, '+(oglPerfNumber(p,'perf_host_cpu_cores_omitted')||0)+
+      ' ausgelassen. Systemweite Last pro Kern, nicht CPU-Zeit des OpenSim-Prozesses.':
+    'Keine Host-Kernmesswerte verfügbar (Linux /proc/stat; erster Messpunkt ist eine Baseline).';
+  const coreRoot=$('oglPerfHostCores');coreRoot.replaceChildren();
+  cores.forEach(core=>{
+    const value=Number(core.usage_percent);
+    if(!Number.isFinite(value)||value<0||value>100)return;
+    const box=document.createElement('div');box.className='ogl-perf-core';
+    const label=document.createElement('div');
+    label.textContent='CPU '+core.core_id+' · '+value.toFixed(1)+' %';box.append(label);
+    const bar=document.createElement('div');bar.className='meter';
+    const fill=document.createElement('div');fill.className='fill'+(value>=85?' hot':'');
+    fill.style.width=value+'%';bar.append(fill);box.append(bar);coreRoot.append(box);
+  });
+  const names=new Map((node.regions||[]).map(r=>[r.region_id,r.name||r.region_id]));
+  const regions=Array.isArray(node.performance_regions)&&node.state==='online'?
+    node.performance_regions.slice():[];
+  regions.sort((a,b)=>(Number(b.work_over_budget_percent)||0)-
+    (Number(a.work_over_budget_percent)||0));
+  $('oglPerfRegionInfo').textContent=regions.length?
+    regions.length+' Region(en) mit Messwerten; '+(oglPerfNumber(p,'perf_region_sample_omitted')||0)+
+      ' weitere ausgelassen. Sortiert nach Arbeitszeit-Budgetüberschreitungen.':
+    'Noch keine Regionsmesswerte vorhanden; [OGLPerformance] auf dieser Node aktivieren.';
+  const body=$('oglPerfRegionBody');body.replaceChildren();
+  if(!regions.length){
+    const tr=document.createElement('tr'),td=document.createElement('td');
+    td.colSpan=9;td.textContent='Keine Messwerte';tr.append(td);body.append(tr);
+  }
+  for(const item of regions){
+    const tr=document.createElement('tr');
+    const vals=[
+      names.get(item.region_id)||item.region_id,
+      Number(item.heartbeat_hz).toFixed(1)+' Hz',
+      Number(item.target_hz).toFixed(1)+' Hz',
+      item.window_frames,
+      Number(item.work_p95_ms).toFixed(1)+' ms',
+      Number(item.frame_p95_ms).toFixed(1)+' ms',
+      Number(item.frame_p99_ms).toFixed(1)+' ms',
+      Number(item.work_over_budget_percent).toFixed(1)+' %',
+      Number(item.frame_over_budget_percent).toFixed(1)+' %'
+    ];
+    for(const val of vals){const td=document.createElement('td');td.textContent=String(val);tr.append(td)}
+    body.append(tr);
+  }
+  const cacheRoot=$('oglPerfCacheGrid');cacheRoot.replaceChildren();
+  const assetFields=[
+    ['Gesamtrequests','perf_asset_requests','count'],
+    ['RAM-Cache-Treffer','perf_asset_memory_hits','count'],
+    ['Disk-Cache-Treffer','perf_asset_disk_hits','count'],
+    ['RAM-Cache-Trefferquote','perf_asset_memory_hits','ratio'],
+    ['Disk-Cache-Trefferquote','perf_asset_disk_hits','ratio'],
+    ['Weak-Ref-Trefferquote','perf_asset_weak_hits','ratio'],
+    ['RAM-LRU-Belegung','perf_asset_ram_bytes','bytes'],
+    ['RAM-LRU-Budget','perf_asset_ram_limit_bytes','bytes'],
+    ['Cacheeinträge','perf_asset_ram_entries','count'],
+    ['Disk-Writer (aktiv konfiguriert)','perf_asset_file_writers','count'],
+    ['Adaptive Writer-Ziel','perf_asset_writer_target','count'],
+    ['Aktive adaptive Writer','perf_asset_writer_active','count'],
+    ['Disk-Queue (wartend)','perf_asset_writer_pending_jobs','count'],
+    ['RAM für I/O reserviert','perf_asset_inflight_bytes','bytes'],
+    ['Abgewiesene Cache-Writes','perf_asset_writes_rejected','count'],
+    ['RAM-Pressure Evictions','perf_asset_memory_trims','count']
+  ];
+  const hasAsset=oglPerfNumber(p,'perf_asset_requests')!==null&&node.state==='online';
+  $('oglPerfCacheInfo').textContent=hasAsset?
+    'Kumulative Cache-Zähler seit Simulatorstart und aktuelle Grenzen; ausschließlich Flotsam, kein globales RAM-Limit.':
+    'Keine Flotsam-Diagnose vorhanden: OGLPerformance/Flotsam ist auf dieser Node nicht verfügbar.';
+  assetFields.forEach(([label,key,type])=>{
+    const card=document.createElement('div');card.className='ogl-perf-stat';
+    const title=document.createElement('span');title.className='small';title.textContent=label;
+    const value=document.createElement('strong');const n=hasAsset?oglPerfNumber(p,key):null;
+    const requests=oglPerfNumber(p,'perf_asset_requests');
+    value.textContent=n===null?'–':type==='bytes'?formatBytes(n):
+      type==='ratio'?(requests>0?(100*n/requests).toFixed(1)+' %':'–'):
+        n.toLocaleString('de-DE');
+    card.append(title,value);cacheRoot.append(card);
+  });
+}
 function renderNodes(data){
   const nodes=data.nodes||[];
   $('nodesCount').textContent=nodes.length;
@@ -1944,6 +2155,7 @@ function renderNodes(data){
     const tr=document.createElement('tr');const td=document.createElement('td');td.colSpan=12;td.className='small';td.textContent=data.transport_enabled?'Noch keine NodeAgent-Heartbeats empfangen.':'NexBus-Transport ist deaktiviert; keine Remote-NodeAgents werden empfangen.';tr.append(td);body.append(tr);
   }
   nodes.forEach(node=>{
+    oglRecordPerformance(node);
     const tr=document.createElement('tr');tr.className='noderow';
     const perf=node.performance||{};
     const numberMetric=key=>Object.prototype.hasOwnProperty.call(perf,key)&&
@@ -1996,9 +2208,20 @@ function renderNodes(data){
     else if(updateActive)updateInfo.classList.add('warn');
     if(node.update?.updated_at)updateInfo.title=new Date(node.update.updated_at).toLocaleString('de-DE');
     actionCell.append(updateInfo);tr.append(actionCell);
-    tr.addEventListener('click',()=>{$('nodeDetail').textContent=JSON.stringify(node,null,2)});
+    tr.addEventListener('click',()=>{
+      oglPerfNodeId=node.node_id;
+      $('nodeDetail').textContent=JSON.stringify(node,null,2);
+      oglShowNodePerformance(node);
+    });
     body.append(tr);
   });
+  if(oglPerfNodeId){
+    const selected=nodes.find(n=>n.node_id===oglPerfNodeId);
+    if(selected){
+      $('nodeDetail').textContent=JSON.stringify(selected,null,2);
+      oglShowNodePerformance(selected);
+    }
+  }
   setNodesStatus(nodes.filter(x=>x.state==='online').length+' online · '+nodes.length+' Nodes',data.transport_enabled?'good':'bad');
 }
 let oglLiveUpdatePoll=null;

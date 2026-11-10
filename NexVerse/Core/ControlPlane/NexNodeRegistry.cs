@@ -42,6 +42,25 @@ namespace NexVerse.Core.ControlPlane
         public DateTimeOffset LastSeen { get; }
     }
 
+    public sealed class NexRegionPerformanceSnapshot
+    {
+        public string RegionId { get; init; } = string.Empty;
+        public double HeartbeatHz { get; init; }
+        public double TargetHz { get; init; }
+        public long WindowFrames { get; init; }
+        public double WorkP95Ms { get; init; }
+        public double FrameP95Ms { get; init; }
+        public double FrameP99Ms { get; init; }
+        public double WorkOverBudgetPercent { get; init; }
+        public double FrameOverBudgetPercent { get; init; }
+    }
+
+    public sealed class NexHostCpuCoreSnapshot
+    {
+        public int CoreId { get; init; }
+        public double UsagePercent { get; init; }
+    }
+
     public sealed class NexNodeSnapshot
     {
         public NexNodeSnapshot(
@@ -77,7 +96,9 @@ namespace NexVerse.Core.ControlPlane
             string updateOperationId = "",
             DateTimeOffset? updateAt = null,
             int npcCount = 0,
-            IReadOnlyDictionary<string, double> performanceMetrics = null)
+            IReadOnlyDictionary<string, double> performanceMetrics = null,
+            IReadOnlyList<NexRegionPerformanceSnapshot> regionPerformance = null,
+            IReadOnlyList<NexHostCpuCoreSnapshot> hostCpuCores = null)
         {
             NpcCount = Math.Clamp(npcCount, 0, Math.Max(0, agentCount));
             NodeId = nodeId ?? string.Empty;
@@ -115,6 +136,8 @@ namespace NexVerse.Core.ControlPlane
             UpdateOperationId = updateOperationId ?? string.Empty;
             UpdateAt = updateAt;
             PerformanceMetrics = performanceMetrics ?? new Dictionary<string, double>(StringComparer.Ordinal);
+            RegionPerformance = regionPerformance ?? Array.Empty<NexRegionPerformanceSnapshot>();
+            HostCpuCores = hostCpuCores ?? Array.Empty<NexHostCpuCoreSnapshot>();
         }
 
         public string NodeId { get; }
@@ -151,6 +174,8 @@ namespace NexVerse.Core.ControlPlane
         public DateTimeOffset? UpdateAt { get; }
         // Only allowlisted, validated read-only process metrics from signed NodeAgent heartbeats.
         public IReadOnlyDictionary<string, double> PerformanceMetrics { get; }
+        public IReadOnlyList<NexRegionPerformanceSnapshot> RegionPerformance { get; }
+        public IReadOnlyList<NexHostCpuCoreSnapshot> HostCpuCores { get; }
     }
 
     /// <summary>
@@ -177,7 +202,24 @@ namespace NexVerse.Core.ControlPlane
             "perf_threadpool_pending_items",
             "perf_threadpool_busy_workers",
             "perf_region_sample_count",
-            "perf_region_sample_omitted"
+            "perf_region_sample_omitted",
+            "perf_host_cpu_cores_omitted",
+            "perf_asset_requests",
+            "perf_asset_memory_hits",
+            "perf_asset_disk_hits",
+            "perf_asset_weak_hits",
+            "perf_asset_memory_enabled",
+            "perf_asset_ram_entries",
+            "perf_asset_ram_bytes",
+            "perf_asset_ram_limit_bytes",
+            "perf_asset_memory_trims",
+            "perf_asset_file_writers",
+            "perf_asset_writer_target",
+            "perf_asset_writer_active",
+            "perf_asset_writer_pending_jobs",
+            "perf_asset_writes_rejected",
+            "perf_asset_inflight_bytes",
+            "perf_asset_inflight_limit_bytes"
         };
 
         private readonly ConcurrentDictionary<string, NodeRecord> m_Nodes =
@@ -469,6 +511,12 @@ namespace NexVerse.Core.ControlPlane
                         regionsRaw,
                         receivedAt);
                 }
+
+                // Signed opt-in telemetry is a replacement snapshot, never an
+                // append-only history. Bound the decoded arrays and input size.
+                record.RegionPerformance = ParseRegionPerformance(
+                    nexEvent, record.Regions);
+                record.HostCpuCores = ParseHostCpuCores(nexEvent);
             }
         }
 
@@ -764,7 +812,9 @@ namespace NexVerse.Core.ControlPlane
                     record.UpdateOperationId,
                     record.UpdateAt,
                     record.NpcCount,
-                    new Dictionary<string, double>(record.PerformanceMetrics, StringComparer.Ordinal));
+                    new Dictionary<string, double>(record.PerformanceMetrics, StringComparer.Ordinal),
+                    record.RegionPerformance.ToArray(),
+                    record.HostCpuCores.ToArray());
             }
         }
 
@@ -778,6 +828,110 @@ namespace NexVerse.Core.ControlPlane
                 "offline" => 2,
                 _ => 3
             };
+        }
+
+        private static bool TryFinite(JsonElement item, string name,
+            double max, out double value)
+        {
+            value = 0;
+            if (item.ValueKind != JsonValueKind.Object ||
+                !item.TryGetProperty(name, out JsonElement e) ||
+                e.ValueKind != JsonValueKind.Number ||
+                !e.TryGetDouble(out double parsed) ||
+                !double.IsFinite(parsed) || parsed < 0 || parsed > max)
+                return false;
+            value = parsed;
+            return true;
+        }
+
+        private static NexRegionPerformanceSnapshot[] ParseRegionPerformance(
+            NexEvent nexEvent, Dictionary<string, RegionRecord> liveRegions)
+        {
+            if (!TryData(nexEvent, "perf_region_heartbeats_json", out string json) ||
+                json.Length > 49152)
+                return Array.Empty<NexRegionPerformanceSnapshot>();
+            try
+            {
+                using JsonDocument doc = JsonDocument.Parse(json,
+                    new JsonDocumentOptions { MaxDepth = 8 });
+                if (doc.RootElement.ValueKind != JsonValueKind.Array ||
+                    doc.RootElement.GetArrayLength() > 64)
+                    return Array.Empty<NexRegionPerformanceSnapshot>();
+                var result = new List<NexRegionPerformanceSnapshot>();
+                var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                foreach (JsonElement entry in doc.RootElement.EnumerateArray())
+                {
+                    if (entry.ValueKind != JsonValueKind.Object ||
+                        !entry.TryGetProperty("region_id", out JsonElement id) ||
+                        id.ValueKind != JsonValueKind.String)
+                        continue;
+                    string regionId = id.GetString();
+                    if (regionId == null || !Guid.TryParse(regionId, out Guid uuid))
+                        continue;
+                    regionId = uuid.ToString("D");
+                    if (!liveRegions.ContainsKey(regionId) || !seen.Add(regionId))
+                        continue;
+                    if (!TryFinite(entry, "heartbeat_hz", 1000, out double heartbeat) ||
+                        !TryFinite(entry, "target_hz", 1000, out double target) ||
+                        !TryFinite(entry, "window_frames", 1e8, out double frames) ||
+                        !TryFinite(entry, "work_p95_ms", 60000, out double workP95) ||
+                        !TryFinite(entry, "frame_p95_ms", 60000, out double frameP95) ||
+                        !TryFinite(entry, "frame_p99_ms", 60000, out double frameP99) ||
+                        !TryFinite(entry, "work_over_budget_percent", 100, out double workOver) ||
+                        !TryFinite(entry, "frame_over_budget_percent", 100, out double frameOver))
+                        continue;
+                    result.Add(new NexRegionPerformanceSnapshot
+                    {
+                        RegionId = regionId,
+                        HeartbeatHz = heartbeat,
+                        TargetHz = target,
+                        WindowFrames = (long)frames,
+                        WorkP95Ms = workP95,
+                        FrameP95Ms = frameP95,
+                        FrameP99Ms = frameP99,
+                        WorkOverBudgetPercent = workOver,
+                        FrameOverBudgetPercent = frameOver
+                    });
+                }
+                return result.ToArray();
+            }
+            catch (JsonException)
+            {
+                return Array.Empty<NexRegionPerformanceSnapshot>();
+            }
+        }
+
+        private static NexHostCpuCoreSnapshot[] ParseHostCpuCores(NexEvent nexEvent)
+        {
+            if (!TryData(nexEvent, "perf_host_cpu_cores_json", out string json) ||
+                json.Length > 12288)
+                return Array.Empty<NexHostCpuCoreSnapshot>();
+            try
+            {
+                using JsonDocument doc = JsonDocument.Parse(json,
+                    new JsonDocumentOptions { MaxDepth = 6 });
+                if (doc.RootElement.ValueKind != JsonValueKind.Array ||
+                    doc.RootElement.GetArrayLength() > 128)
+                    return Array.Empty<NexHostCpuCoreSnapshot>();
+                var result = new List<NexHostCpuCoreSnapshot>();
+                var seen = new HashSet<int>();
+                foreach (JsonElement item in doc.RootElement.EnumerateArray())
+                {
+                    if (!TryFinite(item, "core_id", 4095, out double idValue) ||
+                        Math.Truncate(idValue) != idValue ||
+                        !TryFinite(item, "usage_percent", 100, out double load))
+                        continue;
+                    int core = (int)idValue;
+                    if (seen.Add(core))
+                        result.Add(new NexHostCpuCoreSnapshot
+                            { CoreId = core, UsagePercent = load });
+                }
+                return result.OrderBy(x => x.CoreId).ToArray();
+            }
+            catch (JsonException)
+            {
+                return Array.Empty<NexHostCpuCoreSnapshot>();
+            }
         }
 
         private static bool TryData(
@@ -1075,6 +1229,10 @@ namespace NexVerse.Core.ControlPlane
                 new Dictionary<string, double>(StringComparer.Ordinal);
             public DateTimeOffset LastSeen;
             public DateTimeOffset LastEventAt;
+            public NexRegionPerformanceSnapshot[] RegionPerformance =
+                Array.Empty<NexRegionPerformanceSnapshot>();
+            public NexHostCpuCoreSnapshot[] HostCpuCores =
+                Array.Empty<NexHostCpuCoreSnapshot>();
 
             public Dictionary<string, RegionRecord> Regions { get; } =
                 new Dictionary<string, RegionRecord>(

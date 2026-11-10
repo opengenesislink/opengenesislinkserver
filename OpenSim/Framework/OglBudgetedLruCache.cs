@@ -8,6 +8,16 @@ using System.Threading;
 
 namespace OpenSim.Framework
 {
+    /// <summary>
+    /// Optional, read-only bounded snapshot exposed by an asset-cache module
+    /// to the NodeAgent. Core framework does not depend on Flotsam internals.
+    /// Values are cumulative or instantaneous, not authoritative asset state.
+    /// </summary>
+    public interface IOglAssetCacheMetricsProvider
+    {
+        IReadOnlyDictionary<string, long> CaptureAssetCacheMetrics();
+    }
+
     public sealed class OglBudgetedLruCache<TKey, TValue> : IDisposable where TKey : notnull
     {
         private sealed class Entry

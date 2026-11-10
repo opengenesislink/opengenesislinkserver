@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Text.Json;
 using System.Threading;
@@ -46,7 +47,9 @@ namespace NexVerse.Core.Observability
 
     public sealed class OglPerformanceSampler
     {
-        private const int MaximumReportedRegions = 32;
+        private const int MaximumReportedRegions = 64;
+        private const int MaximumReportedHostCores = 128;
+        private readonly Dictionary<int, (long Total, long Idle)> m_PreviousHostCores = new();
         private readonly object m_Sync = new object();
         private readonly Dictionary<string, RegionPosition> m_PreviousRegions =
             new Dictionary<string, RegionPosition>(StringComparer.Ordinal);
@@ -84,6 +87,55 @@ namespace NexVerse.Core.Observability
 
             // uint rollover is legitimate for a long-running simulator.
             return unchecked(current - previous) / wallDeltaSeconds;
+        }
+
+        // Aggregate /proc/stat counters per host CPU. Ignore guest and guest_nice:
+        // Linux already includes them in user/nice counters.
+        // Static parser is independently regression-testable without /proc access.
+        public static IReadOnlyDictionary<int, (long Total, long Idle)> ParseLinuxHostCpu(
+            IEnumerable<string> lines, int maximumCores = MaximumReportedHostCores)
+        {
+            Dictionary<int, (long Total, long Idle)> result = new();
+            if (lines == null || maximumCores < 1)
+                return result;
+            foreach (string line in lines)
+            {
+                if (result.Count >= Math.Min(4096, maximumCores)) break;
+                string[] parts = (line ?? "").Split((char[])null,
+                    StringSplitOptions.RemoveEmptyEntries);
+                if (parts.Length < 5 || !parts[0].StartsWith("cpu", StringComparison.Ordinal) ||
+                    !int.TryParse(parts[0].AsSpan(3), NumberStyles.None,
+                        CultureInfo.InvariantCulture, out int index) ||
+                    index < 0 || index > 4095)
+                    continue;
+                long total = 0;
+                long idle = 0;
+                bool valid = true;
+                for (int j = 1; j < Math.Min(parts.Length, 9); ++j)
+                {
+                    if (!long.TryParse(parts[j], NumberStyles.None,
+                            CultureInfo.InvariantCulture, out long ticks) ||
+                        ticks < 0 || total > long.MaxValue - ticks)
+                    {
+                        valid = false; break;
+                    }
+                    total += ticks;
+                    if (j == 4 || j == 5)
+                        idle += ticks;
+                }
+                if (valid && total > 0)
+                    result[index] = (total, idle);
+            }
+            return result;
+        }
+
+        private static Dictionary<int, (long Total, long Idle)> ReadLinuxHostCoreCounters()
+        {
+            var result = new Dictionary<int, (long Total, long Idle)>();
+            foreach (var pair in ParseLinuxHostCpu(File.ReadLines("/proc/stat"),
+                4096))
+                result[pair.Key] = pair.Value;
+            return result;
         }
 
         public IReadOnlyDictionary<string, string> Capture(IReadOnlyList<OglRegionFrame> regions)
@@ -171,6 +223,44 @@ namespace NexVerse.Core.Observability
                 foreach (string id in m_PreviousRegions.Keys.ToArray())
                     if (!active.Contains(id))
                         m_PreviousRegions.Remove(id);
+
+                // Linux /proc/stat reports host-wide core load, NOT per-core OpenSim
+                // process attribution. Keep this optional and capped.
+                if (OperatingSystem.IsLinux())
+                {
+                    try
+                    {
+                        Dictionary<int, (long Total, long Idle)> samples = ReadLinuxHostCoreCounters();
+                        var coreStats = new List<object>();
+                        foreach (var core in samples.OrderBy(x => x.Key))
+                        {
+                            if (coreStats.Count >= MaximumReportedHostCores)
+                                break;
+                            if (m_PreviousHostCores.TryGetValue(core.Key, out var prior))
+                            {
+                                long elapsed = core.Value.Total - prior.Total;
+                                long idle = core.Value.Idle - prior.Idle;
+                                if (elapsed > 0 && idle >= 0 && idle <= elapsed)
+                                {
+                                    coreStats.Add(new
+                                    {
+                                        core_id = core.Key,
+                                        usage_percent = Math.Round(
+                                            Math.Clamp(100.0 * (elapsed - idle) / elapsed, 0, 100), 2)
+                                    });
+                                }
+                            }
+                        }
+                        m_PreviousHostCores.Clear();
+                        foreach (var item in samples)
+                            m_PreviousHostCores[item.Key] = item.Value;
+                        data["perf_host_cpu_cores_json"] = JsonSerializer.Serialize(coreStats);
+                        data["perf_host_cpu_cores_omitted"] = Math.Max(0, samples.Count - MaximumReportedHostCores)
+                            .ToString(CultureInfo.InvariantCulture);
+                    }
+                    catch (IOException) { m_PreviousHostCores.Clear(); }
+                    catch (UnauthorizedAccessException) { m_PreviousHostCores.Clear(); }
+                }
 
                 data["perf_region_heartbeats_json"] = JsonSerializer.Serialize(regionStats);
                 data["perf_region_sample_count"] = regionStats.Count.ToString(CultureInfo.InvariantCulture);

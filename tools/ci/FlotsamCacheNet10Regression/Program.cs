@@ -82,6 +82,7 @@ internal static class Program
             var fromFile = (AssetBase)getFile.Invoke(cache, new object[] { id })!;
             Check(fromFile is not null && fromFile.Data.SequenceEqual(original.Data), "File cache could not read new versioned format");
 
+            TestReadOnlyCacheMetrics();
             TestConcurrentRealFileCacheWrites(root);
             TestDeadWeakReferencePruning();
 
@@ -92,6 +93,25 @@ internal static class Program
         {
             Directory.Delete(root, recursive: true);
         }
+    }
+
+    private static void TestReadOnlyCacheMetrics()
+    {
+        // Uninitialized caches must not claim valid live telemetry.
+        var cache = new FlotsamAssetCache();
+        IOglAssetCacheMetricsProvider provider = cache;
+        Check(provider.CaptureAssetCacheMetrics().Count == 0,
+            "disabled Flotsam must not expose resource counters");
+
+        typeof(FlotsamAssetCache).GetField("m_Enabled",
+            BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(cache, true);
+        IReadOnlyDictionary<string, long> sample = provider.CaptureAssetCacheMetrics();
+        Check(sample["perf_asset_file_writers"] == 1 &&
+              sample["perf_asset_ram_entries"] == 0 &&
+              sample["perf_asset_ram_bytes"] == 0 &&
+              sample.ContainsKey("perf_asset_writer_pending_jobs") &&
+              sample.ContainsKey("perf_asset_writes_rejected"),
+            "signed asset-cache telemetry contract mismatch");
     }
 
     private static void TestDeadWeakReferencePruning()

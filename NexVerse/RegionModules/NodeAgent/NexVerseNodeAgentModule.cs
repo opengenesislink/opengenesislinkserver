@@ -1512,6 +1512,17 @@ namespace NexVerse.RegionModules.NodeAgent
                         .ToArray();
                     foreach (KeyValuePair<string, string> sample in m_PerformanceSampler.Capture(frames))
                         data[sample.Key] = sample.Value;
+
+                    // The active shared cache is discovered through its existing
+                    // region interface; NodeAgent remains decoupled from Flotsam.
+                    if (scenes.Length > 0 &&
+                        scenes[0].RequestModuleInterface<IAssetCache>()
+                            is IOglAssetCacheMetricsProvider assetMetrics)
+                    {
+                        foreach (KeyValuePair<string, long> metric in assetMetrics.CaptureAssetCacheMetrics())
+                            data[metric.Key] = metric.Value.ToString(
+                                System.Globalization.CultureInfo.InvariantCulture);
+                    }
                 }
                 catch (Exception error)
                 {

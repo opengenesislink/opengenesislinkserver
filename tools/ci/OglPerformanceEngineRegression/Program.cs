@@ -25,6 +25,27 @@ static class Program
             "frame counter rollover");
         Require(OglPerformanceSampler.CalculateHeartbeatHz(0, 0, 0) == 0, "zero interval");
 
+        // /proc/stat is host-wide Linux CPU usage, not per-process scheduling.
+        // Parser must exclude the aggregate "cpu" line and guest double counts.
+        var linuxCpu = OglPerformanceSampler.ParseLinuxHostCpu(new[]
+        {
+            "cpu  500 0 200 1000 100 0 0 0 20 10",
+            "cpu0 100 0 50 200 10 0 0 0 3 2",
+            "cpu1 50 0 20 100 0 0 0 0 0 0",
+            "cpu2 invalid 0 3 4"
+        });
+        Require(linuxCpu.Count == 2 &&
+                linuxCpu[0].Total == 360 && linuxCpu[0].Idle == 210 &&
+                linuxCpu[1].Total == 170 && linuxCpu[1].Idle == 100,
+            "Linux CPU core counters must exclude guest fields and invalid lines");
+        var boundedCpu = OglPerformanceSampler.ParseLinuxHostCpu(new[]
+        {
+            "cpu0 100 0 50 200",
+            "cpu1 100 0 50 200"
+        }, maximumCores: 1);
+        Require(boundedCpu.Count == 1,
+            "host CPU observation must respect configured core bound");
+
         var sampler = new OglPerformanceSampler();
         IReadOnlyDictionary<string, string> first =
             sampler.Capture(new[] { new OglRegionFrame("region-test", 100, 0.0909f) });
@@ -43,6 +64,17 @@ static class Program
             Require(json.RootElement[0].GetProperty("heartbeat_hz").GetDouble() > 0,
                 "heartbeat rate must be measured from samples");
         sampler.Capture(Array.Empty<OglRegionFrame>());
+        var manyRegions = Enumerable.Range(0, 42)
+            .Select(i => new OglRegionFrame("region-" + i, (uint)i, 0.0909f))
+            .ToArray();
+        var manySamples = sampler.Capture(manyRegions);
+        Require(manySamples["perf_region_sample_count"] == "42" &&
+                manySamples["perf_region_sample_omitted"] == "0",
+            "42 regions must fit into the bounded 64-region heartbeat");
+        using (JsonDocument bigRegionJson =
+               JsonDocument.Parse(manySamples["perf_region_heartbeats_json"]))
+            Require(bigRegionJson.RootElement.GetArrayLength() == 42,
+                "64-region telemetry cap unexpectedly truncated 42 regions");
 
         using var firstStarted = new ManualResetEventSlim(false);
         using var releaseFirst = new ManualResetEventSlim(false);

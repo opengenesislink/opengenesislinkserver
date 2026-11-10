@@ -50,7 +50,7 @@ using System.Runtime.InteropServices;
 namespace OpenSim.Region.CoreModules.Asset
 {
     [Extension(Path = "/OpenSim/RegionModules", NodeName = "RegionModule", Id = "FlotsamAssetCache")]
-    public class FlotsamAssetCache : ISharedRegionModule, IAssetCache, IAssetService
+    public class FlotsamAssetCache : ISharedRegionModule, IAssetCache, IAssetService, IOglAssetCacheMetricsProvider
     {
         private struct WriteAssetInfo
         {
@@ -1666,6 +1666,39 @@ namespace OpenSim.Region.CoreModules.Asset
             outputLines.Add($"Requests overlap during file writing: {m_RequestsForInprogress}");
 
             return outputLines;
+        }
+
+        // Sampled on the existing signed NodeAgent heartbeat. No new network
+        // listener, forced GC or cache mutation. Numbers are approximate
+        // concurrent snapshots of Flotsam's existing counters.
+        public IReadOnlyDictionary<string, long> CaptureAssetCacheMetrics()
+        {
+            if (!m_Enabled)
+                return new Dictionary<string, long>();
+            static long SafeCount(ulong value) =>
+                value > (ulong)long.MaxValue ? long.MaxValue : (long)value;
+            var lru = m_BudgetedMemoryCache;
+            var limiter = m_FileWriteByteLimiter;
+            var gate = m_AdaptiveFileWriteGate;
+            return new Dictionary<string, long>(StringComparer.Ordinal)
+            {
+                ["perf_asset_requests"] = SafeCount(m_Requests),
+                ["perf_asset_memory_hits"] = SafeCount(m_MemoryHits),
+                ["perf_asset_disk_hits"] = SafeCount(m_DiskHits),
+                ["perf_asset_weak_hits"] = SafeCount(m_weakRefHits),
+                ["perf_asset_memory_enabled"] = m_MemoryCacheEnabled ? 1 : 0,
+                ["perf_asset_ram_entries"] = lru?.Count ?? 0,
+                ["perf_asset_ram_bytes"] = lru?.EstimatedBytes ?? 0,
+                ["perf_asset_ram_limit_bytes"] = lru == null ? 0 : (long)m_MemoryCacheMaxMiB * 1024 * 1024,
+                ["perf_asset_memory_trims"] = Interlocked.Read(ref m_MemoryPressureTrimmed),
+                ["perf_asset_file_writers"] = m_FileWriteConcurrency,
+                ["perf_asset_writer_target"] = gate?.TargetWorkers ?? m_FileWriteConcurrency,
+                ["perf_asset_writer_active"] = gate?.ActiveWorkers ?? 0,
+                ["perf_asset_writer_pending_jobs"] = m_assetFileWriteWorker?.Count ?? 0,
+                ["perf_asset_writes_rejected"] = Interlocked.Read(ref m_CacheWritesRejected),
+                ["perf_asset_inflight_bytes"] = limiter?.InFlightBytes ?? 0,
+                ["perf_asset_inflight_limit_bytes"] = limiter?.LimitBytes ?? 0
+            };
         }
 
         #region Console Commands
