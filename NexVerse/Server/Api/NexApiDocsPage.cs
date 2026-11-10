@@ -3190,7 +3190,7 @@ $('licenseNode').addEventListener('change',showFeatureLicense);
 $('loadFeatureLicenses').addEventListener('click',loadFeatureLicenses);
 $('saveFeatureLicense').addEventListener('click',()=>saveFeatureLicense(false));
 $('revokeFeatureLicense').addEventListener('click',()=>saveFeatureLicense(true));
-$('loadNodes').addEventListener('click',loadNodes);$('clearNodesCredentials').addEventListener('click',()=>{$('nodesBearer').value='';$('nodesApiKey').value=''});
+$('loadNodes').addEventListener('click',()=>loadNodes());$('clearNodesCredentials').addEventListener('click',()=>{$('nodesBearer').value='';$('nodesApiKey').value=''});
 $('gridWest').addEventListener('click',()=>panGrid(-1,0));$('gridEast').addEventListener('click',()=>panGrid(1,0));$('gridSouth').addEventListener('click',()=>panGrid(0,-1));$('gridNorth').addEventListener('click',()=>panGrid(0,1));
 $('validateGridPlacement').addEventListener('click',validateGridPlacement);$('gridRegionSizeX').addEventListener('change',()=>{if(gridSelected)validateGridPlacement()});$('gridRegionSizeY').addEventListener('change',()=>{if(gridSelected)validateGridPlacement()});
 $('gridCellPixels').addEventListener('input',()=>{$('gridBoard').style.setProperty('--cell',$('gridCellPixels').value+'px')});$('gridFilter').addEventListener('change',applyGridFilter);$('gridShowWarp3d').addEventListener('change',applyGridImagery);
