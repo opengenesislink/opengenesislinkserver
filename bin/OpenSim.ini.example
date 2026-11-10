@@ -43,6 +43,12 @@
     UpdateStagingEnabled = false
     UpdateStagingRoot = "/opt/opengenesislink-updates"
     UpdateStagingBuild = true
+    ; Separate localhost update daemon. Disabled until its NON-ROOT systemd
+    ; service, backup storage and NEXVERSE_UPDATE_CONTROL_KEY are configured.
+    ; Unlike stage_update, deploy_update writes the active checkout/bin.
+    ; No process restart is initiated by the updater.
+    LiveUpdaterEnabled = false
+    LiveUpdaterUrl = "http://127.0.0.1:8097"
     ManagedRegionConfigDirectory = "Regions/NexVerseManaged"
     ManagedRegionInternalAddress = "0.0.0.0"
     ManagedRegionExternalHostName = ""
