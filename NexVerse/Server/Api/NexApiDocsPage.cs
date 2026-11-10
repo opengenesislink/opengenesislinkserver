@@ -1984,10 +1984,14 @@ function oglRecordPerformance(node){
   if(!Number.isFinite(t))return;
   let history=oglPerfHistory.get(node.node_id);
   if(!history){history=[];oglPerfHistory.set(node.node_id,history)}
+  const previous=history.length?history[history.length-1]:null;
+  const pid=Number(node.process_id||0),uptime=Number(node.uptime_seconds||0);
+  if(previous&&((pid>0&&previous.pid>0&&pid!==previous.pid)||
+      (Number.isFinite(uptime)&&uptime<previous.uptime)))history.splice(0);
   if(history.length&&history[history.length-1].time===t)return;
   const p=node.performance||{};
   history.push({
-    time:t,
+    time:t,pid,uptime,
     cpu:oglPerfNumber(p,'perf_process_cpu_percent'),
     ram:Number(node.working_set_bytes||0)/1073741824,
     heap:oglPerfNumber(p,'perf_managed_heap_bytes')===null?null:p.perf_managed_heap_bytes/1073741824,
@@ -2110,6 +2114,9 @@ function oglShowNodePerformance(node){
     ['Gesamtrequests','perf_asset_requests','count'],
     ['RAM-Cache-Treffer','perf_asset_memory_hits','count'],
     ['Disk-Cache-Treffer','perf_asset_disk_hits','count'],
+    ['RAM-Cache-Trefferquote','perf_asset_memory_hits','ratio'],
+    ['Disk-Cache-Trefferquote','perf_asset_disk_hits','ratio'],
+    ['Weak-Ref-Trefferquote','perf_asset_weak_hits','ratio'],
     ['RAM-LRU-Belegung','perf_asset_ram_bytes','bytes'],
     ['RAM-LRU-Budget','perf_asset_ram_limit_bytes','bytes'],
     ['Cacheeinträge','perf_asset_ram_entries','count'],
@@ -2129,7 +2136,10 @@ function oglShowNodePerformance(node){
     const card=document.createElement('div');card.className='ogl-perf-stat';
     const title=document.createElement('span');title.className='small';title.textContent=label;
     const value=document.createElement('strong');const n=hasAsset?oglPerfNumber(p,key):null;
-    value.textContent=n===null?'–':type==='bytes'?formatBytes(n):n.toLocaleString('de-DE');
+    const requests=oglPerfNumber(p,'perf_asset_requests');
+    value.textContent=n===null?'–':type==='bytes'?formatBytes(n):
+      type==='ratio'?(requests>0?(100*n/requests).toFixed(1)+' %':'–'):
+        n.toLocaleString('de-DE');
     card.append(title,value);cacheRoot.append(card);
   });
 }
