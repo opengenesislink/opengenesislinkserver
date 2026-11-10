@@ -100,7 +100,7 @@ namespace NexVerse.Core.Observability
                 return result;
             foreach (string line in lines)
             {
-                if (result.Count >= Math.Min(256, maximumCores)) break;
+                if (result.Count >= Math.Min(4096, maximumCores)) break;
                 string[] parts = (line ?? "").Split((char[])null,
                     StringSplitOptions.RemoveEmptyEntries);
                 if (parts.Length < 5 || !parts[0].StartsWith("cpu", StringComparison.Ordinal) ||
@@ -133,7 +133,7 @@ namespace NexVerse.Core.Observability
         {
             var result = new Dictionary<int, (long Total, long Idle)>();
             foreach (var pair in ParseLinuxHostCpu(File.ReadLines("/proc/stat"),
-                MaximumReportedHostCores))
+                4096))
                 result[pair.Key] = pair.Value;
             return result;
         }
