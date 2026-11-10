@@ -839,7 +839,7 @@ body.ogl-sidebar-collapsed .ogl-admin-header,body.ogl-sidebar-collapsed main{gri
 <div class="pill"><span class="dot" id="nodesDot"></span><span id="nodesStatus">Noch nicht geladen</span></div>
 </div>
 <div class="section">
-<h2>Zugriff</h2><p class="sectionlead">Node-, Host- und Prozessinformationen sind geschützt und benötigen <code>simulators:read</code>. Die Ansicht führt keine Verwaltungsaktionen aus.</p>
+<h2>Zugriff</h2><p class="sectionlead">Node-, Host- und Prozessinformationen benötigen <code>simulators:read</code>. Das direkte Update einer Simulator-Node erfordert zusätzlich <code>simulators:manage</code>, einen signierten NexBus und den separat installierten lokalen Updater-Dienst.</p>
 <div class="grid2">
 <div><label class="label2">Zugriffstoken (Bearer)</label><input id="nodesBearer" type="password" autocomplete="off" placeholder="Optional"></div>
 <div><label class="label2">X-NexVerse-Api-Key</label><input id="nodesApiKey" type="password" autocomplete="off" placeholder="Optional"></div>
@@ -855,10 +855,10 @@ body.ogl-sidebar-collapsed .ogl-admin-header,body.ogl-sidebar-collapsed main{gri
 </div>
 <div class="section">
 <h2>Node-Liste</h2><p class="sectionlead" id="nodesTransport">NexBus-Transportstatus noch nicht geladen.</p>
-<div class="tablewrap"><table class="datatable"><thead><tr><th>Node</th><th>Host</th><th>Status</th><th>Version</th><th>Regionen</th><th>Avatare</th><th>Uptime</th><th>RAM</th><th>Letztes Signal</th></tr></thead><tbody id="nodesBody"></tbody></table></div>
+<div class="tablewrap"><table class="datatable"><thead><tr><th>Node</th><th>Host</th><th>Status</th><th>Version</th><th>Regionen</th><th>Avatare</th><th>Uptime</th><th>RAM</th><th>Letztes Signal</th><th>Update</th></tr></thead><tbody id="nodesBody"></tbody></table></div>
 </div>
 <div class="section">
-<h2>Node-Details</h2><pre id="nodeDetail">Noch kein Node ausgewählt.</pre>
+<h2>Node-Details</h2><div class="authnote">„Update“ sichert die INIs, setzt Git auf origin/main zurück, kompiliert mit .NET 10 und entfernt die alte NexVerse-Deutschland.ini. Die Node wird NICHT automatisch neugestartet. Die Aktion verändert den produktiven Checkout. Vorher Backup und Wartungsfenster einplanen.</div><p role="status" aria-live="polite" id="nodesUpdateInfo">Kein Update beauftragt.</p><pre id="nodeDetail">Noch kein Node ausgewählt.</pre>
 </div>
 <div class="section">
 <h2><span class="icon">✦</span> OGL Feature Control · Simulator-Lizenzen</h2>
@@ -1939,7 +1939,7 @@ function renderNodes(data){
   $('nodesTransport').textContent=(data.transport_enabled?'Verteilter NexBus-Transport aktiv':'Verteilter NexBus-Transport deaktiviert')+' · Stale nach '+(data.stale_after_seconds||'–')+' Sekunden ohne Heartbeat.';
   const body=$('nodesBody');body.replaceChildren();
   if(!nodes.length){
-    const tr=document.createElement('tr');const td=document.createElement('td');td.colSpan=9;td.className='small';td.textContent=data.transport_enabled?'Noch keine NodeAgent-Heartbeats empfangen.':'NexBus-Transport ist deaktiviert; keine Remote-NodeAgents werden empfangen.';tr.append(td);body.append(tr);
+    const tr=document.createElement('tr');const td=document.createElement('td');td.colSpan=10;td.className='small';td.textContent=data.transport_enabled?'Noch keine NodeAgent-Heartbeats empfangen.':'NexBus-Transport ist deaktiviert; keine Remote-NodeAgents werden empfangen.';tr.append(td);body.append(tr);
   }
   nodes.forEach(node=>{
     const tr=document.createElement('tr');tr.className='noderow';
@@ -1959,10 +1959,67 @@ function renderNodes(data){
       if(index===2)td.className='node-state-'+(node.state||'');
       tr.append(td);
     });
+    const actionCell=document.createElement('td');
+    const updateBtn=document.createElement('button');
+    updateBtn.type='button';updateBtn.className='action';
+    updateBtn.textContent='Update';
+    updateBtn.disabled=node.state!=='online';
+    updateBtn.title=node.state==='online'?'Live-Update auf main mit manuellem Neustart':'Node muss für die Anforderung online sein';
+    updateBtn.addEventListener('click',event=>{event.stopPropagation();updateSimulatorNode(node.node_id)});
+    actionCell.append(updateBtn);tr.append(actionCell);
     tr.addEventListener('click',()=>{$('nodeDetail').textContent=JSON.stringify(node,null,2)});
     body.append(tr);
   });
   setNodesStatus('Live · '+nodes.length+' Nodes','good');
+}
+let oglLiveUpdatePoll=null;
+async function updateSimulatorNode(nodeId){
+  if(!nodeId||!/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/.test(nodeId)){
+    $('nodesUpdateInfo').textContent='Ungültige NodeID.';return;
+  }
+  const message='Node '+nodeId+' jetzt direkt aktualisieren?\\n\\n'+
+    'Alle lokalen Git-Änderungen außerhalb der gesicherten Konfigurationsdateien werden per git reset --hard überschrieben. '+
+    'Die NexVerse-Deutschland.ini wird entfernt. Der OpenSim-Prozess wird NICHT neu gestartet; das musst du nach erfolgreichem Build selbst durchführen.';
+  if(!window.confirm(message))return;
+  $('nodesUpdateInfo').textContent='Starte signiertes Update für '+nodeId+' …';
+  try{
+    const res=await fetch('/api/v1/nodes/'+encodeURIComponent(nodeId)+'/control',{
+      method:'POST',headers:{...nodeHeaders(),'Content-Type':'application/json'},
+      credentials:'same-origin',cache:'no-store',body:JSON.stringify({action:'update'})
+    });
+    const body=await res.json();
+    if(!res.ok){
+      $('nodesUpdateInfo').textContent='Update abgelehnt ('+res.status+'): '+(body.error||'server_error');
+      return;
+    }
+    const operation=body.operation_id;
+    $('nodesUpdateInfo').textContent='Auftrag '+operation+' angenommen. Build-/Backup-Status wird abgefragt.';
+    if(oglLiveUpdatePoll)clearInterval(oglLiveUpdatePoll);
+    let attempts=0;
+    oglLiveUpdatePoll=setInterval(async()=>{
+      attempts++;
+      try{
+        const response=await fetch('/api/v1/nodes/'+encodeURIComponent(nodeId),{
+          headers:nodeHeaders(),credentials:'same-origin',cache:'no-store'
+        });
+        if(!response.ok)return;
+        const result=await response.json();
+        const progress=result.node?.update;
+        if(progress?.operation_id!==operation)return;
+        $('nodesUpdateInfo').textContent='Update '+nodeId+': '+(progress.state||'unbekannt')+
+          ' · '+operation;
+        if(['live.completed','live.failed'].includes(progress.state)){
+          clearInterval(oglLiveUpdatePoll);oglLiveUpdatePoll=null;
+          if(progress.state==='live.completed')
+            $('nodesUpdateInfo').textContent='Update abgeschlossen! OpenSim.dll manuell neu starten. Auftrag '+operation;
+          else
+            $('nodesUpdateInfo').textContent='Update fehlgeschlagen. Protokoll des Updater-Dienstes auf der Node prüfen. Auftrag '+operation;
+          loadNodes();
+        }
+      }catch(err){$('nodesUpdateInfo').textContent='Statusabfrage vorübergehend nicht erreichbar: '+String(err)}
+      if(attempts>=480){clearInterval(oglLiveUpdatePoll);oglLiveUpdatePoll=null}
+    },5000);
+  }catch(err){$('nodesUpdateInfo').textContent='Update-Anforderung fehlgeschlagen: '+String(err)}
 }
 async function loadNodes(){
   setNodesStatus('Lade Simulatoren…','');
