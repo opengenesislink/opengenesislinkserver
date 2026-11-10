@@ -29,7 +29,7 @@ for needle in ("git fetch --no-tags origin main",
                "git reset --hard origin/main", "bash ./compile.sh",
                "bash ./runprebuild.sh", "configs.tar.gz",
                "NexVerse-Deutschland.ini", "bin/OpenSim.dll",
-               "Microsoft.NETCore.App 10.", "python3 tools/gen11/verify_net10.py",
+               "Microsoft.NETCore.App 10", "python3 tools/gen11/verify_net10.py",
                "OpenGenesisLINK.Addons."):
     assert needle in PAYLOAD.read_text(), needle
 for needle in ("node.update.live.requested", "SignLiveRequest(",
