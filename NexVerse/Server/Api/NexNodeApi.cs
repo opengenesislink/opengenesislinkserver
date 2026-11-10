@@ -329,6 +329,10 @@ namespace NexVerse.Server.Api
                     node.WorkingSetBytes,
                 cpu_seconds =
                     node.CpuSeconds,
+                // Exposed only through authenticated simulators:read endpoints.
+                // An empty object means OGLPerformance telemetry is disabled/unavailable.
+                performance =
+                    node.PerformanceMetrics,
                 disk_free_bytes =
                     node.DiskFreeBytes,
                 disk_total_bytes =
