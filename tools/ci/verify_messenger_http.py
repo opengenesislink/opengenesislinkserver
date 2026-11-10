@@ -4,6 +4,7 @@ import os
 import pathlib
 import subprocess
 import time
+import tempfile
 import urllib.error
 import urllib.request
 
@@ -16,11 +17,13 @@ env["ASPNETCORE_ENVIRONMENT"] = "Production"
 env.pop("Messenger__WorldApiBaseUrl", None)
 env.pop("Messenger__PublicBaseUrl", None)
 env.pop("Messenger__ClientId", None)
+output = tempfile.TemporaryFile(mode="w+t")
 process = subprocess.Popen(
     ["dotnet", "run", "--no-build", "--configuration", "Release",
-     "--no-launch-profile", "--project", "OGLMessenger.Server.csproj"],
+     "--no-launch-profile", "--project", "OGLMessenger.Server.csproj",
+     "--", "--urls", f"http://127.0.0.1:{port}"],
     cwd=project, env=env,
-    stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT,
+    stdout=output, stderr=subprocess.STDOUT,
 )
 def get(route):
     try:
@@ -33,15 +36,18 @@ def get(route):
 try:
     for _ in range(100):
         if process.poll() is not None:
-            raise RuntimeError("Messenger failed to start")
+            output.seek(0)
+            raise RuntimeError("Messenger failed to start: " + output.read()[-3000:])
         try:
             status, body = get("/healthz")
             if status == 200:
                 break
         except Exception:
-            time.sleep(.15)
+            pass
+        time.sleep(.15)
     else:
-        raise RuntimeError("Messenger health endpoint did not start")
+        output.seek(0)
+        raise RuntimeError("Messenger health endpoint did not start: " + output.read()[-3000:])
 
     assert get("/")[0] == 200, "PWA shell is not served"
     assert "NexVerse Messenger" in get("/")[1], "PWA wrong static root"
@@ -57,3 +63,4 @@ finally:
     except subprocess.TimeoutExpired:
         process.kill()
         process.wait()
+    output.close()
