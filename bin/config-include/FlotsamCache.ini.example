@@ -32,6 +32,16 @@
     MemoryCacheMaxMiB = 0
     MemoryCacheMaxEntries = 8192
 
+    ; Optional G1.1 high-memory-pressure relief for the byte-budgeted LRU.
+    ; Effective only when MemoryCacheEnabled=true and MemoryCacheMaxMiB>0.
+    ; Every 30 seconds, check .NET GC memory load; if >=85% trim only
+    ; disposable RAM-cache entries down to 50% of the configured cache budget.
+    ; Does not force GC, modify authoritative asset storage, or cap whole-process RSS.
+    ; Remains OFF unless explicitly activated in the loaded [AssetCache] section.
+    MemoryPressureTrimEnabled = false
+    MemoryPressureTrimThresholdPercent = 85
+    MemoryPressureTrimTargetPercent = 50
+
     ; Optional dead weak-reference key reclamation for long-lived regions.
     ; Weak asset targets already allow GC, but UUID string keys in the
     ; reference dictionary otherwise persist until cache clear/deep scan.
