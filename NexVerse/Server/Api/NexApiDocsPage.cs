@@ -893,7 +893,7 @@ body.ogl-sidebar-collapsed .ogl-admin-header,body.ogl-sidebar-collapsed main{gri
 <p class="sectionlead" id="oglPerfHostInfo">Host-Kernlast noch nicht verfügbar. Dies ist keine Zuordnung der OpenSim-Threads zu einem Kern; auf Windows kann diese Linux-Messung fehlen.</p>
 <div class="ogl-perf-cpus" id="oglPerfHostCores"></div>
 <h3>Regionen · Frame-Laufzeit und tatsächliche Heartbeats</h3>
-<p class="sectionlead" id="oglPerfRegionInfo">Nur Regionen mit aktivierter OGLPerformance-Telemetrie, begrenzt auf 32 Messwerte je Heartbeat.</p>
+<p class="sectionlead" id="oglPerfRegionInfo">Nur Regionen mit aktivierter OGLPerformance-Telemetrie, begrenzt auf 64 Messwerte je Heartbeat.</p>
 <div class="tablewrap"><table class="datatable"><thead><tr><th>Region</th><th>Heartbeat</th><th>Ziel</th><th>Frames</th><th>Work P95</th><th>Frame P95</th><th>Frame P99</th><th>Work über Budget</th><th>Frame über Budget</th></tr></thead><tbody id="oglPerfRegionBody"></tbody></table></div>
 <h3>Assetcache · Flotsam</h3>
 <p class="sectionlead" id="oglPerfCacheInfo">Diagnose des optionalen RAM-Caches, Cache-Treffern und unabhängigen Disk-Schreibworkern. Messwerte werden aus dem bestehenden signierten Heartbeat geliefert.</p>
