@@ -756,6 +756,18 @@ jobs:
           dotnet run --configuration Release \
             --project tools/ci/NexPasswordRecoveryRegression/NexPasswordRecoveryRegression.csproj
 
+      - name: Verify Warp3D memory and map rendering lifecycle
+        shell: bash
+        run: python3 tools/ci/verify_ogl_warp3d_lifecycle.py
+
+      - name: Verify NodeAgent diagnostics refactor contract
+        shell: bash
+        run: python3 tools/ci/verify_ogl_node_performance_refactor.py
+
+      - name: Regression-test SL glTF material LSL face operations
+        shell: bash
+        run: dotnet run --configuration Release --project tools/ci/OglRenderMaterialLslRegression/OglRenderMaterialLslRegression.csproj
+
       - name: Regression-test PBR render-material face deletion
         shell: bash
         run: dotnet run --configuration Release --project tools/ci/OglPbrMaterialRegression/OglPbrMaterialRegression.csproj
