@@ -10,6 +10,7 @@ import argparse
 import json
 import os
 import sys
+import time
 from urllib.error import HTTPError, URLError
 from urllib.parse import quote
 from urllib.request import Request, urlopen
@@ -171,6 +172,9 @@ def run() -> int:
             api.delete(name)
             entfernt.append(name)
             print(f"Entfernt: {name} ({reason})")
+            # Remote-GitHub erlaubt nur begrenzt viele schreibende API-
+            # Operationen pro Minute. Keine Loesch-Sturmwelle erzeugen.
+            time.sleep(1.2)
         except (HTTPError, URLError) as error:
             fehler.append(name)
             print(f"FEHLER bei {name}: {error}", file=sys.stderr)
