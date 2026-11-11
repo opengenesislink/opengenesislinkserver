@@ -288,7 +288,7 @@ namespace NexVerse.Server.Api
                     GetOperation("Feed eines veroeffentlichten lokalen Avatars lesen; private Feeds nur mit Owner/Admin-Berechtigung"),
                     AuthenticatedOperations(("post", "Eigene Statusmeldung veroeffentlichen", "profile:write", "201"))),
                 ["/api/v1/feed/{principalId}/{postId}"] = AuthenticatedOperations(
-                    ("delete", "Eigene Statusmeldung entfernen", "profile:write", "200")),
+                    ("delete", "Eigene Statusmeldung entfernen; Admin mit admin:* und hohem UserLevel darf moderieren", "profile:write", "200")),
                 ["/api/v1/feed/{principalId}/{postId}/comments"] = MergeOperations(
                     GetOperation("Kommentare eines veroeffentlichten oder berechtigt lesbaren Feeds abrufen"),
                     AuthenticatedOperations(("post", "Kommentar verfassen", "relationships:write", "201"))),
