@@ -13,49 +13,210 @@ namespace NexVerse.Server.Api
         {
             return """
                 <nav class="ogl-controls" aria-label="Feed-Navigation">
-                  <button id="ogl-tab-profile" type="button" aria-pressed="true">Profil</button>
-                  <button id="ogl-tab-following" type="button" aria-pressed="false">Abonniert</button>
+                  <div class="ogl-navtabs" role="group" aria-label="Ansicht auswaehlen">
+                    <button id="ogl-tab-profile" type="button" aria-pressed="true">
+                      <span aria-hidden="true">▦</span> Profilfeed</button>
+                    <button id="ogl-tab-following" type="button" aria-pressed="false">
+                      <span aria-hidden="true">◈</span> Abonniert</button>
+                  </div>
                   <span class="ogl-spacer"></span>
-                  <button id="ogl-login" type="button">Mit Avatar anmelden</button>
-                  <button id="ogl-logout" type="button" hidden>Abmelden</button>
+                  <button id="ogl-login" class="ogl-login" type="button">
+                    <span aria-hidden="true">↗</span> Mit Avatar anmelden</button>
+                  <button id="ogl-logout" class="ogl-outline" type="button" hidden>Abmelden</button>
                 </nav>
-                <p id="ogl-auth-status" class="sub" role="status"></p>
-                <div id="ogl-compose" class="ogl-compose" hidden>
-                  <label for="ogl-post-text">Was gibt es Neues?</label>
-                  <textarea id="ogl-post-text" maxlength="1500" rows="3" placeholder="Teile einen Moment aus Stadt NexVerse..."></textarea>
-                  <div class="ogl-compose-bottom"><span id="ogl-counter" class="sub">0/1500</span>
-                  <button id="ogl-publish" type="button">Veroeffentlichen</button></div>
+                <p id="ogl-auth-status" class="ogl-auth-status" role="status"></p>
+                <section id="ogl-compose" class="ogl-compose" aria-label="Neuen Beitrag erstellen" hidden>
+                  <div class="ogl-compose-heading">
+                    <span class="ogl-portrait ogl-portrait-small" aria-hidden="true">NV</span>
+                    <div><strong>Teile deinen NexVerse-Moment</strong>
+                    <span class="sub">Was passiert heute in deiner Welt?</span></div>
+                  </div>
+                  <label for="ogl-post-text" class="ogl-visually-hidden">Neuen Beitrag verfassen</label>
+                  <textarea id="ogl-post-text" maxlength="1500" rows="3"
+                    placeholder="Was gibt es Neues in deinem NexVerse?"></textarea>
+                  <div class="ogl-compose-bottom">
+                    <span class="ogl-compose-hint">Deine Geschichte. Deine Welt.</span>
+                    <span id="ogl-counter" class="sub" aria-live="polite">0/1500</span>
+                    <button id="ogl-publish" class="ogl-primary" type="button">
+                      <span aria-hidden="true">↗</span> Veroeffentlichen</button>
+                  </div>
+                </section>
+                <div id="ogl-follow-controls" class="ogl-follow-controls" hidden>
+                  <span class="sub">Halte dich ueber diesen Einwohner auf dem Laufenden.</span>
+                  <button id="ogl-follow" class="ogl-primary" type="button">Folgen</button>
                 </div>
-                <div id="ogl-follow-controls" hidden>
-                  <button id="ogl-follow" type="button">Folgen</button>
+                <p id="ogl-feedback" class="ogl-feedback" role="status" aria-live="polite"></p>
+                <div class="ogl-stream-heading">
+                  <div><div class="ogl-eyebrow">DEIN NEXVERSE</div>
+                  <h2 id="ogl-stream-title">Aktuelles aus dem Profil</h2></div>
+                  <span class="ogl-live-dot" aria-hidden="true"></span>
                 </div>
-                <p id="ogl-feedback" role="status" class="sub"></p>
                 """;
         }
 
         internal static string Styles()
         {
             return """
-                .ogl-controls{display:flex;flex-wrap:wrap;align-items:center;gap:7px;padding:10px 0}
-                .ogl-spacer{flex:1}button{border:1px solid #42647d;background:#1b354d;
-                color:#e6f3ff;border-radius:8px;padding:7px 12px;cursor:pointer;font:inherit}
-                button:hover{background:#2d4f69}button:disabled{opacity:.5;cursor:default}
-                button[aria-pressed=true]{background:#245b79;border-color:#6ab4d3}
-                [hidden]{display:none!important}.ogl-compose{background:#10273b;
-                border:1px solid #304c64;border-radius:12px;padding:12px;margin:8px 0}
-                .ogl-compose label{display:block;margin-bottom:8px;font-weight:650}
-                textarea{display:block;width:100%;resize:vertical;min-height:66px;
-                background:#0a1c2d;color:#eff7ff;border:1px solid #496880;
-                border-radius:8px;padding:10px;font:inherit}
-                textarea:focus,button:focus-visible{outline:2px solid #80cdec;outline-offset:2px}
-                .ogl-compose-bottom{display:flex;justify-content:space-between;
-                align-items:center;margin-top:8px}.ogl-actions{display:flex;gap:6px;
-                flex-wrap:wrap;margin:11px 0 0}.ogl-comment-list{margin-top:9px}
-                .ogl-comment-compose{display:flex;gap:7px;margin-top:8px}
-                .ogl-comment-compose textarea{min-height:46px}
-                .ogl-muted{color:#98b7cd}.ogl-user-link{color:#90d8f4}
-                .ogl-error{color:#ffbdac}.ogl-empty{padding:24px 6px;text-align:center;
-                color:#acc6d8}.ogl-loading{opacity:.7}#ogl-follow-controls{margin:10px 0}
+                :root{color-scheme:dark;--nv-bg:#070e1e;--nv-panel:#121d34;
+                  --nv-border:rgba(161,192,245,.17);--nv-txt:#f0f6ff;--nv-muted:#95a9c8;
+                  --nv-cyan:#70e2ef;--nv-blue:#598af9;--nv-purple:#a27af4;
+                  --nv-glow:rgba(86,146,240,.22);--nv-radius:18px}
+                *{box-sizing:border-box}html{scroll-behavior:smooth}
+                body{min-height:100vh;margin:0;padding:0;background:var(--nv-bg);
+                  color:var(--nv-txt);font:14px/1.65 system-ui,-apple-system,"Segoe UI",sans-serif}
+                body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;
+                  background:radial-gradient(ellipse 65% 36% at 90% 0%,rgba(103,81,211,.22),transparent),
+                  radial-gradient(ellipse 55% 36% at 0% 15%,rgba(44,131,206,.20),transparent)}
+                [hidden]{display:none!important}button,textarea{font:inherit}
+                button{display:inline-flex;align-items:center;justify-content:center;gap:7px;
+                  min-height:38px;padding:7px 13px;color:#dfeeff;cursor:pointer;
+                  border:1px solid rgba(142,169,213,.27);border-radius:11px;
+                  background:rgba(92,119,160,.14);transition:background .15s,border-color .15s,transform .15s}
+                button:hover{border-color:rgba(113,223,243,.67);background:rgba(80,120,175,.25)}
+                button:active{transform:translateY(1px)}
+                button:disabled{cursor:not-allowed;opacity:.45}
+                button:focus-visible,textarea:focus-visible,a:focus-visible{
+                  outline:2px solid var(--nv-cyan);outline-offset:3px}
+                button.ogl-primary{background:linear-gradient(115deg,#497af0,#7555dd);
+                  color:white;border-color:rgba(179,187,255,.47);font-weight:650;
+                  box-shadow:0 6px 18px rgba(58,90,189,.20)}
+                button.ogl-primary:hover{background:linear-gradient(115deg,#5893ff,#8b68f3)}
+                button.ogl-outline{background:transparent}
+                a{color:#88ddec;text-decoration:none}a:hover{text-decoration:underline}
+                .ogl-shell{max-width:870px;margin:0 auto;padding:0 18px 30px}
+                .ogl-brandbar{display:flex;align-items:center;gap:12px;padding:19px 1px 15px}
+                .ogl-emblem{display:inline-flex;align-items:center;justify-content:center;
+                  flex:0 0 43px;width:43px;height:43px;border-radius:14px;
+                  border:1px solid rgba(167,222,255,.48);background:linear-gradient(140deg,#123d6f,#6657d6);
+                  font-weight:850;font-size:15px;letter-spacing:-1.5px;color:white;
+                  box-shadow:0 0 26px rgba(88,133,241,.24)}
+                .ogl-brandname{font-size:18px;font-weight:830;letter-spacing:.1px;line-height:1.1;
+                  background:linear-gradient(100deg,#f2fcff,#8fe8ff 65%,#b3a4ff);
+                  -webkit-background-clip:text;background-clip:text;color:transparent}
+                .ogl-brandtag{display:block;color:var(--nv-muted);font-size:10px;
+                  letter-spacing:1.5px;text-transform:uppercase;font-weight:650}
+                .ogl-brandbar .ogl-spacer{flex:1}
+                .ogl-network-chip{font-size:11px;color:#9ddce1;border:1px solid rgba(84,199,197,.28);
+                  background:rgba(22,117,136,.16);padding:5px 10px;border-radius:999px;
+                  white-space:nowrap}
+                .ogl-hero{position:relative;overflow:hidden;border-radius:22px;
+                  border:1px solid rgba(148,181,249,.27);
+                  background:linear-gradient(119deg,#172e54 0%,#15213f 45%,#32235e 100%);
+                  box-shadow:0 18px 45px rgba(3,8,22,.25);margin:0 0 15px}
+                .ogl-hero::before{content:"";pointer-events:none;position:absolute;inset:0;
+                  background:radial-gradient(circle at 87% 28%,rgba(167,117,254,.27),transparent 32%),
+                  linear-gradient(135deg,transparent 60%,rgba(101,207,254,.12) 61%,
+                  transparent 62%);opacity:.9}
+                .ogl-cover{height:76px;border-bottom:1px solid rgba(168,191,245,.13);
+                  background:linear-gradient(115deg,rgba(26,167,208,.14),transparent 45%),
+                  radial-gradient(circle at 78% 60%,rgba(125,106,228,.25),transparent 35%)}
+                .ogl-profile{position:relative;display:flex;align-items:center;gap:16px;
+                  padding:0 20px 22px;margin-top:-23px}
+                .ogl-portrait{display:inline-flex;align-items:center;justify-content:center;
+                  flex:none;width:66px;height:66px;border:3px solid #17274a;border-radius:20px;
+                  color:white;font-weight:800;font-size:21px;letter-spacing:-1px;
+                  background:linear-gradient(145deg,#087b9d,#516dda 55%,#986fe7);
+                  box-shadow:0 9px 22px rgba(10,13,37,.38)}
+                .ogl-portrait-small{width:42px;height:42px;font-size:13px;
+                  border-radius:13px;border-width:2px}
+                .ogl-profile-copy{padding-top:24px;min-width:0}
+                .ogl-kicker{color:#89eaf2;font-size:10px;letter-spacing:1.6px;
+                  font-weight:800;text-transform:uppercase}
+                .ogl-profile h1{font-size:clamp(19px,4vw,26px);line-height:1.25;
+                  margin:3px 0 2px;overflow-wrap:anywhere;letter-spacing:-.5px}
+                .ogl-subtitle{color:#adc4e1;font-size:12px}
+                .ogl-controls{display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+                  margin:14px 0 6px;padding:10px;background:rgba(20,33,59,.75);
+                  border:1px solid var(--nv-border);border-radius:15px}
+                .ogl-navtabs{display:flex;align-items:center;gap:5px;flex-wrap:wrap}
+                .ogl-controls button{border-color:transparent;background:transparent}
+                .ogl-controls button[aria-pressed=true]{background:rgba(73,127,205,.28);
+                  border-color:rgba(124,187,246,.38);color:#effdff}
+                .ogl-controls .ogl-login{background:linear-gradient(110deg,#387bb3,#5b55bb);
+                  font-weight:650}
+                .ogl-spacer{flex:1}
+                .ogl-auth-status{margin:5px 4px 14px;font-size:11px;color:var(--nv-muted)}
+                .ogl-compose{margin:12px 0 17px;padding:18px;border-radius:var(--nv-radius);
+                  border:1px solid rgba(105,173,238,.29);
+                  background:linear-gradient(145deg,rgba(26,48,78,.96),rgba(20,28,56,.97));
+                  box-shadow:0 12px 32px rgba(5,9,25,.20)}
+                .ogl-compose-heading{display:flex;align-items:center;gap:12px;margin-bottom:13px}
+                .ogl-compose-heading strong{display:block;font-size:14px}
+                .ogl-compose-heading .sub{display:block;font-size:11px}
+                textarea{resize:vertical;display:block;width:100%;min-height:90px;
+                  border:1px solid rgba(137,171,219,.3);border-radius:12px;
+                  color:var(--nv-txt);background:rgba(6,15,32,.65);padding:12px 14px;
+                  font-size:13px;line-height:1.6}
+                textarea::placeholder{color:#7f98b8}
+                .ogl-compose-bottom{display:flex;align-items:center;justify-content:flex-end;
+                  gap:12px;margin-top:12px;flex-wrap:wrap}
+                .ogl-compose-hint{margin-right:auto;color:#829dbb;font-size:11px}
+                .ogl-follow-controls{display:flex;align-items:center;gap:14px;
+                  justify-content:space-between;margin:12px 0;padding:10px 13px;
+                  background:rgba(31,49,76,.55);border:1px solid var(--nv-border);border-radius:12px}
+                .ogl-feedback{margin:4px 2px;color:var(--nv-cyan);font-size:12px}
+                .ogl-error{color:#ffb6ae!important}
+                .ogl-stream-heading{display:flex;align-items:center;justify-content:space-between;
+                  margin:18px 2px 10px;padding:0 3px}
+                .ogl-stream-heading h2{font-size:16px;margin:0;font-weight:750;letter-spacing:-.2px}
+                .ogl-eyebrow{font-size:10px;letter-spacing:1.5px;color:#87b9e1;font-weight:750}
+                .ogl-live-dot{width:8px;height:8px;border-radius:50%;background:#76dfcf;
+                  box-shadow:0 0 0 5px rgba(75,208,191,.1)}
+                .post{position:relative;overflow:hidden;margin:11px 0;padding:18px 19px 15px;
+                  background:linear-gradient(135deg,rgba(24,40,69,.96),rgba(18,28,52,.96));
+                  border:1px solid var(--nv-border);border-radius:var(--nv-radius);
+                  box-shadow:0 6px 19px rgba(0,0,0,.12)}
+                .post:hover{border-color:rgba(125,178,241,.38)}
+                .ogl-post-header{display:flex;gap:11px;align-items:center;margin-bottom:12px}
+                .ogl-post-avatar{width:38px;height:38px;flex:none;display:flex;align-items:center;
+                  justify-content:center;border-radius:12px;color:#ddf9ff;font-size:13px;
+                  font-weight:850;background:linear-gradient(135deg,#206a8b,#6654b9)}
+                .ogl-post-who{min-width:0;flex:1}
+                .ogl-post-name{font-weight:750;font-size:13px;color:#f3f7ff;
+                  overflow-wrap:anywhere}
+                .ogl-post-name a{color:inherit}
+                .meta{color:#94adce;font-size:11px}
+                .content{white-space:pre-wrap;overflow-wrap:anywhere;font-size:14px;
+                  line-height:1.75;color:#e5f1ff;margin:0 0 17px}
+                .ogl-reactions{border-top:1px solid rgba(155,185,236,.13);
+                  padding-top:11px;color:#9cb5d3;font-size:11px}
+                .ogl-actions{display:flex;gap:7px;flex-wrap:wrap;margin-top:9px}
+                .ogl-actions button{min-height:32px;font-size:11px;padding:5px 9px}
+                .ogl-actions .ogl-liked{color:#f9a2d8;border-color:rgba(245,137,206,.36);
+                  background:rgba(185,56,129,.13)}
+                .ogl-comment-list{margin-top:11px}
+                .comment{margin:7px 0 0;padding:10px 12px;background:rgba(9,22,43,.65);
+                  border-left:3px solid #5586da;border-radius:4px 11px 11px 4px;
+                  color:#dceafe;white-space:pre-wrap;overflow-wrap:anywhere}
+                .comment strong{color:#90d8f4}
+                .ogl-comment-compose{display:flex;gap:7px;margin-top:9px;align-items:flex-end}
+                .ogl-comment-compose textarea{min-height:45px;flex:1}
+                .sub,.ogl-muted{color:var(--nv-muted);font-size:12px}
+                .ogl-user-link{color:#9de6f5}
+                .ogl-empty{padding:38px 18px;text-align:center;border:1px dashed
+                  rgba(124,171,227,.28);border-radius:17px;margin:10px 0;
+                  color:#b5cce4;background:rgba(23,43,70,.35)}
+                .ogl-loading{opacity:.65}
+                footer.ogl-footer{display:flex;align-items:center;justify-content:space-between;
+                  gap:10px;flex-wrap:wrap;padding:22px 4px 10px;color:#859bb9;
+                  font-size:11px;border-top:1px solid rgba(146,177,227,.11);margin-top:24px}
+                .ogl-powered{color:#91a5bd;letter-spacing:.2px}
+                .ogl-powered strong{color:#cad6ea;font-weight:650}
+                .ogl-visually-hidden{position:absolute;width:1px;height:1px;padding:0;
+                  margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+                @media(max-width:560px){
+                  .ogl-shell{padding:0 12px 24px}.ogl-profile{padding:0 14px 17px;gap:11px}
+                  .ogl-portrait{width:58px;height:58px;border-radius:17px}
+                  .ogl-brandbar{padding-top:13px}.ogl-network-chip{font-size:10px}
+                  .ogl-controls{padding:7px}.ogl-controls button{font-size:12px;padding:6px 9px}
+                  .ogl-navtabs{flex:1}.ogl-compose,.post{padding:14px;border-radius:14px}
+                  .ogl-compose-hint{display:none}.ogl-profile-copy{padding-top:18px}
+                  .ogl-comment-compose{flex-direction:column;align-items:stretch}
+                  .ogl-comment-compose button{align-self:flex-end}
+                }
+                @media(prefers-reduced-motion:reduce){
+                  *,*::before,*::after{transition:none!important;scroll-behavior:auto!important}
+                }
                 """;
         }
 
