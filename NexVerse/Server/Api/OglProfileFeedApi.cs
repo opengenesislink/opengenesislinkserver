@@ -152,7 +152,11 @@ namespace NexVerse.Server.Api
                 }
                 if(Is(request,"PUT") || Is(request,"DELETE"))
                 {
-                    m_Store.Follow(ownerId,actorId,Is(request,"PUT"));
+                    if(!m_Store.Follow(ownerId,actorId,Is(request,"PUT")))
+                    {
+                        Json(response,HttpStatusCode.NotFound,new {error="resident_not_found"});
+                        return;
+                    }
                     Json(response,HttpStatusCode.OK,new {following=Is(request,"PUT")});
                     return;
                 }
@@ -200,7 +204,11 @@ namespace NexVerse.Server.Api
                 if(p.Length==6 && p[5].Equals("likes",StringComparison.OrdinalIgnoreCase) &&
                    (Is(request,"PUT") || Is(request,"DELETE")))
                 {
-                    m_Store.Like(postId,actorId,Is(request,"PUT"));
+                    if(!m_Store.Like(postId,actorId,Is(request,"PUT")))
+                    {
+                        Json(response,HttpStatusCode.NotFound,new {error="resident_not_found"});
+                        return;
+                    }
                     Json(response,HttpStatusCode.OK,new {liked=Is(request,"PUT")});
                     return;
                 }
