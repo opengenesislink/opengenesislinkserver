@@ -760,6 +760,10 @@ jobs:
         shell: bash
         run: dotnet run --configuration Release --project tools/ci/OglPbrMaterialRegression/OglPbrMaterialRegression.csproj
 
+      - name: Regression-test SL glTF material LSL face operations
+        shell: bash
+        run: dotnet run --configuration Release --project tools/ci/OglRenderMaterialLslRegression/OglRenderMaterialLslRegression.csproj
+
       - name: Runtime regression cross-region llListen delivery (two scenes)
         shell: bash
         run: dotnet run --configuration Release --project tools/ci/CrossRegionListenRuntimeRegression/CrossRegionListenRuntimeRegression.csproj
