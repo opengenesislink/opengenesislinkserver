@@ -1367,7 +1367,8 @@ namespace NexVerse.Server.Api
                             "StorageProvider", databaseStorageProvider) ?? databaseStorageProvider;
                         string accountFeedConnection = accountFeedConfig?.GetString(
                             "ConnectionString", databaseConnectionString) ?? databaseConnectionString;
-                        if (string.IsNullOrWhiteSpace(profileConnectionString) ||
+                        if (userAccounts is not IOglLocalAvatarDeletion ||
+                            string.IsNullOrWhiteSpace(profileConnectionString) ||
                             (profileStorageProvider.IndexOf("MySQL", StringComparison.OrdinalIgnoreCase) < 0 &&
                              profileStorageProvider.IndexOf("MariaDB", StringComparison.OrdinalIgnoreCase) < 0) ||
                             !string.Equals(profileStorageProvider, accountFeedProvider,
