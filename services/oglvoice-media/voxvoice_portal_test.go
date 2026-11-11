@@ -58,9 +58,11 @@ func TestVoxCredentialHmacAndRegionRegistration(t *testing.T) {
     if _,err:=newVoxAccountFileTest(p.path);err!=nil{t.Fatal(err)}
     replay := httptest.NewRecorder()
     // Retrying the identical signed request must be denied.
-    p.registerRegionAPI(replay,httptest.NewRequest(http.MethodPost,"/internal/voxvoice/v1/regions",bytes.NewReader(body)))
-    if replay.Code == http.StatusNoContent {
-        t.Fatal("unsigned duplicate request accepted")
+    again:=httptest.NewRequest(http.MethodPost,"/internal/voxvoice/v1/regions",bytes.NewReader(body))
+    again.Header=req.Header.Clone()
+    p.registerRegionAPI(replay,again)
+    if replay.Code != http.StatusUnauthorized {
+        t.Fatalf("replayed request should be unauthorized, got %d",replay.Code)
     }
 }
 
