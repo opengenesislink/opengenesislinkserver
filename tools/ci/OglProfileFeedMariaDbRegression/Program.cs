@@ -2,6 +2,7 @@
 // Integration test: real MariaDB, real OglProfileFeedStore, concurrent writes
 // and the SQL contract of account deletion; isolated synthetic local avatars.
 using System;
+using System.Linq;
 using System.Threading.Tasks;
 using MySql.Data.MySqlClient;
 using NexVerse.Server.Api;
