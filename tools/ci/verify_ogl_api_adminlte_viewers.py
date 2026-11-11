@@ -5,6 +5,11 @@ import re, shutil, subprocess, tempfile
 root=Path(__file__).resolve().parents[2]
 pre=(root/"prebuild.xml").read_text()
 ui=(root/"NexVerse/Server/Api/NexApiDocsPage.cs").read_text()
+styles=(root/"NexVerse/Server/Api/NexApiDocsStyles.cs").read_text()
+assert '.Replace("OGL_CONTROL_CENTER_STYLES", NexApiDocsStyles.Content)' in ui
+# CI evaluates the CSS embedded in the C# raw string, not an HTTP fetch;
+# this reconstructs the served page without changing every selector assertion.
+ui=ui.replace("OGL_CONTROL_CENTER_STYLES", styles)
 login=(root/"NexVerse/Server/Api/OglApiDocsAccess.cs").read_text()
 base=(root/"OpenSim/Framework/Servers/HttpServer/BaseHttpServer.cs").read_text()
 welcome=(root/"OpenSim/Framework/Servers/HttpServer/OglServerWelcomePage.cs").read_text()
