@@ -444,6 +444,10 @@ jobs:
         shell: bash
         run: python3 tools/ci/verify_g1_classified_fee_preflight.py
 
+      - name: Verify NV$ group and upload fee preflight
+        shell: bash
+        run: python3 tools/ci/verify_g1_fee_charges_groups_uploads.py
+
       - name: Verify citizen world map integration
         shell: bash
         run: python3 tools/ci/verify_citizen_world_map.py
