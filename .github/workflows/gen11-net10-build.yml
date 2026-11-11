@@ -45,6 +45,9 @@ jobs:
       - name: Regression-test G1 performance sampling and bounded multicore job queue
         run: dotnet run --configuration Release --project tools/ci/OglPerformanceEngineRegression/OglPerformanceEngineRegression.csproj
 
+      - name: Regression-test SL glTF render material face semantics
+        run: dotnet run --configuration Release --project tools/ci/OglRenderMaterialLslRegression/OglRenderMaterialLslRegression.csproj
+
       - name: Verify isolated .NET 10 ROBUST runtime on Linux x64
         run: |
           python3 tools/gen11/robust_runtime_smoke.py
