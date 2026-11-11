@@ -68,7 +68,7 @@ assert api.count("m_Store.PruneExpired();") == 2
 for path in ("bin/Robust.HG.ini", "bin/Robust.HG.ini.example",
              "bin/Robust.ini.example"):
     cfg = read(path)
-    assert "EnableProfileFeed = false" in cfg, path
+    assert "EnableProfileFeed = true" in cfg, path
     assert "ProfileFeedRetentionDays = 180" in cfg, path
 assert "Rollback" in docs and "Migration" in docs
 print("OGL Profile Feed G1 deletion and retention rollout contracts: PASS")
