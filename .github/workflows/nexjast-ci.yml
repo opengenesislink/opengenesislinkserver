@@ -468,7 +468,9 @@ jobs:
 
       - name: Verify interactive OGL Profile Feed OAuth PKCE and CEF app
         shell: bash
-        run: python3 tools/ci/verify_ogl_profile_feed_interactive.py
+        run: |
+          python3 tools/ci/verify_ogl_profile_feed_interactive.py
+          python3 tools/ci/verify_ogl_profile_feed_branding.py
 
       - name: Verify World API OGLWeather portal contracts
         shell: bash
