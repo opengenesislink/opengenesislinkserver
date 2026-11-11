@@ -46,7 +46,13 @@ for needle in ("code_challenge_method: 'S256'", "crypto.getRandomValues",
 for forbidden in ("localStorage", "document.cookie", "innerHTML", "client_secret"):
     assert forbidden not in web, forbidden
 assert "profile:read profile:write relationships:read relationships:write" in web
-assert "/api/v1/auth/clients" in docs and '"client_type": "public"' in docs
+oauth_store = read("NexVerse/Core/Security/NexOAuthStore.cs")
+assert "EnsureProfileFeedPublicClient(" in oauth_store
+assert "ClientType = NexOAuthClientTypes.Public" in oauth_store
+assert "existing.Enabled" in oauth_store
+assert "ProfileFeedOAuthClientId" in docs
+assert "EnableNativeTokens = true" in docs
+assert "EnsureProfileFeedPublicClient(" in connector
 for path in ("bin/Robust.HG.ini", "bin/Robust.HG.ini.example", "bin/Robust.ini.example"):
     config = read(path)
     assert "ProfileFeedOAuthClientId = \"\"" in config, path
