@@ -29,7 +29,7 @@ for key in ('["/api/v1/feed/{principalId}"]',
     assert key in contract,key
 for name in ("Robust.HG.ini.example","Robust.ini.example"):
     cfg=(root/"bin"/name).read_text()
-    assert "EnableProfileFeed = false" in cfg
+    assert "EnableProfileFeed = true" in cfg
     assert "; web_profile_url = https://world.stadt-nexverse.de/feed?name=[AGENT_NAME]" in cfg
 assert "Keine automatische" in docs and "Datenschutz" in docs
 print("OGL Profile Feed: opt-in, privacy, owner write, scoped interactions, viewer web route OK")

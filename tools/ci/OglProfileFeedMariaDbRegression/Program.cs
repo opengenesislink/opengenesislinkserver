@@ -2,6 +2,7 @@
 // Integration test: real MariaDB, real OglProfileFeedStore, concurrent writes
 // and the SQL contract of account deletion; isolated synthetic local avatars.
 using System;
+using System.Linq;
 using System.Threading.Tasks;
 using MySql.Data.MySqlClient;
 using NexVerse.Server.Api;
@@ -44,6 +45,14 @@ try
         "explicitly authorized moderation failed");
     Check(store.Like(post, bob, true), "like failed");
     Check(store.Follow(alice, bob, true), "follow failed");
+    Check(store.IsFollowing(alice, bob), "follow state not visible");
+    Check(store.ListFollowingPosts(bob).Any(x =>
+        x.Owner == alice && x.Entry.Id == post.ToString()),
+        "follower timeline did not include public owner's post");
+    Check(store.ListLikedPostIds(alice, bob).Contains(post.ToString()),
+        "profile reaction state missing");
+    Check(store.ListLikedFollowingPostIds(bob).Contains(post.ToString()),
+        "timeline reaction state missing");
     Check(store.ListPosts(alice).Count == 1, "own post not visible");
     Check(store.ListPosts(alice)[0].Likes == 1 &&
           store.ListPosts(alice)[0].Comments == 1 &&
@@ -95,6 +104,30 @@ try
     // Current posts remain valid. Deleting their owner cascades correctly.
     Check(store.CreatePost(alice, "Second post", out UUID second),
         "second post failed");
+
+    // Auto activity is OFF until the local avatar explicitly opts in.
+    Check(!store.GetActivitySettings(alice).Events &&
+          !store.GetActivitySettings(alice).Classifieds,
+          "automatic public posts must default to disabled");
+    Guid eventId = Guid.NewGuid();
+    Guid classifiedId = Guid.NewGuid();
+    Check(!store.TryCreateActivityPost(alice, "event", eventId, "Event without consent"),
+        "an event was posted without avatar consent");
+    Check(store.SetActivitySettings(alice, true, false),
+        "unable to save per-avatar event consent");
+    Check(store.GetActivitySettings(alice).Events &&
+          !store.GetActivitySettings(alice).Classifieds,
+          "per-avatar auto activity preferences not persisted");
+    Check(store.TryCreateActivityPost(alice, "event", eventId, "Event after consent"),
+        "consented event was not posted");
+    Check(!store.TryCreateActivityPost(alice, "event", eventId, "Repeated delivery"),
+        "same approved event was posted twice");
+    Check(!store.TryCreateActivityPost(alice, "classified", classifiedId,
+        "Classified without consent"), "classified was posted without opt-in");
+    Check(store.SetActivitySettings(alice, true, true),
+        "unable to enable classified activity");
+    Check(store.TryCreateActivityPost(alice, "classified", classifiedId,
+        "New approved classified"), "consented classified was not posted");
     using (var delete = new MySqlConnection(connection))
     {
         delete.Open();
@@ -107,6 +140,14 @@ try
     }
     Check(!store.IsPostOwned(alice, second),
         "deleted account's content survived");
+    Check(Scalar(bootstrap, null,
+        "SELECT COUNT(*) FROM ogl_profile_feed_activity_settings WHERE owner=@id",
+        ("@id", alice.ToString())).ToString() == "0",
+        "deleted resident's auto consent survived");
+    Check(Scalar(bootstrap, null,
+        "SELECT COUNT(*) FROM ogl_profile_feed_activity_receipts WHERE owner=@id",
+        ("@id", alice.ToString())).ToString() == "0",
+        "deleted resident's activity receipts survived");
     Check(!store.CreatePost(alice, "ghost", out _),
         "deleted owner could post");
     Console.WriteLine("OGL Profile Feed MariaDB deletion, lock and retention: PASS");
@@ -119,6 +160,10 @@ finally
     Exec(bootstrap, null, "DELETE FROM ogl_profile_feed_likes WHERE actor IN (@a,@b)",
         ("@a", alice.ToString()), ("@b", bob.ToString()));
     Exec(bootstrap, null, "DELETE FROM ogl_profile_feed_follows WHERE owner IN (@a,@b) OR follower IN (@a,@b)",
+        ("@a", alice.ToString()), ("@b", bob.ToString()));
+    Exec(bootstrap, null, "DELETE FROM ogl_profile_feed_activity_receipts WHERE owner IN (@a,@b)",
+        ("@a", alice.ToString()), ("@b", bob.ToString()));
+    Exec(bootstrap, null, "DELETE FROM ogl_profile_feed_activity_settings WHERE owner IN (@a,@b)",
         ("@a", alice.ToString()), ("@b", bob.ToString()));
     Exec(bootstrap, null, "DELETE FROM ogl_profile_feed_posts WHERE owner IN (@a,@b)",
         ("@a", alice.ToString()), ("@b", bob.ToString()));
@@ -136,6 +181,8 @@ static void PurgeAvatar(MySqlConnection db, MySqlTransaction tx, UUID id)
     Exec(db, tx, "DELETE FROM ogl_profile_feed_comments WHERE author=@id", ("@id", p));
     Exec(db, tx, "DELETE FROM ogl_profile_feed_likes WHERE actor=@id", ("@id", p));
     Exec(db, tx, "DELETE FROM ogl_profile_feed_follows WHERE owner=@id OR follower=@id", ("@id", p));
+    Exec(db, tx, "DELETE FROM ogl_profile_feed_activity_receipts WHERE owner=@id", ("@id", p));
+    Exec(db, tx, "DELETE FROM ogl_profile_feed_activity_settings WHERE owner=@id", ("@id", p));
     Exec(db, tx, "DELETE FROM ogl_profile_feed_posts WHERE owner=@id OR author=@id", ("@id", p));
     Exec(db, tx, "DELETE FROM `UserAccounts` WHERE `PrincipalID`=@id", ("@id", p));
 }

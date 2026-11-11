@@ -40,9 +40,12 @@ for needle in (
 assert purge.index("ogl_profile_feed_comments") < purge.rfind("DELETE FROM `ogl_profile_feed_posts`")
 assert "same MySQL datastore" in account
 assert "same MariaDB provider/connection" in connector or "SAME MariaDB provider/connection" in connector
-assert 'GetBoolean("EnableProfileFeed", false)' in connector
+assert 'GetBoolean("EnableProfileFeed", true)' in connector
 assert "userAccounts is not IOglLocalAvatarDeletion" in connector
 
+assert "ogl_profile_feed_activity_receipts" in account
+assert "ogl_profile_feed_activity_settings" in account
+assert "Partial OGL Profile Feed activity schema" in account
 assert "bool moderator = false" in store
 assert "OR @moderator=1" in store
 assert "actorAccount.UserLevel >= 200" in api
@@ -63,12 +66,12 @@ for needle in ("ProfileFeedRetentionDays", "profileConnectionString"):
 for needle in ("PruneExpired()", "Cutoff", "created_at>=@cutoff",
                "m_RetentionTimer = new Timer("):
     assert needle in store
-assert api.count("m_Store.PruneExpired();") == 2
+assert api.count("m_Store.PruneExpired();") >= 2  # HTML, profile and following reads
 
 for path in ("bin/Robust.HG.ini", "bin/Robust.HG.ini.example",
              "bin/Robust.ini.example"):
     cfg = read(path)
-    assert "EnableProfileFeed = false" in cfg, path
+    assert "EnableProfileFeed = true" in cfg, path
     assert "ProfileFeedRetentionDays = 180" in cfg, path
 assert "Rollback" in docs and "Migration" in docs
 print("OGL Profile Feed G1 deletion and retention rollout contracts: PASS")

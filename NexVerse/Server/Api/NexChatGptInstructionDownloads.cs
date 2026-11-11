@@ -648,7 +648,10 @@ namespace NexVerse.Server.Api
             AppendCatalogGroup(md, requestedAudience, "shared", "Places",
                 "/api/v1/places",
                 "/api/v1/places/{placeId}");
-            AppendCatalogGroup(md, requestedAudience, "shared", "OpenGenesisLINK Profilfeed (Opt-in): Statusmeldungen, Kommentare, Likes, Follows",
+            AppendCatalogGroup(md, requestedAudience, "shared", "Stadt NexVerse Profilfeed: Avatar-Posts, oeffentliche Aktivitäten, Kommentare, Follows",
+                "/api/v1/feed/me",
+                "/api/v1/feed/me/activities",
+                "/api/v1/feed/timeline",
                 "/api/v1/feed/{principalId}",
                 "/api/v1/feed/{principalId}/{postId}",
                 "/api/v1/feed/{principalId}/{postId}/comments",

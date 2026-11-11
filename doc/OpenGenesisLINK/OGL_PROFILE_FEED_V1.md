@@ -1,6 +1,7 @@
 # OpenGenesisLINK Profile Feed v1 — Stadt NexVerse
 
-Status: **opt-in mit Rollout-Gates**, kein automatisches Live-Deployment.
+Status: **standardmaessig aktiviert**, aber bei inkompatibler MariaDB
+fail-closed; kein automatisches Produktiv-Deployment oder Neustart.
 Account-Loeschung und Retention sind im aktuellen Generation-1-Stand
 implementiert. Staging-/Viewer-Abnahme vor produktiver Freigabe erforderlich:
 [OGL_PROFILE_FEED_ROLLOUT.md](OGL_PROFILE_FEED_ROLLOUT.md).
@@ -47,12 +48,14 @@ Posts/Kommentare werden HTML-escaped gerendert (keine aktiven HTML-Inhalte).
 Aus dem vorhandenen Inventar werden keine Medien oder privaten Texturen
 übernommen. Externe Bild-URLs sind in Phase 1 nicht unterstützt.
 
-**Die Webansicht im unveränderten Firestorm ist vorerst lesend.**
-Der Viewer stellt dem Feed-Webbrowser kein sicheres OAuth-Token zur Verfügung.
-Texte, Kommentare, Likes und Followeraktionen werden deshalb über die
-authentifizierte World API bedient; die Portalseite muss dafür noch ihre
-Bedienoberfläche implementieren. Keine automatische Übernahme der Second-Life-
-Feed-Daten; Stadt NexVerse betreibt einen eigenständigen Datenspeicher.
+**Der v1-Modus bleibt ohne OAuth-Client lesend.**
+Der unveraenderte Viewer uebergibt dem Feed-Webbrowser kein sicheres
+OAuth-Token. Ab v2 kann sich der Avatar im Webprofil aber **separat**
+ueber den bestehenden OAuth-Browserflow mit PKCE anmelden und Statusposts,
+Kommentare, Likes und Follows direkt bedienen, ohne den Viewer zu patchen.
+Siehe [interaktiver Feed v2](OGL_PROFILE_FEED_INTERACTIVE_V2.md).
+Keine automatische Uebernahme der Second-Life-Feed-Daten; Stadt NexVerse
+betreibt einen eigenstaendigen Datenspeicher.
 
 ## Konfiguration
 

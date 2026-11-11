@@ -777,11 +777,15 @@
     ; may register avatars. Enable after publishing Benjamin/Luna models.
     PortalAvatarRegistrationEnabled = false
     ; Optional local profile feed. Creates 4 MariaDB tables when enabled.
-    ; Keep off until account deletion/retention and Viewer tests are signed off.
-    EnableProfileFeed = false
+    ; Enabled by default; schema/account deletion checks fail closed if unsafe.
+    EnableProfileFeed = true
     ; Feedbeitraege und Kommentare nach 180 Tagen automatisch ausblenden
     ; und loeschen; zulaessig 7..3650 Tage. Follows bis zur Entfolgung.
     ProfileFeedRetentionDays = 180
+    ; Optional custom public OAuth client ID, never a secret. Empty means
+    ; auto-provision the first-party public client at ROBUST start.
+    ; A manually disabled client stays disabled; never silently reactivate.
+    ProfileFeedOAuthClientId = ""
     ; P0 #301: keep disabled until the portal has migrated to World-owned
     ; one-time challenges. Backend must hold separate recovery-only API key.
     ; Challenges are stored in a new InnoDB table (ogl_password_recovery)

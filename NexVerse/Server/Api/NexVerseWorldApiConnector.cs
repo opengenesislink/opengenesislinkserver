@@ -34,6 +34,8 @@ namespace NexVerse.Server.Api
         private static NexOtlpHttpExporter s_OtlpExporter;
         private static readonly object s_OfflineImMailRelaySync = new object();
         private static NexOfflineImMailRelay s_OfflineImMailRelay;
+        private static readonly object s_FeedActivitySync = new object();
+        private static OglProfileFeedAutoPublisher s_FeedActivityPublisher;
 
         // The HTTP route must exist even if later privileged connector startup
         // fails (e.g. an unavailable optional service). The public-only
@@ -1060,7 +1062,8 @@ namespace NexVerse.Server.Api
                                 ? NexEconomyConnector.Current.Economy
                                 : null,
                         auditSink,
-                        teleportBaseUri);
+                        teleportBaseUri,
+                        eventBus);
 
                 NexCitizenWorldMapApi citizenWorldMap = new NexCitizenWorldMapApi(grid, teleportBaseUri);
                 server.AddSimpleStreamHandler(
@@ -1355,9 +1358,10 @@ namespace NexVerse.Server.Api
                             "NexVerse WebProfileV3"),
                         true);
 
-                    // Optional social profile feed. Off by default until its
-                    // independent schema, account-deletion and viewer gates pass.
-                    if (apiConfig.GetBoolean("EnableProfileFeed", false))
+                    // Feed enabled by default; unsafe database layouts are
+                    // rejected by the guarded setup below. Operators can
+                    // still opt out explicitly in the effective ROBUST INI.
+                    if (apiConfig.GetBoolean("EnableProfileFeed", true))
                     {
                         // Feed and self-deletion must use one atomic database.
                         // This intentionally rejects cross-database profile
@@ -1385,8 +1389,53 @@ namespace NexVerse.Server.Api
                                 OglProfileFeedStore feedStore = new OglProfileFeedStore(
                                     profileConnectionString,
                                     apiConfig.GetInt("ProfileFeedRetentionDays", 180));
+                                string feedCallback = publicBaseUrl.TrimEnd('/') + "/feed";
+                                string feedClientId = apiConfig.GetString(
+                                    "ProfileFeedOAuthClientId", string.Empty).Trim();
+
+                                // Default: provision one stable first-party OAuth
+                                // public client at first start, never a client
+                                // secret. Explicit admin revocation wins.
+                                if (string.IsNullOrEmpty(feedClientId) &&
+                                    oauthStore is PersistentNexOAuthStore feedAuthStore)
+                                {
+                                    try
+                                    {
+                                        NexOAuthClient profileClient =
+                                            feedAuthStore.EnsureProfileFeedPublicClient(
+                                                feedCallback, new[]
+                                                {
+                                                    NexScopes.ProfileRead,
+                                                    NexScopes.ProfileWrite,
+                                                    NexScopes.RelationshipsRead,
+                                                    NexScopes.RelationshipsWrite
+                                                });
+                                        if (profileClient == null)
+                                            m_Log.Warn("[OGL-FEED]: First-party OAuth client was disabled or modified; interactive login remains off until operator review.");
+                                        else
+                                            feedClientId = profileClient.ClientId;
+                                    }
+                                    catch (Exception bootstrapError)
+                                    {
+                                        m_Log.Error("[OGL-FEED]: OAuth bootstrap failed; read-only feed remains available.",
+                                            bootstrapError);
+                                    }
+                                }
+                                if (string.IsNullOrWhiteSpace(feedClientId))
+                                    m_Log.Warn("[OGL-FEED]: OAuth unavailable; profile feed is read-only.");
+
                                 OglProfileFeedApi feedApi = new OglProfileFeedApi(
-                                    userAccounts, profilesData, authenticator, feedStore, auditSink);
+                                    userAccounts, profilesData, authenticator, feedStore, auditSink,
+                                    feedClientId, feedCallback);
+
+                                lock (s_FeedActivitySync)
+                                {
+                                    s_FeedActivityPublisher?.Dispose();
+                                    s_FeedActivityPublisher = new OglProfileFeedAutoPublisher(
+                                        eventBus, feedStore, discoveryStore,
+                                        userAccounts, profilesData, auditSink);
+                                }
+
                                 server.AddSimpleStreamHandler(
                                     new SimpleStreamHandler("/api/v1/feed", apiGate.Wrap(feedApi.HandleApi),
                                         "OpenGenesisLINK profile activity feed"), true);
