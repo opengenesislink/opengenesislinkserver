@@ -34,6 +34,8 @@ namespace NexVerse.Server.Api
         private static NexOtlpHttpExporter s_OtlpExporter;
         private static readonly object s_OfflineImMailRelaySync = new object();
         private static NexOfflineImMailRelay s_OfflineImMailRelay;
+        private static readonly object s_FeedActivitySync = new object();
+        private static OglProfileFeedAutoPublisher s_FeedActivityPublisher;
 
         // The HTTP route must exist even if later privileged connector startup
         // fails (e.g. an unavailable optional service). The public-only
@@ -1060,7 +1062,8 @@ namespace NexVerse.Server.Api
                                 ? NexEconomyConnector.Current.Economy
                                 : null,
                         auditSink,
-                        teleportBaseUri);
+                        teleportBaseUri,
+                        eventBus);
 
                 NexCitizenWorldMapApi citizenWorldMap = new NexCitizenWorldMapApi(grid, teleportBaseUri);
                 server.AddSimpleStreamHandler(
@@ -1424,6 +1427,15 @@ namespace NexVerse.Server.Api
                                 OglProfileFeedApi feedApi = new OglProfileFeedApi(
                                     userAccounts, profilesData, authenticator, feedStore, auditSink,
                                     feedClientId, feedCallback);
+
+                                lock (s_FeedActivitySync)
+                                {
+                                    s_FeedActivityPublisher?.Dispose();
+                                    s_FeedActivityPublisher = new OglProfileFeedAutoPublisher(
+                                        eventBus, feedStore, discoveryStore,
+                                        userAccounts, profilesData, auditSink);
+                                }
+
                                 server.AddSimpleStreamHandler(
                                     new SimpleStreamHandler("/api/v1/feed", apiGate.Wrap(feedApi.HandleApi),
                                         "OpenGenesisLINK profile activity feed"), true);
