@@ -13,7 +13,10 @@ if (string.IsNullOrWhiteSpace(connection))
 
 using var bootstrap = new MySqlConnection(connection);
 bootstrap.Open();
-// CI only. The runner uses a freshly created ephemeral database.
+// CI only. Reuse the ephemeral test schema, but never replace a preexisting
+// UserAccounts table belonging to another test suite.
+bool createdSyntheticUsers = Convert.ToInt32(Scalar(bootstrap, null,
+    "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name='UserAccounts'")) == 0;
 Exec(bootstrap, null, @"CREATE TABLE IF NOT EXISTS `UserAccounts` (
     `PrincipalID` CHAR(36) NOT NULL PRIMARY KEY
 ) ENGINE=InnoDB DEFAULT CHARSET=ascii");
@@ -121,6 +124,8 @@ finally
         ("@a", alice.ToString()), ("@b", bob.ToString()));
     Exec(bootstrap, null, "DELETE FROM `UserAccounts` WHERE `PrincipalID` IN (@a,@b)",
         ("@a", alice.ToString()), ("@b", bob.ToString()));
+    if (createdSyntheticUsers)
+        Exec(bootstrap, null, "DROP TABLE `UserAccounts`");
 }
 
 static void PurgeAvatar(MySqlConnection db, MySqlTransaction tx, UUID id)
