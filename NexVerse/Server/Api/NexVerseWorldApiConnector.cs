@@ -1359,11 +1359,23 @@ namespace NexVerse.Server.Api
                     // independent schema, account-deletion and viewer gates pass.
                     if (apiConfig.GetBoolean("EnableProfileFeed", false))
                     {
+                        // Feed and self-deletion must use one atomic database.
+                        // This intentionally rejects cross-database profile
+                        // deployments instead of leaving orphaned feed entries.
+                        IConfig accountFeedConfig = config.Configs["UserAccountService"];
+                        string accountFeedProvider = accountFeedConfig?.GetString(
+                            "StorageProvider", databaseStorageProvider) ?? databaseStorageProvider;
+                        string accountFeedConnection = accountFeedConfig?.GetString(
+                            "ConnectionString", databaseConnectionString) ?? databaseConnectionString;
                         if (string.IsNullOrWhiteSpace(profileConnectionString) ||
                             (profileStorageProvider.IndexOf("MySQL", StringComparison.OrdinalIgnoreCase) < 0 &&
-                             profileStorageProvider.IndexOf("MariaDB", StringComparison.OrdinalIgnoreCase) < 0))
+                             profileStorageProvider.IndexOf("MariaDB", StringComparison.OrdinalIgnoreCase) < 0) ||
+                            !string.Equals(profileStorageProvider, accountFeedProvider,
+                                StringComparison.OrdinalIgnoreCase) ||
+                            !string.Equals(profileConnectionString, accountFeedConnection,
+                                StringComparison.Ordinal))
                         {
-                            m_Log.Error("[OGL-FEED]: Existing MariaDB UserProfilesService provider is required; feed disabled.");
+                            m_Log.Error("[OGL-FEED]: Feed requires the SAME MariaDB provider/connection as UserAccountService for transactional account deletion; disabled.");
                         }
                         else
                         {
