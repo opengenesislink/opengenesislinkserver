@@ -148,7 +148,7 @@ namespace NexVerse.Server.Api
 
             // No interaction with a private feed unless the authenticated
             // principal owns it. Anonymous viewers only see published profiles.
-            if(!profile.PublishProfile && actorId!=ownerId)
+            if(!profile.PublishProfile && actorId!=ownerId && !isModerator)
             {
                 Json(response,HttpStatusCode.NotFound,new {error="feed_not_found"});
                 return;
