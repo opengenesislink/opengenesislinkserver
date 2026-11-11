@@ -30,6 +30,7 @@ jobs:
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
           persist-credentials: false
+          fetch-depth: 0
 
       - name: Verify Stable lineage and all mandatory CI checks
         env:
