@@ -203,6 +203,7 @@ namespace OpenSim.Region.ScriptEngine.Shared.Api.Interfaces
           LSL_List llGetPrimMediaParams(int face, LSL_List rules);
         LSL_Vector llGetPos();
           LSL_List llGetPrimitiveParams(LSL_List rules);
+       LSL_String llGetRenderMaterial(int face);
        LSL_Integer llGetRegionAgentCount();
         LSL_Vector llGetRegionCorner();
         // OGL extension: actual scene dimensions including configured vertical extent.
@@ -404,6 +405,8 @@ namespace OpenSim.Region.ScriptEngine.Shared.Api.Interfaces
               void llSetPos(LSL_Vector pos);
        LSL_Integer llSetRegionPos(LSL_Vector pos);
        LSL_Integer llSetPrimMediaParams(LSL_Integer face, LSL_List rules);
+              void llSetRenderMaterial(LSL_String material, int face);
+              void llSetLinkRenderMaterial(int link, LSL_String material, int face);
               void llSetPrimitiveParams(LSL_List rules);
               void llSetLinkPrimitiveParamsFast(int linknum, LSL_List rules);
               void llSetPrimURL(string url);
