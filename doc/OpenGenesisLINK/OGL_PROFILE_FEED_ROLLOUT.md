@@ -19,7 +19,8 @@ getrennten MariaDB-/Simulator-Staging die Schritte abarbeiten.
   Feed-Daten in derselben DB-Transaktion.
 - Feed-Aufbewahrung: konfigurierbar zwischen 7 und 3650 Tagen,
   Standard **180 Tage** fuer Posts/Kommentare. Nach Ablauf keine
-  Auslieferung, stuendliche bereinigende Prüfung bei Zugriffen.
+  Auslieferung, stuendliche bereinigende Pruefung per Timer
+  (auch ohne Profilabrufe) und bei Zugriffen.
   Likes von abgelaufenen Posts werden kaskadierend geloescht;
   Follows bestehen bis zum Entfolgen/Kontoloeschen.
 
