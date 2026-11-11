@@ -56,7 +56,14 @@ type config struct {
 
 func loadConfig() (config, error) {
 	var cfg config
-	if err := json.Unmarshal([]byte(os.Getenv("OGLVOICE_MEDIA_ACL_JSON")), &cfg); err != nil {
+	rawACL := strings.TrimSpace(os.Getenv("OGLVOICE_MEDIA_ACL_JSON"))
+	if rawACL == "" {
+		if strings.TrimSpace(os.Getenv("VOXVOICE_ACCOUNTS_FILE")) == "" {
+			return cfg, errors.New("OGLVOICE_MEDIA_ACL_JSON required unless VoxVoice portal is enabled")
+		}
+		cfg.Nodes = make(map[string]nodeConfig)
+		cfg.Tenants = make(map[string]tenantConfig)
+	} else if err := json.Unmarshal([]byte(rawACL), &cfg); err != nil {
 		return cfg, fmt.Errorf("OGLVOICE_MEDIA_ACL_JSON: %w", err)
 	}
 	cfg.LiveKitURL = os.Getenv("OGLVOICE_LIVEKIT_URL")
