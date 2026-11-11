@@ -49,6 +49,58 @@ namespace NexVerse.Server.Api
         public void HandleApi(IOSHttpRequest request, IOSHttpResponse response)
         {
             string[] p=(request?.UriPath ?? "").Trim('/').Split('/');
+            // Profile Feed auto-publication preferences are owned by the
+            // authenticated local avatar, never supplied by a query parameter.
+            if (p.Length == 5 && p[0] == "api" && p[1] == "v1" &&
+                p[2] == "feed" && p[3] == "me" && p[4] == "activities")
+            {
+                bool read = Is(request,"GET");
+                if (!read && !Is(request,"PUT"))
+                {
+                    Json(response,HttpStatusCode.MethodNotAllowed,
+                        new {error="get_or_put_required"});
+                    return;
+                }
+                if (!m_Auth.TryAuthenticate(request,
+                    read ? NexScopes.ProfileRead : NexScopes.ProfileWrite,
+                    out NexPrincipal principal,out UserAccount account,
+                    out int status,out string authError))
+                {
+                    Json(response,(HttpStatusCode)status,new {error=authError});
+                    return;
+                }
+                if (account == null || !account.LocalToGrid ||
+                    !UUID.TryParse(principal.Subject,out UUID resident) ||
+                    resident != account.PrincipalID)
+                {
+                    Json(response,HttpStatusCode.Forbidden,
+                        new {error="local_resident_required"});
+                    return;
+                }
+                if (!read)
+                {
+                    if (!TryActivitySettings(request,out bool autoEvents,
+                        out bool autoClassifieds))
+                    {
+                        Json(response,HttpStatusCode.BadRequest,
+                            new {error="invalid_auto_activity_settings"});
+                        return;
+                    }
+                    if (!m_Store.SetActivitySettings(resident,autoEvents,autoClassifieds))
+                    {
+                        Json(response,HttpStatusCode.NotFound,
+                            new {error="resident_not_found"});
+                        return;
+                    }
+                }
+                var settings=m_Store.GetActivitySettings(resident);
+                Json(response,HttpStatusCode.OK,new {
+                    auto_events=settings.Events,
+                    auto_classifieds=settings.Classifieds
+                });
+                return;
+            }
+
             // Session bootstrap and personalized following timeline do not
             // have a profile-owner UUID. Both require local OAuth residents.
             if(p.Length==4 && (p[3]=="me" || p[3]=="timeline"))
@@ -476,6 +528,36 @@ namespace NexVerse.Server.Api
                 return false;
             }
             return true;
+        }
+
+        private static bool TryActivitySettings(IOSHttpRequest request,
+            out bool events,out bool classifieds)
+        {
+            events=false;
+            classifieds=false;
+            try
+            {
+                using var reader=new StreamReader(request.InputStream,Encoding.UTF8,
+                    true,1024,leaveOpen:true);
+                char[] buffer=new char[2049];
+                int length=reader.ReadBlock(buffer,0,buffer.Length);
+                if(length<=0 || length>=buffer.Length)return false;
+                using JsonDocument json=JsonDocument.Parse(new string(buffer,0,length));
+                JsonElement root=json.RootElement;
+                if(root.ValueKind!=JsonValueKind.Object ||
+                   !root.TryGetProperty("auto_events",out JsonElement first) ||
+                   !root.TryGetProperty("auto_classifieds",out JsonElement second))
+                    return false;
+                if((first.ValueKind!=JsonValueKind.True &&
+                    first.ValueKind!=JsonValueKind.False) ||
+                   (second.ValueKind!=JsonValueKind.True &&
+                    second.ValueKind!=JsonValueKind.False))
+                    return false;
+                events=first.GetBoolean();
+                classifieds=second.GetBoolean();
+                return true;
+            }
+            catch{return false;}
         }
 
         private static bool TryText(IOSHttpRequest request,string field,int max,out string value)
