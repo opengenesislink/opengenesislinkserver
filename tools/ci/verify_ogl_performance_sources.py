@@ -36,6 +36,10 @@ node = (root / "NexVerse/RegionModules/NodeAgent/NexVerseNodeAgentModule.cs").re
 assert "OglPerformanceTiming?.Record(" in scene
 assert "m_RegionPressureTracker.Sample(regionCounters)" in cache
 assert "m_AdaptiveFileWriteGate.UpdatePressure(cpuPercent, regionOverrunPercent)" in cache
-assert "x.OglPerformanceTiming?.TakeSnapshotAndReset()" in node
+collector = (root / "NexVerse/RegionModules/NodeAgent/OglNodePerformanceHeartbeat.cs").read_text(
+    encoding="utf-8-sig"
+)
+assert "scene.OglPerformanceTiming?.TakeSnapshotAndReset()" in collector
+assert "OglNodePerformanceHeartbeat.Append(scenes, m_PerformanceSampler, data)" in node
 
 print("OGL G1 performance direct-build graph, region pressure and telemetry: OK")
