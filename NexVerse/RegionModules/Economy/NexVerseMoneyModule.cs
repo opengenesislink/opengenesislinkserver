@@ -507,12 +507,13 @@ namespace NexVerse.RegionModules.Economy
             }
         }
 
+        // Uploads are system charges, unlike normal AmountCovered calls for
+        // land and resident transfers. Block a missing fee destination before
+        // a CAPS upload allocates the inventory item or spends storage.
         public bool UploadCovered(
             UUID agentID,
             int amount) =>
-            AmountCovered(
-                agentID,
-                amount);
+            TryPreflightCharge(agentID, amount, out _);
 
         public bool AmountCovered(
             UUID agentID,
