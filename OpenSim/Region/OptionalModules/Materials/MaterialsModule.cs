@@ -912,6 +912,30 @@ namespace OpenSim.Region.OptionalModules.Materials
                 OSDArray req = (OSDArray)OSDParser.DeserializeLLSDXml(httpRequest.InputStream);
                 httpRequest.InputStream.Dispose();
 
+                if (req.Count > m_maxMaterialsPerTransaction)
+                    throw new FormatException("Too many PBR material changes in one request");
+
+                // Preflight every authorized, applicable glTF override before
+                // mutating any face in this request. Invalid factor/vector
+                // lengths, indices or JSON must not leave new asset IDs behind.
+                foreach (OSD candidate in req)
+                {
+                    if (candidate is not OSDMap candidateMap)
+                        throw new FormatException("PBR material change must be a map");
+                    if (!candidateMap.TryGetValue("object_id", out OSD rawObjectId) ||
+                        !candidateMap.TryGetValue("side", out OSD rawSide) ||
+                        !TryParseMaterialSide(rawSide, out int candidateSide) ||
+                        !candidateMap.TryGetValue("gltf_json", out OSD rawGltf))
+                        continue;
+                    SceneObjectPart target = m_scene.GetSceneObjectPart(rawObjectId.AsUUID());
+                    if (target is null || target.Shape is null ||
+                        !m_scene.Permissions.CanEditObject(target.UUID, agentID))
+                        continue;
+                    string gltf = rawGltf.AsString().TrimEnd('\n');
+                    if (gltf.Length > 0 && !CanApplyMaterialOverride(gltf, candidateSide))
+                        throw new FormatException("Invalid PBR glTF override");
+                }
+
                 OSD tmp;
                 HashSet<SceneObjectPart> changedSOPs = new();
 
@@ -1158,6 +1182,15 @@ namespace OpenSim.Region.OptionalModules.Materials
             }
             output = mapped;
             return true;
+        }
+
+        // Probe conversion against a private temporary array. The converter
+        // never sees any live face state; false means invalid glTF or an
+        // unsupported/empty override, never a partially committed asset ID.
+        private static bool CanApplyMaterialOverride(string data, int side)
+        {
+            RenderMaterialOverrideEntry[] scratch = null;
+            return AddMaterialOverride(ref scratch, data, side);
         }
 
         private static bool AddMaterialOverride(ref RenderMaterialOverrideEntry[] overrides, string data, int side)
