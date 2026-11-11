@@ -471,6 +471,7 @@ jobs:
         run: |
           python3 tools/ci/verify_ogl_profile_feed_interactive.py
           python3 tools/ci/verify_ogl_profile_feed_branding.py
+          python3 tools/ci/verify_ogl_profile_feed_activity.py
 
       - name: Verify World API OGLWeather portal contracts
         shell: bash
