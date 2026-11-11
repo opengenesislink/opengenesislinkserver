@@ -115,7 +115,7 @@ Vollständiger Nachfolge-Neuentwurf beginnt nach Veröffentlichung von Stable
 | R04 | RC-Commit/Build/CI und Live-Abnahme mit Operator-Evidence | NOT_RUN |
 | R05 | Gesonderte Stable-Entscheidung, Release-Artefakte, Tag, dokumentierter Rollback | NOT_RUN |
 
-Die bestehende [0.9.3.12-RC-/Stable-Matrix](09312_RC1_STABLE_ACCEPTANCE.md)
+Die bestehende 0.9.3.12-RC-/Stable-Matrix (historisches Dokument entfernt)
 weist noch offene Formalbelege aus. Ein neues Versionslabel hebt diese
 nicht auf. Betroffene Inventory-/Viewer-/LSL-/Recovery-Funktionen müssen
 auf dem jeweiligen 0.9.3.13-Kandidaten erneut geprüft werden.
