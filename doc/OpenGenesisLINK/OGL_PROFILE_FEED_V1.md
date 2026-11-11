@@ -1,6 +1,7 @@
 # OpenGenesisLINK Profile Feed v1 — Stadt NexVerse
 
-Status: **opt-in mit Rollout-Gates**, kein automatisches Live-Deployment.
+Status: **standardmaessig aktiviert**, aber bei inkompatibler MariaDB
+fail-closed; kein automatisches Produktiv-Deployment oder Neustart.
 Account-Loeschung und Retention sind im aktuellen Generation-1-Stand
 implementiert. Staging-/Viewer-Abnahme vor produktiver Freigabe erforderlich:
 [OGL_PROFILE_FEED_ROLLOUT.md](OGL_PROFILE_FEED_ROLLOUT.md).
