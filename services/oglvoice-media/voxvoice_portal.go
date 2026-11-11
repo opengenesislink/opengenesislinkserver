@@ -345,7 +345,7 @@ func (p *voxPortal) logout(w http.ResponseWriter,r *http.Request) {
 }
 
 type voxAvatarStatus struct { UUID string; Active bool; Speaking bool }
-type voxRegionStatus struct { UUID string; Avatars []voxAvatarStatus }
+type voxRegionStatus struct { UUID string; Active bool; Avatars []voxAvatarStatus }
 type voxDashboard struct { User string; Regions []voxRegionStatus }
 
 func (p *voxPortal) dashboard(w http.ResponseWriter,r *http.Request) {
@@ -383,12 +383,16 @@ func (p *voxPortal) dashboard(w http.ResponseWriter,r *http.Request) {
     for region,avatars:=range regions {
         s:=voxRegionStatus{UUID:region}
         sort.Strings(avatars)
-        for _,uuid:=range avatars{s.Avatars=append(s.Avatars,voxAvatarStatus{UUID:uuid,Active:live[region+"/"+uuid],Speaking:speaking[region+"/"+uuid]})}
+        for _,uuid:=range avatars{
+            active:=live[region+"/"+uuid]
+            if active {s.Active=true}
+            s.Avatars=append(s.Avatars,voxAvatarStatus{UUID:uuid,Active:active,Speaking:speaking[region+"/"+uuid]})
+        }
         view.Regions=append(view.Regions,s)
     }
     sort.Slice(view.Regions,func(i,j int)bool{return view.Regions[i].UUID<view.Regions[j].UUID})
     // Refresh for near-live presence without WebSockets, JS or a frontend framework.
     w.Header().Set("Refresh","10")
-    const body="<h2>Meine Simulatoren</h2><p>Angemeldet als <code>{{.User}}</code>. Gruen = Voice verbunden, Rot = keine Voice-Verbindung. "Spricht" = von LiveKit bestaetigte Sprachaktivitaet; bei Einzelteilnehmern kann diese Information fehlen.</p>{{range .Regions}}<h3>Region UUID: <code>{{.UUID}}</code></h3>{{range .Avatars}}<div class='row'><span class='dot {{if .Active}}on{{else}}off{{end}}'></span><code>{{.UUID}}</code> – {{if .Active}}Voice aktiv{{else}}Voice inaktiv{{end}}{{if .Speaking}} · Spricht{{end}}</div>{{end}}{{else}}<p>Noch keine Region registriert. Eine Region erscheint nach der ersten erfolgreichen WebRTC-Verbindung.</p>{{end}}<form action='/logout' method='post'><button>Abmelden</button></form>"
+    const body="<h2>Meine Simulatoren</h2><p>Angemeldet als <code>{{.User}}</code>. Gruen = Voice verbunden, Rot = keine Voice-Verbindung. "Spricht" = von LiveKit bestaetigte Sprachaktivitaet; bei Einzelteilnehmern kann diese Information fehlen.</p>{{range .Regions}}<h3><span class='dot {{if .Active}}on{{else}}off{{end}}'></span> Region UUID: <code>{{.UUID}}</code></h3>{{range .Avatars}}<div class='row'><span class='dot {{if .Active}}on{{else}}off{{end}}'></span><code>{{.UUID}}</code> – {{if .Active}}Voice aktiv{{else}}Voice inaktiv{{end}}{{if .Speaking}} · Spricht{{end}}</div>{{end}}{{else}}<p>Noch keine Region registriert. Eine Region erscheint nach der ersten erfolgreichen WebRTC-Verbindung.</p>{{end}}<form action='/logout' method='post'><button>Abmelden</button></form>"
     p.page(w,"Dashboard",body,view)
 }
