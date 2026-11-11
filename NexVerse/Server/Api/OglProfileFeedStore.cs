@@ -3,6 +3,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using MySql.Data.MySqlClient;
 using OpenMetaverse;
 
@@ -29,12 +30,15 @@ namespace NexVerse.Server.Api
         }
 
         private readonly string m_Connection;
+        private readonly int m_RetentionDays;
+        private long m_LastPrunedAt;
 
-        internal OglProfileFeedStore(string connection)
+        internal OglProfileFeedStore(string connection, int retentionDays = 180)
         {
             if (string.IsNullOrWhiteSpace(connection))
                 throw new ArgumentException("Existing ROBUST MariaDB connection is required.");
             m_Connection = connection;
+            m_RetentionDays = Math.Clamp(retentionDays, 7, 3650);
             using var db = Open();
             Execute(db, @"CREATE TABLE IF NOT EXISTS ogl_profile_feed_posts(
                 id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL PRIMARY KEY,
@@ -87,6 +91,48 @@ namespace NexVerse.Server.Api
         private static void Add(MySqlCommand c, string name, object value)
             => c.Parameters.AddWithValue(name, value);
         private static long Now => DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        private long Cutoff => Now - (long)m_RetentionDays * 86400;
+
+        // Bounded periodic pruning; reads filter by Cutoff even between runs.
+        // Follows represent an active relationship and are retained until
+        // unfollow or either account deletion, rather than a post retention.
+        internal void PruneExpired()
+        {
+            long now = Now;
+            long previous = Interlocked.Read(ref m_LastPrunedAt);
+            if (now - previous < 3600 ||
+                Interlocked.CompareExchange(ref m_LastPrunedAt, now, previous) != previous)
+                return;
+
+            try
+            {
+                using var db = Open();
+                using var tx = db.BeginTransaction();
+                using (var comments = db.CreateCommand())
+                {
+                    comments.Transaction = tx;
+                    comments.CommandText =
+                        "DELETE FROM ogl_profile_feed_comments WHERE created_at < @cutoff";
+                    Add(comments, "@cutoff", Cutoff);
+                    comments.ExecuteNonQuery();
+                }
+                using (var posts = db.CreateCommand())
+                {
+                    posts.Transaction = tx;
+                    posts.CommandText =
+                        "DELETE FROM ogl_profile_feed_posts WHERE created_at < @cutoff";
+                    Add(posts, "@cutoff", Cutoff);
+                    posts.ExecuteNonQuery();
+                }
+                tx.Commit();
+            }
+            catch
+            {
+                // A transient database failure must not suppress future cleanup.
+                Interlocked.Exchange(ref m_LastPrunedAt, 0);
+                throw;
+            }
+        }
 
         // Serializes writes for each local avatar against the self-delete
         // transaction, which locks UserAccounts before purging feed records.
@@ -120,8 +166,10 @@ namespace NexVerse.Server.Api
                 (SELECT COUNT(*) FROM ogl_profile_feed_likes l WHERE l.post_id=p.id),
                 (SELECT COUNT(*) FROM ogl_profile_feed_comments c WHERE c.post_id=p.id)
                 FROM ogl_profile_feed_posts p WHERE p.owner=@owner
+                AND p.created_at>=@cutoff
                 ORDER BY p.created_at DESC,p.id DESC LIMIT @count";
             Add(cmd,"@owner",owner.ToString());
+            Add(cmd,"@cutoff",Cutoff);
             Add(cmd,"@count",Math.Clamp(limit,1,50));
             using var rd = cmd.ExecuteReader();
             while(rd.Read())
@@ -138,8 +186,10 @@ namespace NexVerse.Server.Api
             using var cmd = db.CreateCommand();
             cmd.CommandText = @"SELECT id,author,body,created_at
                 FROM ogl_profile_feed_comments WHERE post_id=@post
+                AND created_at>=@cutoff
                 ORDER BY created_at ASC,id ASC LIMIT @count";
             Add(cmd,"@post",post.ToString());
+            Add(cmd,"@cutoff",Cutoff);
             Add(cmd,"@count",Math.Clamp(limit,1,50));
             using var rd=cmd.ExecuteReader();
             while(rd.Read())
@@ -152,9 +202,10 @@ namespace NexVerse.Server.Api
         {
             using var db=Open();
             using var cmd=db.CreateCommand();
-            cmd.CommandText="SELECT COUNT(*) FROM ogl_profile_feed_posts WHERE owner=@owner AND id=@post";
+            cmd.CommandText="SELECT COUNT(*) FROM ogl_profile_feed_posts WHERE owner=@owner AND id=@post AND created_at>=@cutoff";
             Add(cmd,"@owner",owner.ToString());
             Add(cmd,"@post",post.ToString());
+            Add(cmd,"@cutoff",Cutoff);
             return Convert.ToInt32(cmd.ExecuteScalar())==1;
         }
 
