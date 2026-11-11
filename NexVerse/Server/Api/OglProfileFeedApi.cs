@@ -26,15 +26,20 @@ namespace NexVerse.Server.Api
         private readonly NexApiAuthenticator m_Auth;
         private readonly OglProfileFeedStore m_Store;
         private readonly INexAuditSink m_Audit;
+        private readonly string m_OAuthClientId;
+        private readonly string m_OAuthRedirectUri;
 
         internal OglProfileFeedApi(IUserAccountService accounts, IProfilesData profiles,
-            NexApiAuthenticator auth, OglProfileFeedStore store, INexAuditSink audit)
+            NexApiAuthenticator auth, OglProfileFeedStore store, INexAuditSink audit,
+            string oauthClientId = "", string oauthRedirectUri = "")
         {
             m_Accounts=accounts ?? throw new ArgumentNullException(nameof(accounts));
             m_Profiles=profiles ?? throw new ArgumentNullException(nameof(profiles));
             m_Auth=auth ?? throw new ArgumentNullException(nameof(auth));
             m_Store=store ?? throw new ArgumentNullException(nameof(store));
             m_Audit=audit ?? NullNexAuditSink.Instance;
+            m_OAuthClientId=oauthClientId?.Trim() ?? "";
+            m_OAuthRedirectUri=oauthRedirectUri?.Trim() ?? "";
         }
 
         private static bool Is(IOSHttpRequest request, string method)
@@ -43,6 +48,61 @@ namespace NexVerse.Server.Api
         public void HandleApi(IOSHttpRequest request, IOSHttpResponse response)
         {
             string[] p=(request?.UriPath ?? "").Trim('/').Split('/');
+            // Session bootstrap and personalized following timeline do not
+            // have a profile-owner UUID. Both require local OAuth residents.
+            if(p.Length==4 && (p[3]=="me" || p[3]=="timeline"))
+            {
+                string required=p[3]=="me" ? NexScopes.ProfileRead
+                    : NexScopes.RelationshipsRead;
+                if(!Is(request,"GET"))
+                {
+                    Json(response,HttpStatusCode.MethodNotAllowed,new {error="get_required"});
+                    return;
+                }
+                if(!m_Auth.TryAuthenticate(request,required,out NexPrincipal viewer,
+                    out UserAccount viewerAccount,out int code,out string failure))
+                {
+                    Json(response,(HttpStatusCode)code,new {error=failure});
+                    return;
+                }
+                if(viewerAccount==null || !viewerAccount.LocalToGrid ||
+                   !UUID.TryParse(viewer.Subject,out UUID me) ||
+                   viewerAccount.PrincipalID!=me)
+                {
+                    Json(response,HttpStatusCode.Forbidden,new {error="local_resident_required"});
+                    return;
+                }
+                if(p[3]=="me")
+                {
+                    Json(response,HttpStatusCode.OK,
+                        new {avatar_id=me.ToString(),name=viewerAccount.Name});
+                    return;
+                }
+                m_Store.PruneExpired();
+                // Defense in depth: a follow does not override the target's
+                // PublishProfile setting. No private posts in this timeline.
+                var items=m_Store.ListFollowingPosts(me,80);
+                var visible=new List<object>();
+                foreach(var item in items)
+                {
+                    UserAccount followed=m_Accounts.GetUserAccount(UUID.Zero,item.Owner);
+                    if(followed==null || !followed.LocalToGrid)continue;
+                    UserProfileProperties properties=new UserProfileProperties {
+                        UserId=item.Owner };
+                    string profileError="";
+                    if(!m_Profiles.GetAvatarProperties(ref properties,ref profileError) ||
+                       !properties.PublishProfile)continue;
+                    visible.Add(new {
+                        owner_id=item.Owner.ToString(),owner_name=followed.Name,
+                        id=item.Entry.Id,text=item.Entry.Text,
+                        created_at=item.Entry.CreatedAt,likes=item.Entry.Likes,
+                        comments=item.Entry.Comments
+                    });
+                    if(visible.Count>=30)break;
+                }
+                Json(response,HttpStatusCode.OK,new {posts=visible});
+                return;
+            }
             if(p.Length < 4 || p.Length > 7 ||
                !p[0].Equals("api",StringComparison.OrdinalIgnoreCase) ||
                !p[1].Equals("v1",StringComparison.OrdinalIgnoreCase) ||
@@ -73,9 +133,23 @@ namespace NexVerse.Server.Api
             {
                 if(!AllowRead(request,response,ownerId,profile.PublishProfile))return;
                 var posts=m_Store.ListPosts(ownerId);
+                UUID viewerId=UUID.Zero;
+                // Optional personalization: anonymous profiles remain public.
+                // An invalid bearer never gains write/read permissions.
+                if(!string.IsNullOrWhiteSpace(request?.Headers?["Authorization"]) &&
+                   m_Auth.TryAuthenticate(request,NexScopes.RelationshipsRead,
+                       out NexPrincipal viewer,out UserAccount viewerAccount,
+                       out _,out _) &&
+                   viewerAccount!=null && viewerAccount.LocalToGrid &&
+                   UUID.TryParse(viewer.Subject,out UUID authenticatedViewer) &&
+                   viewerAccount.PrincipalID==authenticatedViewer)
+                    viewerId=authenticatedViewer;
                 Json(response,HttpStatusCode.OK,new {
                     owner_id=ownerId.ToString(), name=owner.Name,
                     followers=m_Store.Followers(ownerId),
+                    following=!viewerId.IsZero() && m_Store.IsFollowing(ownerId,viewerId),
+                    liked_post_ids=viewerId.IsZero() ? Array.Empty<string>()
+                        : m_Store.ListLikedPostIds(ownerId,viewerId).ToArray(),
                     posts=posts.Select(post=>new {
                         id=post.Id,author_id=post.AuthorId,text=post.Text,
                         created_at=post.CreatedAt,likes=post.Likes,comments=post.Comments
@@ -97,7 +171,10 @@ namespace NexVerse.Server.Api
                 Json(response,HttpStatusCode.OK,new {
                     post_id=publicPost.ToString(),
                     comments=m_Store.ListComments(publicPost).Select(c=>new {
-                        id=c.Id,author_id=c.AuthorId,text=c.Text,created_at=c.CreatedAt
+                        id=c.Id,author_id=c.AuthorId,text=c.Text,created_at=c.CreatedAt,
+                        author_name=UUID.TryParse(c.AuthorId,out UUID cid)
+                            ? m_Accounts.GetUserAccount(UUID.Zero,cid)?.Name ?? "Einwohner"
+                            : "Einwohner"
                     }).ToArray()
                 });
                 return;
