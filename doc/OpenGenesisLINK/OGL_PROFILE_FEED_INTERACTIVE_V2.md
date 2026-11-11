@@ -104,7 +104,60 @@ in JavaScript nur mit `textContent` eingefuegt. Die HTTP-HTML-
 Antwort setzt `Cache-Control: no-store` und ein Nonce-basiertes
 `Content-Security-Policy`, keine externen Skripte.
 
-## 4. API-Erweiterungen
+## 4. Automatische Beitraege bei ausgewaehlten Aktivitaeten
+
+Im eigenen Stadt-NexVerse-Profil unter **Deine Aktivitaeten teilen**
+koennen Einwohner getrennt zwei Optionen aktivieren:
+
+- **Neue freigegebene Events:** Nach der erstmaligen Freigabe eines
+  selbst organisierten Events im offiziellen Discovery-Dienst entsteht
+  ein kurzer Textbeitrag.
+- **Neue freigegebene Eintraege:** Nach der erstmaligen Freigabe eines
+  eigenen Classifieds-Eintrags entsteht ein Textbeitrag.
+
+**Beide Optionen sind fuer jeden Einwohner standardmaessig aus.**
+Die Freigabe ist individuell ueber das eigene Profil aenderbar. Die
+automatische Publikation erfordert ausserdem einen lokalen,
+aktivierten Avatar und ein oeffentliches Profil. Admins koennen keine
+Feed-Einwilligung eines anderen Avatars ueber dessen OAuth-Token
+vortaeuschen.
+
+Der NexVerse Discovery Service sendet Ereignisse erst bei der
+Transition zu `Approved`. Der Feed-Service liest das Event oder
+Classified **noch einmal aus dem autoritativen Discovery Store**, statt
+beliebige Event-Bus-Texte als Beitrag zu uebernehmen. Nur Titel
+(maximal 140 Zeichen) und die Art der Aktivitaet gelangen in den Post,
+keine automatisch ausgelesenen Teleports, Onlinezeiten, Koordinaten
+oder Inventarinhalte. Die Event-ID wird per MariaDB Unique-Key
+dauerhaft gegen Doppelposts gesichert (solange der Beitrag noch
+existiert). Hoechstens drei automatische Beitraege pro Stunde und
+15 pro Tag. Die normalen Beitragslimits bleiben getrennt.
+
+Die Einstellungen und Duplikat-Receipts liegen in
+`ogl_profile_feed_activity_settings` und
+`ogl_profile_feed_activity_receipts`; das neue Schema wird bei
+aktivem Feed automatisch erzeugt oder vorab ueber
+`doc/OpenGenesisLINK/migrations/20261111_ogl_profile_feed_activity.sql`
+installiert. Konto-Selbstloeschung und administrative Loeschung
+entfernen beide Tabellen-Eintraege innerhalb der gleichen
+MariaDB-Transaktion. Eine getrennte Datenbank fuer diese Werte wird
+nicht verwendet.
+
+`GET /api/v1/feed/me/activities` mit `profile:read` liefert
+`auto_events` und `auto_classifieds`.
+`PUT /api/v1/feed/me/activities` mit `profile:write`
+nimmt ausschliesslich Boolean-Einstellungen an, z. B.:
+
+```json
+{"auto_events":true,"auto_classifieds":false}
+```
+
+Ein Konto kann diese Auswahl jederzeit widerrufen; bereits
+veroeffentlichte Beitraege sind wie normale Posts einzeln loeschbar.
+Aenderungen an bestehenden Discovery-Events erzeugen keine neuen
+automatischen Posts.
+
+## 5. API-Erweiterungen
 
 - `GET /api/v1/feed/me` - lokaler Bearer-Avatar
   (`profile:read`)
@@ -119,7 +172,7 @@ Vorhandene POST-/DELETE-/PUT-APIs bleiben unveraendert; SQLite wird
 nicht als neuer Feed-Datenspeicher verwendet. Das System ueberschreibt
 keine bestehenden Viewer-Account-Daten.
 
-## 5. Abnahme
+## 6. Abnahme
 
 - Anonyme Feedansicht und gesperrter Feed; Eigentuemer sieht Privat-
   Feed erst nach OAuth; fremder Avatar wird serverseitig abgewiesen.
@@ -137,7 +190,7 @@ keine bestehenden Viewer-Account-Daten.
 - Reverse-Proxy routet OAuth und Feed; Backup und
   Wiederherstellung der MariaDB bleiben Rollout-Voraussetzung.
 
-## 6. Nicht implementiert: Erweiterungsstufen
+## 7. Nicht implementiert: Erweiterungsstufen
 
 Dies ist **nicht** bereits volle Second-Life-Paritaet. Es fehlen:
 Snapshot-/Fotoupload (erfordert sichere Asset-Verknuepfung und
