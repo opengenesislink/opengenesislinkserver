@@ -52,6 +52,18 @@ Vor jedem ersten Umschalten:
    aus vorigen Fehlversuchen anhand der World-API-Buchungen abgleichen.
    Keine automatischen Doppelbuchungen.
 
+Vor dem Umschalten die **schreibgeschuetzte** Konfigurationspruefung
+auf dem jeweiligen Node ausfuehren:
+
+```bash
+python3 tools/release/check_g1_fee_feed_rollout.py --sim bin/OpenSim.ini
+python3 tools/release/check_g1_fee_feed_rollout.py --robust bin/Robust.HG.ini
+```
+
+Das Tool stellt keine Internetverbindung her, druckt keine Tokens und aendert
+keine Dateien. Warnungen muessen betrieblich bewertet werden, ein Fehler
+blockiert den Rollout.
+
 ## 3. System-Fee-Wallet sicher einrichten
 
 Fuer eine positive Systemgebuehr ist eine existierende **Business-Wallet**
