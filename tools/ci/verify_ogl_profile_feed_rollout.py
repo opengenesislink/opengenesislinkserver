@@ -67,5 +67,5 @@ for path in ("bin/Robust.HG.ini", "bin/Robust.HG.ini.example",
     cfg = read(path)
     assert "EnableProfileFeed = false" in cfg, path
     assert "ProfileFeedRetentionDays = 180" in cfg, path
-assert "Rollback" in docs and "Migrations" in docs
+assert "Rollback" in docs and "Migration" in docs
 print("OGL Profile Feed G1 deletion and retention rollout contracts: PASS")
