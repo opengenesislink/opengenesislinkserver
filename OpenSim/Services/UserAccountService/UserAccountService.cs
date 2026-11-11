@@ -950,6 +950,32 @@ namespace OpenSim.Services.UserAccountService
                         "Partial OGL Profile Feed schema; account deletion stopped.");
                 if (feedTables == 4)
                 {
+                    // Optional G1 Feed v2/v3 activity settings and idempotency
+                    // receipts are purged in the same account transaction.
+                    // A partially installed extension schema is unsafe.
+                    int activityTables;
+                    using (DbCommand activity = db.CreateCommand())
+                    {
+                        activity.Transaction = tx;
+                        activity.CommandText = @"SELECT COUNT(*) FROM information_schema.tables
+                            WHERE table_schema = DATABASE()
+                            AND table_name IN ('ogl_profile_feed_activity_settings',
+                                'ogl_profile_feed_activity_receipts')";
+                        activityTables = Convert.ToInt32(activity.ExecuteScalar());
+                    }
+                    if (activityTables != 0 && activityTables != 2)
+                        throw new InvalidOperationException(
+                            "Partial OGL Profile Feed activity schema; account deletion stopped.");
+                    if (activityTables == 2)
+                    {
+                        DeletionSql(db, tx,
+                            "DELETE FROM `ogl_profile_feed_activity_receipts` WHERE `owner` = @userId",
+                            avatarId, false, true);
+                        DeletionSql(db, tx,
+                            "DELETE FROM `ogl_profile_feed_activity_settings` WHERE `owner` = @userId",
+                            avatarId, false, true);
+                    }
+
                     // Delete own interactions with other profiles first.
                     // Post deletion cascades to post-owned comments/likes.
                     DeletionSql(db, tx,
