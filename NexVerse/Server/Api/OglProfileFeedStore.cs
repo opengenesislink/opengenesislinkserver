@@ -222,7 +222,8 @@ namespace NexVerse.Server.Api
                 FROM ogl_profile_feed_activity_settings WHERE owner=@owner";
             Add(cmd,"@owner",owner.ToString());
             using var rd=cmd.ExecuteReader();
-            return rd.Read() ? (rd.GetInt32(0)!=0,rd.GetInt32(1)!=0)
+            return rd.Read() ? (Convert.ToBoolean(rd.GetValue(0)),
+                                Convert.ToBoolean(rd.GetValue(1)))
                              : (false,false);
         }
 
