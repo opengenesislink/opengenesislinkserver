@@ -786,6 +786,24 @@ namespace OpenSim.Services.UserAccountService
 
                 bool pg = provider.IndexOf("PGSQL", StringComparison.OrdinalIgnoreCase) >= 0;
                 bool mysql = provider.IndexOf("MySQL", StringComparison.OrdinalIgnoreCase) >= 0;
+
+                // The optional Feed writes to UserProfilesService. Do not allow
+                // enabling it against a different DB while authenticated
+                // account deletion runs in the account DB transaction.
+                // This check applies only to this self-delete operation.
+                bool feedEnabled = m_DeletionConfig.Configs["NexVerseWorldApi"]?.GetBoolean(
+                    "EnableProfileFeed", false) == true;
+                if (feedEnabled &&
+                    (!mysql ||
+                     !string.Equals(provider,
+                         DeletionStorageSetting("UserProfilesService", "StorageProvider"),
+                         StringComparison.OrdinalIgnoreCase) ||
+                     !string.Equals(connectionString,
+                         DeletionStorageSetting("UserProfilesService", "ConnectionString"),
+                         StringComparison.Ordinal)))
+                    throw new InvalidOperationException(
+                        "OGL Profile Feed requires the same MySQL datastore as local account deletion.");
+
                 string typeName = mysql ? "MySql.Data.MySqlClient.MySqlConnection, MySql.Data" :
                     pg ? "Npgsql.NpgsqlConnection, Npgsql" :
                     provider.IndexOf("SQLite", StringComparison.OrdinalIgnoreCase) >= 0 ?
@@ -825,6 +843,48 @@ namespace OpenSim.Services.UserAccountService
                 {
                     failureReason = "avatar_online";
                     return false;
+                }
+
+                // Atomic same-DB OGL feed purge: on disabled feed installations
+                // these tables may still remain from an earlier opt-in run.
+                // Run within the *same* InnoDB account deletion transaction.
+                // If only part of the schema exists, fail closed and roll back.
+                if (mysql)
+                {
+                    int feedTables;
+                    using (DbCommand tables = db.CreateCommand())
+                    {
+                        tables.Transaction = tx;
+                        tables.CommandText = @"SELECT COUNT(*) FROM information_schema.tables
+                            WHERE table_schema = DATABASE()
+                            AND table_name IN ('ogl_profile_feed_posts',
+                                'ogl_profile_feed_comments', 'ogl_profile_feed_likes',
+                                'ogl_profile_feed_follows')";
+                        feedTables = Convert.ToInt32(tables.ExecuteScalar());
+                    }
+                    if (feedEnabled && feedTables != 4)
+                        throw new InvalidOperationException(
+                            "Enabled OGL Profile Feed schema is missing or incomplete.");
+                    if (feedTables != 0 && feedTables != 4)
+                        throw new InvalidOperationException(
+                            "Partial OGL Profile Feed schema; account deletion stopped.");
+                    if (feedTables == 4)
+                    {
+                        // Delete own interactions with other profiles first.
+                        // Post deletion cascades to post-owned comments/likes.
+                        DeletionSql(db, tx,
+                            "DELETE FROM `ogl_profile_feed_comments` WHERE `author` = @userId",
+                            avatarId, false, true);
+                        DeletionSql(db, tx,
+                            "DELETE FROM `ogl_profile_feed_likes` WHERE `actor` = @userId",
+                            avatarId, false, true);
+                        DeletionSql(db, tx,
+                            "DELETE FROM `ogl_profile_feed_follows` WHERE `owner` = @userId OR `follower` = @userId",
+                            avatarId, false, true);
+                        DeletionSql(db, tx,
+                            "DELETE FROM `ogl_profile_feed_posts` WHERE `owner` = @userId OR `author` = @userId",
+                            avatarId, false, true);
+                    }
                 }
 
                 DeletionSql(db, tx,
