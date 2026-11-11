@@ -838,6 +838,26 @@ namespace OpenSim.Services.UserAccountService
                     failureReason = "account_state_changed";
                     return false;
                 }
+                // Lock the account row before removing feed entries. Feed
+                // writes acquire the same InnoDB row lock first, so a post
+                // cannot slip between feed cleanup and account deletion.
+                if (mysql)
+                {
+                    using DbCommand accountLock = db.CreateCommand();
+                    accountLock.Transaction = tx;
+                    accountLock.CommandText = @"SELECT `PrincipalID` FROM `UserAccounts`
+                        WHERE `PrincipalID` = @userId FOR UPDATE";
+                    DbParameter lockId = accountLock.CreateParameter();
+                    lockId.ParameterName = "@userId";
+                    lockId.Value = avatarId.ToString();
+                    accountLock.Parameters.Add(lockId);
+                    if (accountLock.ExecuteScalar() == null)
+                    {
+                        failureReason = "account_state_changed";
+                        return false;
+                    }
+                }
+
                 GridUserInfo latest = m_GridUserService.GetGridUserInfo(avatarId.ToString());
                 if (latest != null && latest.Online)
                 {
