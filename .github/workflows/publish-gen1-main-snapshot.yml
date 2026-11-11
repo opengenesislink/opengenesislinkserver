@@ -111,13 +111,13 @@ jobs:
             echo
             echo "Commit: $RELEASE_SHA"
             echo "CI validation: GitHub Actions NexVerse CI run $CI_RUN"
-            echo "Platform: Linux x86_64, .NET 8"
+            echo "Platform: Linux x86_64, .NET 10"
             echo "Download the ZIP and corresponding SHA256 file."
             echo
             echo "Production INI files and secrets are excluded from the ZIP."
             echo "Back up local configuration and data before deployment."
             echo
-            echo "The official v0.9.3.13 Stable tag and release are unchanged."
+            echo "Stable tags and official release artifacts are never modified by this dev pipeline."
           } > dist/release-notes.md
           if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             if [ "$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$tag" --jq '.prerelease')" != "true" ]; then

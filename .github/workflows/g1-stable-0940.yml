@@ -1,0 +1,124 @@
+name: OpenGenesisLINK Generation 1 (0.9.4.0) einmaliges Stable-Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_sha:
+        description: "Vollstaendiger gepruefter main-Commit-SHA (40 Zeichen)"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  checks: read
+
+concurrency:
+  group: ogl-g1-official-stable
+  cancel-in-progress: false
+
+jobs:
+  stable:
+    if: ${{ vars.OGL_GEN1_STABLE_RELEASE_APPROVED == 'true' }}
+    environment: generation1-stable
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - name: Checkout explicit release SHA
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.source_sha }}
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Verify immutable target, acceptance and required green checks
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_SHA: ${{ inputs.source_sha }}
+        run: |
+          set -euo pipefail
+          [[ "$RELEASE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          test "$(git rev-parse HEAD)" = "$RELEASE_SHA"
+          test "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" = "$RELEASE_SHA"
+          if gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/v0.9.4.0" >/dev/null 2>&1; then
+            echo "::error::Official Stable tag already exists; never overwrite"; exit 1
+          fi
+          grep -Fq 'VersionNumber = "0.9.4.0"' OpenSim/Framework/VersionInfo.cs
+          grep -Fq 'VERSION_FLAVOUR = Flavour.Release;' OpenSim/Framework/VersionInfo.cs
+          file=doc/release-acceptance/GEN1_0.9.4.0.md
+          grep -Fxq 'Status: APPROVED' "$file"
+          ACCEPTED_SHA="$(sed -n 's/^Gepruefter Code-Commit: //p' "$file")"
+          [[ "$ACCEPTED_SHA" =~ ^[0-9a-f]{40}$ ]]
+          git cat-file -e "$ACCEPTED_SHA^{commit}"
+          git merge-base --is-ancestor "$ACCEPTED_SHA" "$RELEASE_SHA"
+          changes="$(git diff --name-only "$ACCEPTED_SHA" "$RELEASE_SHA" | grep -v '^doc/release-acceptance/GEN1_0.9.4.0.md$' || true)"
+          if [ -n "$changes" ]; then
+            echo "::error::Source changed after the approved staging code commit: $changes"; exit 1
+          fi
+          grep -Eq '^Freigabe durch: .+' "$file"
+          if grep -Fxq 'Freigabe durch: PENDING' "$file"; then exit 1; fi
+          grep -Eq '^Pruefdatum: 20[0-9]{2}-[0-9]{2}-[0-9]{2}$' "$file"
+          for check in Login_Inventar Teleport_Hypergrid Mesh_Asset LSL_Animesh Feed_Datenloeschung DB_Backup_Restore_Rollback; do
+            grep -Fxq "$check: PASS" "$file"
+          done
+          gh api "repos/$GITHUB_REPOSITORY/commits/$RELEASE_SHA/check-runs?per_page=100" > "$RUNNER_TEMP/checks.json"
+          python3 - "$RUNNER_TEMP/checks.json" <<'PY'
+          import json, sys
+          checks = json.load(open(sys.argv[1], encoding="utf-8"))["check_runs"]
+          names = (
+              "Build NexVerse",
+              "NV dollar live database matrix",
+              ".NET 10 generated-project and server build",
+              ".NET 10 Windows x64 build",
+              "ROBUST and Simulator .NET 10 ARM64 build + boot",
+          )
+          for name in names:
+              matches = [c for c in checks if c.get("name") == name]
+              assert matches and matches[0].get("conclusion") == "success", f"Missing green gate: {name}"
+          print("All required CI gates succeeded.")
+          PY
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Install native build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgdiplus libc6-dev
+
+      - name: Build, stage and boot Linux x64 release
+        run: |
+          set -euo pipefail
+          bash runprebuild.sh
+          python3 tools/gen11/verify_net10.py
+          dotnet restore OpenSim.sln
+          dotnet build OpenSim.sln --configuration Release --no-restore
+          python3 tools/gen11/robust_runtime_smoke.py
+          python3 tools/gen11/stage_net10_runtime.py --rid linux-x64 --output "$RUNNER_TEMP/g1-stable"
+          python3 tools/gen11/robust_runtime_smoke.py --bin "$RUNNER_TEMP/g1-stable/bin"
+          python3 tools/release/ogl_gen1_snapshot_zip.py --self-test
+          mkdir -p dist
+          python3 tools/release/ogl_gen1_snapshot_zip.py \
+            --bin-dir "$RUNNER_TEMP/g1-stable/bin" \
+            --output dist/OpenGenesisLINK-Generation1-0.9.4.0-Linux-x64.zip \
+            --sha "${{ inputs.source_sha }}" --channel generation1-stable
+          (cd dist && sha256sum *.zip > OpenGenesisLINK-Generation1-0.9.4.0-Linux-x64.zip.sha256)
+
+      - name: Create immutable Stable release exactly once
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_SHA: ${{ inputs.source_sha }}
+        run: |
+          set -euo pipefail
+          test "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" = "$RELEASE_SHA"
+          if gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/v0.9.4.0" >/dev/null 2>&1; then
+            echo "::error::Stable tag was created concurrently; refusing overwrite"; exit 1
+          fi
+          printf 'OpenGenesisLINK Generation 1 (0.9.4.0) - offizielles Stable-Release.\n\nGetesteter Commit: %s\nLaufzeit: .NET 10, Linux x64.\nStable-Tag und Artefakte werden nicht ueberschrieben.\nWeitere Generation-1-Verbesserungen folgen im getrennten Update-Kanal gen1-updates.\n' "$RELEASE_SHA" > dist/release-notes.md
+          gh release create v0.9.4.0 \
+            dist/OpenGenesisLINK-Generation1-0.9.4.0-Linux-x64.zip \
+            dist/OpenGenesisLINK-Generation1-0.9.4.0-Linux-x64.zip.sha256 \
+            --repo "$GITHUB_REPOSITORY" --target "$RELEASE_SHA" \
+            --title 'OpenGenesisLINK Generation 1 (0.9.4.0) Stable' \
+            --notes-file dist/release-notes.md --latest
