@@ -131,6 +131,39 @@ func (p *voxPortal) persistLocked() error {
     return os.Rename(tmp.Name(),p.path)
 }
 
+// Simulator registration is authenticated exactly like media requests; UUIDs are
+// never accepted from an anonymous portal user or a viewer request.
+func (p *voxPortal) registerRegionAPI(w http.ResponseWriter,r *http.Request) {
+    node:=r.Header.Get("X-OGLVoice-Node")
+    cfg,ok:=p.nodeConfig(node)
+    if !ok {http.Error(w,"Unknown account",http.StatusForbidden);return}
+    data,err:=readRequest(w,r)
+    if err!=nil{http.Error(w,"Invalid request",http.StatusBadRequest);return}
+    if err=p.media.replay.verify(node,cfg,r,data,p.media.now());err!=nil{
+        http.Error(w,"Invalid machine proof",http.StatusUnauthorized);return
+    }
+    var input struct{RegionID string}
+    if err=json.Unmarshal(data,&input);err!=nil || !validUUID.MatchString(input.RegionID){
+        http.Error(w,"Invalid region UUID",http.StatusBadRequest);return
+    }
+    p.recordRegion(node,input.RegionID)
+    w.Header().Set("Cache-Control","no-store")
+    w.WriteHeader(http.StatusNoContent)
+}
+
+func (p *voxPortal) recordRegion(node,regionID string) {
+    if !validUUID.MatchString(regionID){return}
+    p.mu.Lock()
+    defer p.mu.Unlock()
+    a:=p.accounts[node]
+    if a==nil{return}
+    if a.Regions==nil{a.Regions=make(map[string][]string)}
+    regionID=strings.ToLower(regionID)
+    if _,exists:=a.Regions[regionID];exists{return}
+    a.Regions[regionID]=[]string{}
+    if err:=p.persistLocked();err!=nil{slog.Error("VoxVoice SIM registry save failed","error",err)}
+}
+
 func (p *voxPortal) recordSession(node, regionID, avatarID string) {
     if !validUUID.MatchString(regionID) || !validUUID.MatchString(avatarID) { return }
     p.mu.Lock()
@@ -154,6 +187,7 @@ func (p *voxPortal) registerHTTP(mux *http.ServeMux) {
     mux.HandleFunc("POST /login", p.login)
     mux.HandleFunc("POST /logout", p.logout)
     mux.HandleFunc("GET /dashboard", p.dashboard)
+    mux.HandleFunc("POST /internal/voxvoice/v1/regions", p.registerRegionAPI)
 }
 
 func (p *voxPortal) guard(w http.ResponseWriter,r *http.Request) bool {
