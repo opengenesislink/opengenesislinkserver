@@ -58,38 +58,81 @@ namespace NexVerse.RegionModules.Voice
         private int m_ProviderUnavailableLogged;
         private string m_NodeId;
         private string m_Key;
+        private OglVoiceProviderDescriptor m_VoxProvider;
 
         public string Name => "OGLVoice Firestorm WebRTC Capability Bridge";
         public Type ReplaceableInterface => null;
 
         public void Initialise(IConfigSource source)
         {
+            // VoxVoice is a simple opt-in external provider. Its machine credential
+            // never reaches Firestorm: the simulator signs each media request.
+            IConfig vox = source.Configs["VoxVoice"];
+            bool useVox = vox?.GetBoolean("enabled", false) == true;
             IConfig options = source.Configs["OGLVoiceViewer"];
-            if (options?.GetBoolean("Enabled", true) == false)
+            if (options?.GetBoolean("Enabled", true) == false && !useVox)
             {
-                m_Log.Info("[OGL-VOICE]: Firestorm WebRTC adapter explicitly disabled by [OGLVoiceViewer].");
+                m_Log.Info("[OGL-VOICE]: Firestorm WebRTC adapter explicitly disabled.");
                 return;
             }
+
             IConfig node = source.Configs["NexVerseNodeAgent"];
             IConfig ogl = source.Configs["OGLVoice"];
             bool grid = node?.GetBoolean("Enabled", false) == true;
             bool standalone = ogl?.GetBoolean("Enabled", false) == true &&
                 string.Equals(ogl.GetString("Mode", ""), "Standalone",
                     StringComparison.OrdinalIgnoreCase);
-            if (!grid && !standalone)
+            if (!useVox && !grid && !standalone)
             {
-                m_Log.Info("[OGL-VOICE]: Firestorm WebRTC not enabled: no active NexVerseNodeAgent or standalone OGLVoice. Firestorm can fall back to Vivox; an empty Vivox provision URL is not an OGLVoice media connection.");
+                m_Log.Info("[OGL-VOICE]: No configured WebRTC voice provider.");
                 return;
             }
+
             try
             {
-                m_NodeId = grid
-                    ? node.GetString("NodeId", Environment.MachineName).Trim()
-                    : Environment.GetEnvironmentVariable("OGLVOICE_MEDIA_BRIDGE_NODE_ID")?.Trim()
-                        ?? Environment.MachineName;
-                m_Key = grid
-                    ? node.GetString("SharedKey", "")
-                    : Environment.GetEnvironmentVariable("OGLVOICE_MEDIA_BRIDGE_SHARED_KEY");
+                if (useVox)
+                {
+                    string user = vox.GetString("vox_user", "").Trim();
+                    string password = vox.GetString("vox_password", "");
+                    string host = vox.GetString("vox_server", "").Trim();
+                    if (!System.Text.RegularExpressions.Regex.IsMatch(
+                        user, @"^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,95}$") ||
+                        password.Length < 32 || password.Length > 256)
+                        throw new ArgumentException("Invalid VoxVoice machine credentials");
+                    if (!Uri.TryCreate("https://" + host, UriKind.Absolute,
+                        out Uri voiceUri) || voiceUri.Scheme != Uri.UriSchemeHttps ||
+                        voiceUri.AbsolutePath != "/" || !string.IsNullOrEmpty(voiceUri.Query) ||
+                        !string.IsNullOrEmpty(voiceUri.Fragment) || voiceUri.UserInfo.Length != 0 ||
+                        !OglVoiceDiscoveryProof.IsSafeServiceUri(voiceUri.AbsoluteUri))
+                        throw new ArgumentException("Invalid VoxVoice hostname");
+
+                    // The portal persists only SHA256(vox_password). Both sides
+                    // use its lowercase hex representation as the HMAC signing key.
+                    byte[] hash = System.Security.Cryptography.SHA256.HashData(
+                        Encoding.UTF8.GetBytes(password));
+                    m_Key = Convert.ToHexString(hash).ToLowerInvariant();
+                    m_NodeId = user;
+                    m_VoxProvider = new OglVoiceProviderDescriptor
+                    {
+                        provider_url = voiceUri.GetLeftPart(UriPartial.Authority),
+                        media_gateway_url = voiceUri.GetLeftPart(UriPartial.Authority) +
+                            "/internal/webrtc/v1/exchange",
+                        tenant_id = user,
+                        hypergrid_guests = true,
+                        viewer_capability = "firestorm-webrtc-v1"
+                    };
+                    m_VoxProvider.Validate();
+                }
+                else
+                {
+                    m_NodeId = grid
+                        ? node.GetString("NodeId", Environment.MachineName).Trim()
+                        : Environment.GetEnvironmentVariable("OGLVOICE_MEDIA_BRIDGE_NODE_ID")?.Trim()
+                            ?? Environment.MachineName;
+                    m_Key = grid
+                        ? node.GetString("SharedKey", "")
+                        : Environment.GetEnvironmentVariable("OGLVOICE_MEDIA_BRIDGE_SHARED_KEY");
+                }
                 OglVoiceMediaProof.Sign(m_Key, m_NodeId,
                     DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
                     OglVoiceDiscoveryProof.NewNonce(), new byte[] { 1 });
@@ -102,10 +145,12 @@ namespace NexVerse.RegionModules.Voice
                     Timeout = TimeSpan.FromSeconds(6)
                 };
                 m_Enabled = true;
+                if (useVox)
+                    m_Log.Info("[VOXVOICE]: External Firestorm WebRTC provider configured.");
             }
             catch (Exception ex)
             {
-                m_Log.Warn("[OGL-VOICE]: Firestorm-CAPS bleiben deaktiviert: " + ex.Message);
+                m_Log.Warn("[VOXVOICE]: WebRTC CAPS disabled: " + ex.Message);
             }
         }
 
@@ -161,7 +206,7 @@ namespace NexVerse.RegionModules.Voice
             if (!m_Enabled || m_Scene == null || m_Http == null)
                 return null;
             OglVoiceProviderDescriptor provider =
-                m_Scene.RequestModuleInterface<IOglVoiceProviderLookup>()?.CurrentProvider;
+                m_VoxProvider ?? m_Scene.RequestModuleInterface<IOglVoiceProviderLookup>()?.CurrentProvider;
             if (provider?.viewer_capability != "firestorm-webrtc-v1" ||
                 !OglVoiceDiscoveryProof.IsSafeServiceUri(provider.media_gateway_url))
                 return null;
