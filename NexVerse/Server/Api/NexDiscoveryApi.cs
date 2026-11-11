@@ -10,6 +10,7 @@ using NexVerse.Core.Audit;
 using NexVerse.Core.Discovery;
 using NexVerse.Core.Economy;
 using NexVerse.Core.Experiences;
+using NexVerse.Core.Messaging;
 using NexVerse.Core.Security;
 using OpenMetaverse;
 using OpenSim.Framework;
@@ -34,6 +35,7 @@ namespace NexVerse.Server.Api
         private readonly Func<NexEconomyService> m_Economy;
         private readonly INexAuditSink m_Audit;
         private readonly string m_TeleportBaseUri;
+        private readonly INexEventBus m_EventBus;
 
         public NexDiscoveryApi(
             NexApiAuthenticator authenticator,
@@ -44,7 +46,7 @@ namespace NexVerse.Server.Api
             NexDiscoveryStore store,
             Func<NexEconomyService> economy,
             INexAuditSink audit,
-            string teleportBaseUri)
+            string teleportBaseUri, INexEventBus eventBus = null)
         {
             m_Authenticator = authenticator ?? throw new ArgumentNullException(nameof(authenticator));
             m_Users = users;
@@ -55,6 +57,30 @@ namespace NexVerse.Server.Api
             m_Economy = economy ?? throw new ArgumentNullException(nameof(economy));
             m_Audit = audit ?? NullNexAuditSink.Instance;
             m_TeleportBaseUri = (teleportBaseUri ?? string.Empty).Trim().TrimEnd('/');
+            m_EventBus = eventBus;
+        }
+
+        private void PublishApprovedActivity(string kind, Guid entityId)
+        {
+            if (m_EventBus == null || entityId == Guid.Empty) return;
+            try
+            {
+                m_EventBus.Publish(new NexEvent(
+                    kind == "event" ? "discovery.event.approved" :
+                        "discovery.classified.approved",
+                    "nexverse.world-api",
+                    new Dictionary<string,string> {
+                        ["entity_id"] = entityId.ToString("D")
+                    }));
+            }
+            catch (Exception error)
+            {
+                // Discovery data is already committed; the optional Feed
+                // cannot fail a successful published event/classified.
+                System.Diagnostics.Trace.TraceWarning(
+                    "[NEX-DISCOVERY]: Activity event delivery failed: " +
+                    error.GetType().Name);
+            }
         }
 
         public void HandleSearch(IOSHttpRequest request, IOSHttpResponse response)
@@ -333,6 +359,7 @@ namespace NexVerse.Server.Api
                         NexEventRecord incoming = ReadBody<NexEventRecord>(request);
                         NexEventRecord prior = incoming.EventId == Guid.Empty
                             ? null : m_Store.GetEvent(incoming.EventId);
+                        bool wasApproved = prior?.State == NexDiscoveryPublicationState.Approved;
                         if (prior == null && incoming.EventId != Guid.Empty)
                             throw new KeyNotFoundException("Event was not found.");
                         if (!principal.HasScope(NexScopes.AdminAll))
@@ -362,6 +389,8 @@ namespace NexVerse.Server.Api
                         }
                         NexEventRecord saved = m_Store.UpsertEvent(incoming);
                         Audit(principal, "discovery.event.upserted", "event:" + saved.EventId, response);
+                        if (saved.State == NexDiscoveryPublicationState.Approved && !wasApproved)
+                            PublishApprovedActivity("event", saved.EventId);
                         WriteJson(response, new { @event = saved, correlation_id = Correlation(response) }, HttpStatusCode.Created);
                     }
                     catch (Exception e)
@@ -399,6 +428,7 @@ namespace NexVerse.Server.Api
                         NexClassifiedRecord incoming = ReadBody<NexClassifiedRecord>(request);
                         NexClassifiedRecord prior = incoming.ClassifiedId == Guid.Empty
                             ? null : m_Store.GetClassified(incoming.ClassifiedId);
+                        bool wasApproved = prior?.State == NexDiscoveryPublicationState.Approved;
                         if (prior == null && incoming.ClassifiedId != Guid.Empty)
                             throw new KeyNotFoundException("Classified was not found.");
                         if (!principal.HasScope(NexScopes.AdminAll))
@@ -425,6 +455,8 @@ namespace NexVerse.Server.Api
                         }
                         NexClassifiedRecord saved = m_Store.UpsertClassified(incoming);
                         Audit(principal, "discovery.classified.upserted", "classified:" + saved.ClassifiedId, response);
+                        if (saved.State == NexDiscoveryPublicationState.Approved && !wasApproved)
+                            PublishApprovedActivity("classified", saved.ClassifiedId);
                         WriteJson(response, new { classified = saved, correlation_id = Correlation(response) }, HttpStatusCode.Created);
                     }
                     catch (Exception e)
