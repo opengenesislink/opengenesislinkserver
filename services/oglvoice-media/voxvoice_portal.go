@@ -78,6 +78,11 @@ func newVoxPortal(m *mediaServer) (*voxPortal, error) {
     if _, err := mail.ParseAddress(p.smtpFrom); err != nil || p.smtpUser == "" || p.smtpPassword == "" {
         return nil, errors.New("VOXVOICE SMTP sender or credentials missing")
     }
+    if info, err := os.Lstat(path); err == nil {
+        if !info.Mode().IsRegular() || info.Mode().Perm()&0077 != 0 {
+            return nil, errors.New("VoxVoice account database must be a regular file with mode 0600")
+        }
+    } else if !os.IsNotExist(err) { return nil, err }
     if b, err := os.ReadFile(path); err == nil {
         var items []*voxAccount
         if err := json.Unmarshal(b, &items); err != nil { return nil, fmt.Errorf("VoxVoice accounts: %w", err) }
