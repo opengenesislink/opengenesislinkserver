@@ -48,4 +48,14 @@ namespace OpenSim.Framework
 
         event ObjectPaid OnObjectPaid;
     }
+
+    /// <summary>
+    /// Optional, non-breaking preflight for charged operations. Implementations
+    /// validate the fee destination and the available balance before callers
+    /// mutate external state. A successful preflight is not a payment guarantee.
+    /// </summary>
+    public interface IMoneyChargePreflight
+    {
+        bool TryPreflightCharge(UUID agentID, int amount, out string reason);
+    }
 }

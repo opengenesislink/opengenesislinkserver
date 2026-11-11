@@ -31,6 +31,7 @@ namespace NexVerse.RegionModules.Economy
         Id = "NexVerseMoneyModule")]
     public sealed class NexVerseMoneyModule :
         IMoneyModule,
+        IMoneyChargePreflight,
         INexMasterBankPayoutModule,
         ISharedRegionModule
     {
@@ -240,6 +241,13 @@ namespace NexVerse.RegionModules.Economy
             {
                 throw new InvalidOperationException(
                     "[NEX-ECONOMY-VIEWER]: FeeWalletId must be a UUID.");
+            }
+
+            if (m_FeeWalletId.IsZero())
+            {
+                m_Log.Warn("[NEX-ECONOMY-VIEWER]: FeeWalletId fehlt. " +
+                    "Kostenpflichtige Classifieds und andere Systemgebuehren " +
+                    "koennen erst nach Einrichtung einer separaten NV$-Gebuehrenwallet gebucht werden.");
             }
 
             if (string.IsNullOrWhiteSpace(
@@ -516,6 +524,47 @@ namespace NexVerse.RegionModules.Economy
             return
                 GetBalance(agentID) >=
                 amount;
+        }
+
+        // A separate fee destination is mandatory for system charges.
+        // Do not change AmountCovered: land and resident-to-resident transfers
+        // must continue to work even when system charges are unavailable.
+        public bool TryPreflightCharge(
+            UUID agentID,
+            int amount,
+            out string reason)
+        {
+            reason = string.Empty;
+            if (amount < 0)
+            {
+                reason = "Invalid NV$ charge amount.";
+                return false;
+            }
+            if (amount == 0)
+                return true;
+            if (!m_Enabled || m_Http == null)
+            {
+                reason = "NV$ fee service is unavailable.";
+                return false;
+            }
+            if (m_FeeWalletId.IsZero())
+            {
+                reason = "NV$ fee wallet is not configured. Please contact grid support.";
+                return false;
+            }
+            if (agentID.IsZero() || agentID == m_FeeWalletId)
+            {
+                reason = "Invalid NV$ fee payer.";
+                return false;
+            }
+            if (!AmountCovered(agentID, amount))
+            {
+                reason = "Insufficient NV$ or balance service unavailable.";
+                return false;
+            }
+            // Balance and configuration can change before the final transfer.
+            // The ledger debit remains the final authority.
+            return true;
         }
 
         public void ApplyCharge(

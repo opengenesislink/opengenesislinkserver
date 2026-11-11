@@ -736,15 +736,33 @@ namespace OpenSim.Region.CoreModules.Avatar.UserProfiles
             bool exists = list.Cast<OSDMap>().Where(map => map.ContainsKey("classifieduuid"))
               .Any(map => map["classifieduuid"].AsUUID().Equals(queryclassifiedID));
 
+            // Never trust a negative fee from the viewer. On a newly created
+            // classified, validate the configured fee destination *before*
+            // publishing the ad in the separate profile service.
+            if (queryclassifiedPrice < 0)
+            {
+                remoteClient.SendAgentAlertMessage("Invalid classified price.", false);
+                return;
+            }
+
             IMoneyModule money = null;
             if (!exists)
             {
                 money = s.RequestModuleInterface<IMoneyModule>();
                 if (money is not null)
                 {
-                    if (!money.AmountCovered(remoteClient.AgentId, queryclassifiedPrice))
+                    bool feeReady;
+                    string feeError = "Insufficient NV$ or fee service unavailable.";
+                    if (money is IMoneyChargePreflight preflight)
+                        feeReady = preflight.TryPreflightCharge(
+                            remoteClient.AgentId, queryclassifiedPrice, out feeError);
+                    else
+                        feeReady = money.AmountCovered(
+                            remoteClient.AgentId, queryclassifiedPrice);
+
+                    if (!feeReady)
                     {
-                        remoteClient.SendAgentAlertMessage("You do not have enough money to create this classified.", false);
+                        remoteClient.SendAgentAlertMessage(feeError, false);
                         if(uce is not null && uce.classifiedsLists is not null)
                             remoteClient.SendAvatarClassifiedReply(remoteClient.AgentId, uce.classifiedsLists);
                         return;
@@ -778,8 +796,28 @@ namespace OpenSim.Region.CoreModules.Avatar.UserProfiles
                 return;
             }
 
-            // only charge if it worked
-            money?.ApplyCharge(remoteClient.AgentId, queryclassifiedPrice, MoneyTransactionType.ClassifiedCharge);
+            // The legacy profile RPC and the NV$ ledger do not share a
+            // transaction. Report any post-publication debit failure instead
+            // of letting an unhandled exception escape the viewer job worker.
+            // Never retry an ambiguous debit with a fresh transfer ID.
+            if (money is not null && queryclassifiedPrice > 0)
+            {
+                try
+                {
+                    money.ApplyCharge(remoteClient.AgentId, queryclassifiedPrice,
+                        MoneyTransactionType.ClassifiedCharge);
+                }
+                catch (Exception feeException)
+                {
+                    m_log.ErrorFormat(
+                        "[PROFILE CLASSIFIED]: Classified {0} for {1} was saved, " +
+                        "but NV$ fee payment could not be confirmed; ledger/manual reconciliation required: {2}",
+                        queryclassifiedID, creatorId, feeException.Message);
+                    remoteClient.SendAgentAlertMessage(
+                        "Classified saved, but NV$ payment could not be confirmed. " +
+                        "Contact grid support before retrying.", true);
+                }
+            }
 
             // just flush cache for now
             lock(m_profilesCache)

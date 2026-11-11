@@ -440,6 +440,10 @@ jobs:
         shell: bash
         run: python3 tools/ci/verify_firestorm_group_land_money.py
 
+      - name: Verify NV$ classifieds fee preflight and reconciliation
+        shell: bash
+        run: python3 tools/ci/verify_g1_classified_fee_preflight.py
+
       - name: Verify citizen world map integration
         shell: bash
         run: python3 tools/ci/verify_citizen_world_map.py
