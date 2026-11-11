@@ -58,7 +58,8 @@ for method in ("CreatePost(", "AddComment(", "Like(", "Follow("):
 
 for needle in ("ProfileFeedRetentionDays", "profileConnectionString"):
     assert needle in connector
-for needle in ("PruneExpired()", "Cutoff", "created_at>=@cutoff"):
+for needle in ("PruneExpired()", "Cutoff", "created_at>=@cutoff",
+               "m_RetentionTimer = new Timer("):
     assert needle in store
 assert api.count("m_Store.PruneExpired();") == 2
 
