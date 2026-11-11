@@ -1,50 +1,26 @@
-# OpenGenesisLINK versioning
+# OpenGenesisLINK – Versionskennung
 
-Current stable release: **OpenGenesisLINK v0.9.3.13**, operator-approved on 27 October 2026.  
-Current main development line: **OpenGenesisLINK Generation 1** (development channel); technical .NET/Mono.Addins build version **0.9.4.0**. Legacy 0.9.3.14 and planned 0.9.4.0 scopes are a **single** rolling development milestone, not two future public releases.  
-Release documentation: **doc/NexVerse/RELEASE_0.9.3.13.md**.  
-**Evidence notice:** Stable published by explicit operator decision despite missing independently verifiable 30-gate live test references. The formal exception and remaining evidence obligations are preserved in **doc/NexVerse/09313_OPERATOR_RELEASE_DECISION.md**; no automatic FSAssets migration is authorized.  
-Previous stable release: **OpenGenesisLINK v0.9.3.12** (14 October 2026).  
+**Aktuelle Entwicklungslinie: OpenGenesisLINK Generation 1 (0.9.4.0)**
 
-Completed stabilization train: **OpenGenesisLINK v0.9.3.10**, covering .NET runtime stabilization, NV$ Economy/GRID SERVICES Masterbank, inventory core, R287 World API and RC1 validation. **NexExperiences/Firestorm is paused and disabled in the release profile.** OGL Pathfinding 2.0 and OGL My Outfits 2.0 are deferred to the own viewer; OGLVoice remains deferred. No 0.9.3.9 Stable release.  
-Last tested RC1 promotion: **OpenGenesisLINK v0.9.3.10 RC1** (PR #179, CI green; no separate RC1 tag created)  
-Completed milestone: **0.9.3.10 Stable — direkte Betreiberfreigabe mit dokumentierter Ausnahme von nicht belegten Einzel-/Langzeittests**  
-Architecture consolidation is part of **OpenGenesisLINK Generation 1**, with `0.9.4.0` reserved for internal compatibility/build identification.  
-Completed milestone codename: **NEXJAST**
+OpenGenesisLINK bezeichnet die eigenstaendige Serverplattform. Die
+Produktgeneration ist **Generation 1**. Die technische Versionsnummer
+`0.9.4.0` wird im Quellcode unter
+`OpenSim/Framework/VersionInfo.cs` gefuehrt. Die Plattform wird mit
+**.NET 10** gebaut und betrieben.
 
-OpenGenesisLINK continues from the OpenSimulator 0.9.3.0 source baseline and the former NexVerse Server development line, but is maintained as an independent server-platform product. NexVerse remains the grid/world deployment name.
+- **Quellstand:** `main` enthaelt den laufenden Generation-1-Stand.
+- **Build:** `global.json`, `runprebuild.sh` und `OpenSim.sln`
+  definieren den .NET-10-Buildpfad.
+- **Release:** Ein Commit auf `main` ist nicht automatisch ein
+  freigegebener Stable-Release. Offizielle Veroeffentlichungen und
+  herunterladbare Archive stehen unter
+  [GitHub Releases](https://github.com/opengenesislink/opengenesislinkserver/releases).
+- **Historische Versionen:** Bereits veroeffentlichte Tags und
+  Dokumentationen bleiben fuer Nachvollziehbarkeit und Betreiber-
+  Migrationen erhalten. Historische Versionsnummern werden nicht
+  erneut als aktuelle Plattformversion beworben.
+- **Kompatibilitaet:** Bestehende interne Namespaces, Konfigurations-
+  schluessel und Protokollbezeichner duerfen aus Kompatibilitaetsgruenden
+  weiterhin abweichende Namen tragen.
 
-## Rules
-
-1. `OpenSim/Framework/VersionInfo.cs` is the authoritative runtime product version.
-2. Runtime version strings use the product name `OpenGenesisLINK`; the short administrator-facing form may use `OGL`.
-3. Development builds use the `Dev` flavour.
-4. Release candidates use `RC1`, `RC2`, `RC3` as required.
-5. Public-facing product and runtime branding use **OpenGenesisLINK Generation 1**; technical build/assembly and addon compatibility continue to use the four-component version, currently `0.9.4.0`. The release channel (Dev/Stable) is metadata, not part of the public generation name.
-6. OpenGenesisLINK versions advance independently of the OpenSimulator upstream version.
-7. A version bump must be committed together with the development/release state that introduces it.
-8. Historical OpenSimulator baseline references and applicable BSD/third-party notices remain unchanged while inherited licensed material remains.
-9. Milestone scope and version progression are documented in `doc/NexVerse/ROADMAP.md`.
-10. Compatibility-sensitive internal `NexVerse.*` namespaces, API paths and configuration keys are migrated separately rather than renamed blindly.
-
-## Current line
-
-- `NexVerse 0.9.3.0` — first NexVerse release based on the imported OpenSimulator 0.9.3.0 baseline.
-- `NexVerse 0.9.3.1` — **NEXJAST**, released 2 October 2026 after completing the legacy-cleanup and platform-foundation milestone.
-- `NexVerse 0.9.3.2 Dev` — **World API v1** development checkpoint, completed 3 October 2026 with 36/36 explicit roadmap criteria satisfied; no separate stable 0.9.3.2 release was produced.
-- `NexVerse 0.9.3.3 Dev` — completed identity/profile/social development checkpoint within the 0.9.3.4 release train.
-- `NexVerse 0.9.3.4` — completed stable release for Simulator, Region and Estate Control Plane.
-- `OpenGenesisLINK v0.9.3.5 Dev` — completed development line for Inventory, OAR/IAR, persistent Job Engine and NexBus.
-- `OpenGenesisLINK v0.9.3.6 Dev` — completed development line for NV$ economy, banking, commerce and land flows.
-- `OpenGenesisLINK v0.9.3.7 Dev` — completed development line for NexGroups parity, native NexExperiences and Experience LSL.
-- `OpenGenesisLINK v0.9.3.8 Dev` — completed feature implementation and development hardening for NexSearch, Places, Land Portal and Destination Guide.
-- `OpenGenesisLINK v0.9.3.8 RC1` — validated prerelease. Operator reported successful cross-region and estate-wide LSL tests, including NexBus across separate simulator processes; cross-owner and log-clean checks were not separately documented.
-- `OpenGenesisLINK v0.9.3.8` — **stable release, 8 October 2026**; promoted after successful RC1 operator acceptance and green release CI. Known limitations and previously unverified edge cases remain documented in the release notes.
-- `OpenGenesisLINK v0.9.3.10` — Stable Abschluss des Stabilisierungstrains nach ausdrücklicher Betreiberentscheidung (12.10.2026) for .NET runtime, local/HG logins, NV$ Economy/GRID SERVICES Masterbank, inventory/asset foundations and R287 World API. NexExperiences viewer integration is paused and disabled in shipped RC templates (security regressions remain); OGL Pathfinding 2.0, OGL My Outfits 2.0 and any Experiences 2.0 are deferred to the own viewer; OGLVoice is separate. Die 22 RC1-Funktionsprüfungen wurden vom Betreiber im Chat bestätigt, jedoch nicht mit einzeln referenzierbaren v2-Belegen eingereicht. Die 23/23-Formalprüfung einschließlich 24-h-Soak wurde nicht abgeschlossen; bewusste einmalige Ausnahme: `doc/NexVerse/09310_OPERATOR_RELEASE_DECISION.md`. Dies ist keine Empfehlung für spätere Releases. See `doc/NexVerse/RELEASE_TRAIN_0.9.3.10.md`.
-- `OpenGenesisLINK v0.9.3.12` — **stable release, 14 October 2026**, from the independent 0.9.3.12 line.
-- `OpenGenesisLINK v0.9.3.13` — **Stable, 27 October 2026, durch ausdrückliche Betreiberentscheidung**: 17.1 OGL AssetService (opt-in; FSAssets weiterhin autoritativ), 17.2 Mesh/PBR-Materialpipeline, 17.3 Extended Region Visibility, LLUDP-Fix, FastMap und World-API-Verbesserungen. Die formale 30-Gates-Evidence-Ausnahme ist dokumentiert in `doc/NexVerse/09313_OPERATOR_RELEASE_DECISION.md`. OGLSeasons war in dieser historischen Stable-Veröffentlichung eingefroren; in Generation 1 anschließend eingestellt und durch OGLWeather ersetzt.
-- `OpenGenesisLINK Generation 1` — **aktuelle gemeinsame Entwicklungsstufe**; bisherige Planungen `0.9.3.14` und `0.9.4.0` sind zusammengeführt. Interne Build-/Assembly-Version `0.9.4.0`, Releasekanal Dev. Enthält einen flexibel priorisierten Ideenpool für Simulator/ROBUST, World API, Addons, Performance, Fehlerkorrekturen, Betriebsfunktionen, NexAds, Events und Notifications sowie die Plattformkonsolidierung. Kein einzelner Bereich gilt allein wegen der Version als implementiert oder verpflichtend. Der Tag `v0.9.3.13` bleibt die letzte offiziell veröffentlichte Stable-Version.
-
-The product-name transition does not rewrite provenance. OpenSimulator 0.9.3.0 remains the historical source baseline, and inherited licensing remains attached to inherited code until independently replaced.
-
-The four-component version format is retained for compatibility with the existing build and assembly versioning scheme. Protocol and API compatibility levels are versioned independently where appropriate so the product version does not encode every internal protocol revision.
+Weitere Informationen: **https://opengenesislink.de**.
