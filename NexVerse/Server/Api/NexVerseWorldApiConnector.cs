@@ -1386,7 +1386,9 @@ namespace NexVerse.Server.Api
                                     profileConnectionString,
                                     apiConfig.GetInt("ProfileFeedRetentionDays", 180));
                                 OglProfileFeedApi feedApi = new OglProfileFeedApi(
-                                    userAccounts, profilesData, authenticator, feedStore, auditSink);
+                                    userAccounts, profilesData, authenticator, feedStore, auditSink,
+                                    apiConfig.GetString("ProfileFeedOAuthClientId", string.Empty),
+                                    publicBaseUrl.TrimEnd('/') + "/feed");
                                 server.AddSimpleStreamHandler(
                                     new SimpleStreamHandler("/api/v1/feed", apiGate.Wrap(feedApi.HandleApi),
                                         "OpenGenesisLINK profile activity feed"), true);
