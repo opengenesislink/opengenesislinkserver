@@ -910,6 +910,12 @@ namespace OpenSim.Region.ScriptEngine.Shared.ScriptBase
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public LSL_String llGetRenderMaterial(int face)
+        {
+            return m_LSL_Functions.llGetRenderMaterial(face);
+        }
+
         public LSL_List llGetPrimitiveParams(LSL_List rules)
         {
             return m_LSL_Functions.llGetPrimitiveParams(rules);
@@ -2106,6 +2112,18 @@ namespace OpenSim.Region.ScriptEngine.Shared.ScriptBase
         public LSL_Integer llSetRegionPos(LSL_Vector pos)
         {
             return m_LSL_Functions.llSetRegionPos(pos);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void llSetRenderMaterial(LSL_String material, int face)
+        {
+            m_LSL_Functions.llSetRenderMaterial(material, face);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void llSetLinkRenderMaterial(int link, LSL_String material, int face)
+        {
+            m_LSL_Functions.llSetLinkRenderMaterial(link, material, face);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
