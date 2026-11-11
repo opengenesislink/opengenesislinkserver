@@ -460,6 +460,10 @@ jobs:
         shell: bash
         run: python3 tools/ci/verify_ogl_profile_feed.py
 
+      - name: Verify OGL Profile Feed account deletion and rollout
+        shell: bash
+        run: python3 tools/ci/verify_ogl_profile_feed_rollout.py
+
       - name: Verify World API OGLWeather portal contracts
         shell: bash
         run: |
