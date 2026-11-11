@@ -131,6 +131,29 @@ internal static class Program
         Assert(overrideEntries.Length == 1 && overrideEntries[0].data == serialized,
             "malformed glTF material mutated prior state");
 
+        // The live ModifyMaterialParams handler preflights each glTF
+        // candidate before modifying the shape's asset_id. This validation
+        // must accept legitimate factors while rejecting malformed vectors.
+        var preflight = typeof(MaterialsModule).GetMethod("CanApplyMaterialOverride",
+            BindingFlags.NonPublic | BindingFlags.Static);
+        Assert(preflight != null, "PBR atomic preflight helper missing");
+        Assert((bool)preflight.Invoke(null, new object[] { gltf, 4 }),
+            "valid PBR material must pass no-mutation preflight");
+        foreach (string malformed in new[]
+        {
+            "{\"materials\":[{\"pbrMetallicRoughness\":{\"baseColorFactor\":[1,0,0]}}]}",
+            "{\"materials\":[{\"pbrMetallicRoughness\":{\"baseColorFactor\":[1,0,0,1,0]}}]}",
+            "{\"materials\":[{\"pbrMetallicRoughness\":{\"baseColorFactor\":[1,0,\"bad\",1]}}]}",
+            "{\"materials\":[{\"pbrMetallicRoughness\":{\"metallicFactor\":-1}}]}",
+            "{\"materials\":[{\"pbrMetallicRoughness\":{\"roughnessFactor\":2}}]}",
+            "{\"materials\":[{\"emissiveFactor\":[0.1,0.2]}]}",
+            "{\"materials\":[{\"emissiveFactor\":[0.1,0.2,1.1]}]}"
+        })
+        {
+            Assert(!(bool)preflight.Invoke(null, new object[] { malformed, 4 }),
+                "invalid glTF factor changed would-be PBR mutation preflight");
+        }
+
         // LLSD side indices are byte encoded. Negative, overflowing and
         // non-integer values must not alias another user's material face.
         Assert(ParseSide(OSD.FromInteger(0), out int parsedSide) && parsedSide == 0,
