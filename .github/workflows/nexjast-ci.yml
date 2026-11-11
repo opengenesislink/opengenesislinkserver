@@ -466,6 +466,10 @@ jobs:
           python3 tools/ci/verify_ogl_profile_feed_rollout.py
           python3 tools/release/check_g1_fee_feed_rollout.py --sim bin/OpenSim.ini --robust bin/Robust.HG.ini
 
+      - name: Verify interactive OGL Profile Feed OAuth PKCE and CEF app
+        shell: bash
+        run: python3 tools/ci/verify_ogl_profile_feed_interactive.py
+
       - name: Verify World API OGLWeather portal contracts
         shell: bash
         run: |
