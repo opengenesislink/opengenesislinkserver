@@ -284,6 +284,22 @@ namespace NexVerse.Server.Api
                     ("post", "Destination-Aufruf für Popularitätsranking registrieren", "200")),
                 ["/api/v1/destinations/{destinationId}/moderation"] = AuthenticatedOperations(
                     ("post", "Destination freigeben oder ablehnen", "discovery:manage", "200")),
+                ["/api/v1/feed/{principalId}"] = MergeOperations(
+                    GetOperation("Feed eines veroeffentlichten lokalen Avatars lesen; private Feeds nur mit Owner/Admin-Berechtigung"),
+                    AuthenticatedOperations(("post", "Eigene Statusmeldung veroeffentlichen", "profile:write", "201"))),
+                ["/api/v1/feed/{principalId}/{postId}"] = AuthenticatedOperations(
+                    ("delete", "Eigene Statusmeldung entfernen", "profile:write", "200")),
+                ["/api/v1/feed/{principalId}/{postId}/comments"] = MergeOperations(
+                    GetOperation("Kommentare eines veroeffentlichten oder berechtigt lesbaren Feeds abrufen"),
+                    AuthenticatedOperations(("post", "Kommentar verfassen", "relationships:write", "201"))),
+                ["/api/v1/feed/{principalId}/{postId}/comments/{commentId}"] = AuthenticatedOperations(
+                    ("delete", "Eigenen Kommentar oder Kommentar auf eigenem Feed loeschen", "relationships:write", "200")),
+                ["/api/v1/feed/{principalId}/{postId}/likes"] = AuthenticatedOperations(
+                    ("put", "Beitrag mit Gefaellt mir markieren", "relationships:write", "200"),
+                    ("delete", "Eigene Markierung entfernen", "relationships:write", "200")),
+                ["/api/v1/feed/{principalId}/following"] = AuthenticatedOperations(
+                    ("put", "Oeffentlichem Feed folgen", "relationships:write", "200"),
+                    ("delete", "Feed nicht mehr folgen", "relationships:write", "200")),
                 ["/api/v1/profiles/{principalId}"] = MergeOperations(
                     GetOperation("Öffentlich sichtbares Avatarprofil lesen; private Profile nur für Eigentümer oder Admin"),
                     AuthenticatedOperations(("patch", "Eigene 11 editierbare userprofile-Spalten ändern; useruuid, profileImage und profileFirstImage bleiben gesperrt", "profile:write", "200"))),
