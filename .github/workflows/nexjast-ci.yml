@@ -57,6 +57,10 @@ jobs:
           test -f OpenSim/Region/CoreModules/Scripting/XMLRPC/XMLRPCModule.cs
           test -f OpenSim/Region/OptionalModules/Scripting/XmlRpcRouterModule/XmlRpcRouterModule.cs
 
+      - name: Verify Generation 1 repository hygiene and .NET 10 build commands
+        shell: bash
+        run: python3 tools/ci/verify_g1_repository_hygiene.py
+
       - name: Verify immutable stable release gating on development main
         shell: bash
         run: python3 tools/ci/verify_stable_release_gate.py
