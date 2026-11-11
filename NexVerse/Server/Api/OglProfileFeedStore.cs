@@ -75,6 +75,23 @@ namespace NexVerse.Server.Api
                 PRIMARY KEY(owner,follower),
                 INDEX ix_ogl_feed_follower(follower)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+            Execute(db, @"CREATE TABLE IF NOT EXISTS ogl_profile_feed_activity_settings(
+                owner CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL PRIMARY KEY,
+                auto_events TINYINT(1) NOT NULL DEFAULT 0,
+                auto_classifieds TINYINT(1) NOT NULL DEFAULT 0,
+                updated_at BIGINT NOT NULL
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+            Execute(db, @"CREATE TABLE IF NOT EXISTS ogl_profile_feed_activity_receipts(
+                owner CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+                activity_kind VARCHAR(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+                reference_id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+                post_id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+                created_at BIGINT NOT NULL,
+                PRIMARY KEY(owner,activity_kind,reference_id),
+                INDEX ix_ogl_feed_activity_time(owner,created_at),
+                CONSTRAINT fk_ogl_feed_activity_post FOREIGN KEY(post_id)
+                    REFERENCES ogl_profile_feed_posts(id) ON DELETE CASCADE
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
             m_RetentionTimer = new Timer(_ =>
             {
                 try
@@ -193,6 +210,113 @@ namespace NexVerse.Server.Api
                     Text=rd.GetString(2), CreatedAt=rd.GetInt64(3),
                     Likes=Convert.ToInt32(rd.GetValue(4)), Comments=Convert.ToInt32(rd.GetValue(5)) });
             return posts;
+        }
+
+        // No automatic public posts until the resident explicitly enables
+        // the corresponding activity type. Values default to false.
+        internal (bool Events, bool Classifieds) GetActivitySettings(UUID owner)
+        {
+            using var db=Open();
+            using var cmd=db.CreateCommand();
+            cmd.CommandText=@"SELECT auto_events,auto_classifieds
+                FROM ogl_profile_feed_activity_settings WHERE owner=@owner";
+            Add(cmd,"@owner",owner.ToString());
+            using var rd=cmd.ExecuteReader();
+            return rd.Read() ? (rd.GetInt32(0)!=0,rd.GetInt32(1)!=0)
+                             : (false,false);
+        }
+
+        internal bool SetActivitySettings(UUID owner, bool events, bool classifieds)
+        {
+            using var db=Open();
+            using var tx=db.BeginTransaction();
+            if(!LockExistingResidents(db,tx,owner))return false;
+            using var cmd=db.CreateCommand();
+            cmd.Transaction=tx;
+            cmd.CommandText=@"INSERT INTO ogl_profile_feed_activity_settings
+                (owner,auto_events,auto_classifieds,updated_at)
+                VALUES (@owner,@events,@classifieds,@at)
+                ON DUPLICATE KEY UPDATE auto_events=VALUES(auto_events),
+                    auto_classifieds=VALUES(auto_classifieds),
+                    updated_at=VALUES(updated_at)";
+            Add(cmd,"@owner",owner.ToString());
+            Add(cmd,"@events",events?1:0);
+            Add(cmd,"@classifieds",classifieds?1:0);
+            Add(cmd,"@at",Now);
+            cmd.ExecuteNonQuery();
+            tx.Commit();
+            return true;
+        }
+
+        // The published discovery record is revalidated by the subscriber.
+        // A same-DB receipt is inserted atomically with each post, so event
+        // redelivery and overlapping ROBUST workers cannot duplicate it.
+        internal bool TryCreateActivityPost(UUID owner,string kind,Guid reference,string text)
+        {
+            if(owner.IsZero() || reference==Guid.Empty ||
+               (kind!="event" && kind!="classified") ||
+               string.IsNullOrWhiteSpace(text) || text.Length>1500)
+                return false;
+            using var db=Open();
+            using var tx=db.BeginTransaction();
+            if(!LockExistingResidents(db,tx,owner))return false;
+
+            string setting = kind=="event" ? "auto_events" : "auto_classifieds";
+            using(var permission=db.CreateCommand())
+            {
+                permission.Transaction=tx;
+                permission.CommandText="SELECT "+setting+
+                    " FROM ogl_profile_feed_activity_settings WHERE owner=@owner";
+                Add(permission,"@owner",owner.ToString());
+                if(Convert.ToInt32(permission.ExecuteScalar() ?? 0)!=1)return false;
+            }
+
+            // Separate anti-spam budget for auto activity; account row lock
+            // serializes posts by avatar.
+            using(var budget=db.CreateCommand())
+            {
+                budget.Transaction=tx;
+                budget.CommandText=@"SELECT COUNT(*) FROM ogl_profile_feed_activity_receipts
+                    WHERE owner=@owner AND created_at>=@hour";
+                Add(budget,"@owner",owner.ToString());
+                Add(budget,"@hour",Now-3600);
+                if(Convert.ToInt32(budget.ExecuteScalar())>=3)return false;
+                budget.Parameters.Clear();
+                budget.CommandText=@"SELECT COUNT(*) FROM ogl_profile_feed_activity_receipts
+                    WHERE owner=@owner AND created_at>=@day";
+                Add(budget,"@owner",owner.ToString());
+                Add(budget,"@day",Now-86400);
+                if(Convert.ToInt32(budget.ExecuteScalar())>=15)return false;
+            }
+
+            UUID post=UUID.Random();
+            using(var postCommand=db.CreateCommand())
+            {
+                postCommand.Transaction=tx;
+                postCommand.CommandText=@"INSERT INTO ogl_profile_feed_posts
+                    (id,owner,author,body,created_at)
+                    VALUES(@post,@owner,@owner,@body,@at)";
+                Add(postCommand,"@post",post.ToString());
+                Add(postCommand,"@owner",owner.ToString());
+                Add(postCommand,"@body",text.Trim());
+                Add(postCommand,"@at",Now);
+                postCommand.ExecuteNonQuery();
+            }
+            using(var marker=db.CreateCommand())
+            {
+                marker.Transaction=tx;
+                marker.CommandText=@"INSERT IGNORE INTO ogl_profile_feed_activity_receipts
+                    (owner,activity_kind,reference_id,post_id,created_at)
+                    VALUES(@owner,@kind,@reference,@post,@at)";
+                Add(marker,"@owner",owner.ToString());
+                Add(marker,"@kind",kind);
+                Add(marker,"@reference",reference.ToString("D"));
+                Add(marker,"@post",post.ToString());
+                Add(marker,"@at",Now);
+                if(marker.ExecuteNonQuery()!=1)return false;
+            }
+            tx.Commit();
+            return true;
         }
 
         internal List<(UUID Owner, Post Entry)> ListFollowingPosts(UUID follower, int limit=60)
