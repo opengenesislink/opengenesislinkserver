@@ -1149,6 +1149,11 @@ namespace OpenSim.Groups
             if (m_debugEnabled) m_log.DebugFormat("[Groups]: {0} called", System.Reflection.MethodBase.GetCurrentMethod().Name);
 
             GroupRecord groupRecord = GetGroupRecord(groupID);
+            if (groupRecord == null)
+            {
+                remoteClient.SendJoinGroupReply(groupID, false);
+                return;
+            }
             IMoneyModule money = remoteClient.Scene.RequestModuleInterface<IMoneyModule>();
 
             // Should check to see if there's an outstanding invitation
