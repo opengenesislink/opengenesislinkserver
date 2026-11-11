@@ -1,6 +1,11 @@
 # OpenGenesisLINK Profile Feed v1 — Stadt NexVerse
 
-Status: **opt-in Entwicklungsfeature**, kein Live-Deployment. Grundlage:
+Status: **opt-in mit Rollout-Gates**, kein automatisches Live-Deployment.
+Account-Loeschung und Retention sind im aktuellen Generation-1-Stand
+implementiert. Staging-/Viewer-Abnahme vor produktiver Freigabe erforderlich:
+[OGL_PROFILE_FEED_ROLLOUT.md](OGL_PROFILE_FEED_ROLLOUT.md).
+
+Grundlage:
 Second Life zeigt den Feed-Reiter als eingebettete Webansicht. OpenSim/Firestorm
 können über GridInfo `web_profile_url` eine eigene Feed-Webseite beziehen.
 
@@ -90,8 +95,9 @@ Kein automatischer produktiver Rollout.
    Abfluss von Sessiontokens.
 6. Reverse-Proxy-URL, Firestorm 7.2.4 OpenSim, GridInfo-Cache und
    unverändertes Profil-/Login-Protokoll.
-7. Datenschutz: Löschung der Feeddaten bei Konto-Selbstlöschung separat
-   integrieren **bevor** das Feature im Produktivbetrieb aktiviert wird.
+7. Datenschutz: Transaktionale Loeschung der Feeddaten bei Konto-
+   Selbstloeschung und Admin-Delete sowie parallele Schreibzugriffe
+   mit der MariaDB-Live-Matrix pruefen.
 
 ## Noch nicht implementiert
 
@@ -99,5 +105,6 @@ Kein automatischer produktiver Rollout.
 - Viewer-Web-Login mit OAuth-PKCE für direktes Schreiben im Feed-Reiter.
 - Benachrichtigungen, Timeline gefolgter Personen, Freunde-beschränkte
   Sichtbarkeit, Moderationsqueue, Meldesystem und Hypergrid-Federation.
-- Verknüpfung der Beitragstabellen mit dem Account-Löschflow.
-  **Nicht auf Produktion aktivieren, bis dieser Punkt umgesetzt ist.**
+- Konto-Loeschflow ist mit gemeinsamer MariaDB und InnoDB-Transaktion
+  implementiert; offene Staging-Abnahme bleibt ein Freigabe-Gate.
+  Siehe [Rollout-Checkliste](OGL_PROFILE_FEED_ROLLOUT.md).

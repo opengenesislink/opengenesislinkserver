@@ -605,7 +605,9 @@ namespace OpenSim.Services.UserAccountService
                 }
 
                 bool postgres = provider.IndexOf("PGSQL", StringComparison.OrdinalIgnoreCase) >= 0;
-                string providerType = provider.IndexOf("MySQL", StringComparison.OrdinalIgnoreCase) >= 0
+                bool mysql = provider.IndexOf("MySQL", StringComparison.OrdinalIgnoreCase) >= 0;
+                bool feedEnabled = ValidateLocalFeedDeletionStore(provider, connectionString, mysql);
+                string providerType = mysql
                     ? "MySql.Data.MySqlClient.MySqlConnection, MySql.Data"
                     : postgres ? "Npgsql.NpgsqlConnection, Npgsql"
                     : provider.IndexOf("SQLite", StringComparison.OrdinalIgnoreCase) >= 0
@@ -695,6 +697,10 @@ namespace OpenSim.Services.UserAccountService
                 GridUserInfo currentState = m_GridUserService.GetGridUserInfo(userId.ToString());
                 if (currentState != null && currentState.Online)
                     throw new InvalidOperationException("Avatar became online during confirmation.");
+
+                if (mysql && !LockLocalAccountRow(connection, deletionTransaction, userId))
+                    throw new InvalidOperationException("Account changed during confirmation.");
+                PurgeLocalProfileFeed(connection, deletionTransaction, userId, mysql, feedEnabled);
 
                 DeletionSql(connection, deletionTransaction,
                     "DELETE FROM " + TableName("Friends") + " WHERE " + ColumnName("Friends", "Friend") + " LIKE @userId",
@@ -786,6 +792,13 @@ namespace OpenSim.Services.UserAccountService
 
                 bool pg = provider.IndexOf("PGSQL", StringComparison.OrdinalIgnoreCase) >= 0;
                 bool mysql = provider.IndexOf("MySQL", StringComparison.OrdinalIgnoreCase) >= 0;
+
+                // The optional Feed writes to UserProfilesService. Do not allow
+                // enabling it against a different DB while authenticated
+                // account deletion runs in the account DB transaction.
+                // This check applies only to this self-delete operation.
+                bool feedEnabled = ValidateLocalFeedDeletionStore(provider, connectionString, mysql);
+
                 string typeName = mysql ? "MySql.Data.MySqlClient.MySqlConnection, MySql.Data" :
                     pg ? "Npgsql.NpgsqlConnection, Npgsql" :
                     provider.IndexOf("SQLite", StringComparison.OrdinalIgnoreCase) >= 0 ?
@@ -820,12 +833,20 @@ namespace OpenSim.Services.UserAccountService
                     failureReason = "account_state_changed";
                     return false;
                 }
+                if (mysql && !LockLocalAccountRow(db, tx, avatarId))
+                {
+                    failureReason = "account_state_changed";
+                    return false;
+                }
+
                 GridUserInfo latest = m_GridUserService.GetGridUserInfo(avatarId.ToString());
                 if (latest != null && latest.Online)
                 {
                     failureReason = "avatar_online";
                     return false;
                 }
+
+                PurgeLocalProfileFeed(db, tx, avatarId, mysql, feedEnabled);
 
                 DeletionSql(db, tx,
                     "DELETE FROM " + T("Friends") + " WHERE " + C("Friends", "Friend") + " LIKE @userId",
@@ -863,6 +884,87 @@ namespace OpenSim.Services.UserAccountService
                 m_log.ErrorFormat("[USER ACCOUNT]: Account self-deletion {0} failed: {1}", avatarId, e.Message);
                 failureReason = "deletion_backend_unavailable";
                 return false;
+            }
+        }
+
+        // The feed is a same-database feature. A split profile/account store
+        // cannot be deleted atomically and must fail closed until migrated.
+        private bool ValidateLocalFeedDeletionStore(
+            string provider, string connectionString, bool mysql)
+        {
+            bool feedEnabled = m_DeletionConfig.Configs["NexVerseWorldApi"]?.GetBoolean(
+                "EnableProfileFeed", false) == true;
+            if (feedEnabled &&
+                (!mysql ||
+                 !string.Equals(provider,
+                     DeletionStorageSetting("UserProfilesService", "StorageProvider"),
+                     StringComparison.OrdinalIgnoreCase) ||
+                 !string.Equals(connectionString,
+                     DeletionStorageSetting("UserProfilesService", "ConnectionString"),
+                     StringComparison.Ordinal)))
+                throw new InvalidOperationException(
+                    "OGL Profile Feed requires the same MySQL datastore as local account deletion.");
+            return feedEnabled;
+        }
+
+        private static bool LockLocalAccountRow(
+            DbConnection db, DbTransaction tx, UUID avatarId)
+        {
+            using DbCommand command = db.CreateCommand();
+            command.Transaction = tx;
+            command.CommandText = @"SELECT `PrincipalID` FROM `UserAccounts`
+                WHERE `PrincipalID` = @userId FOR UPDATE";
+            DbParameter parameter = command.CreateParameter();
+            parameter.ParameterName = "@userId";
+            parameter.Value = avatarId.ToString();
+            command.Parameters.Add(parameter);
+            return command.ExecuteScalar() != null;
+        }
+
+        private static void PurgeLocalProfileFeed(
+            DbConnection db, DbTransaction tx, UUID avatarId,
+            bool mysql, bool feedEnabled)
+        {
+            // Atomic same-DB OGL feed purge: on disabled feed installations
+            // these tables may still remain from an earlier opt-in run.
+            // Run within the *same* InnoDB account deletion transaction.
+            // If only part of the schema exists, fail closed and roll back.
+            if (mysql)
+            {
+                int feedTables;
+                using (DbCommand tables = db.CreateCommand())
+                {
+                    tables.Transaction = tx;
+                    tables.CommandText = @"SELECT COUNT(*) FROM information_schema.tables
+                        WHERE table_schema = DATABASE()
+                        AND table_name IN ('ogl_profile_feed_posts',
+                            'ogl_profile_feed_comments', 'ogl_profile_feed_likes',
+                            'ogl_profile_feed_follows')";
+                    feedTables = Convert.ToInt32(tables.ExecuteScalar());
+                }
+                if (feedEnabled && feedTables != 4)
+                    throw new InvalidOperationException(
+                        "Enabled OGL Profile Feed schema is missing or incomplete.");
+                if (feedTables != 0 && feedTables != 4)
+                    throw new InvalidOperationException(
+                        "Partial OGL Profile Feed schema; account deletion stopped.");
+                if (feedTables == 4)
+                {
+                    // Delete own interactions with other profiles first.
+                    // Post deletion cascades to post-owned comments/likes.
+                    DeletionSql(db, tx,
+                        "DELETE FROM `ogl_profile_feed_comments` WHERE `author` = @userId",
+                        avatarId, false, true);
+                    DeletionSql(db, tx,
+                        "DELETE FROM `ogl_profile_feed_likes` WHERE `actor` = @userId",
+                        avatarId, false, true);
+                    DeletionSql(db, tx,
+                        "DELETE FROM `ogl_profile_feed_follows` WHERE `owner` = @userId OR `follower` = @userId",
+                        avatarId, false, true);
+                    DeletionSql(db, tx,
+                        "DELETE FROM `ogl_profile_feed_posts` WHERE `owner` = @userId OR `author` = @userId",
+                        avatarId, false, true);
+                }
             }
         }
 

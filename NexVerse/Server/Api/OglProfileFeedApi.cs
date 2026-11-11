@@ -2,11 +2,14 @@
 // Server-owned, opt-in profile activity feed. Public viewer pages are read-only:
 // browser profile tabs do not receive a resident OAuth token by default.
 using System;
+using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Net;
 using System.Text;
 using System.Text.Json;
 using System.Linq;
+using NexVerse.Core.Audit;
 using NexVerse.Core.Security;
 using OpenMetaverse;
 using OpenSim.Data;
@@ -22,14 +25,16 @@ namespace NexVerse.Server.Api
         private readonly IProfilesData m_Profiles;
         private readonly NexApiAuthenticator m_Auth;
         private readonly OglProfileFeedStore m_Store;
+        private readonly INexAuditSink m_Audit;
 
         internal OglProfileFeedApi(IUserAccountService accounts, IProfilesData profiles,
-            NexApiAuthenticator auth, OglProfileFeedStore store)
+            NexApiAuthenticator auth, OglProfileFeedStore store, INexAuditSink audit)
         {
             m_Accounts=accounts ?? throw new ArgumentNullException(nameof(accounts));
             m_Profiles=profiles ?? throw new ArgumentNullException(nameof(profiles));
             m_Auth=auth ?? throw new ArgumentNullException(nameof(auth));
             m_Store=store ?? throw new ArgumentNullException(nameof(store));
+            m_Audit=audit ?? NullNexAuditSink.Instance;
         }
 
         private static bool Is(IOSHttpRequest request, string method)
@@ -61,6 +66,8 @@ namespace NexVerse.Server.Api
                 Json(response,HttpStatusCode.ServiceUnavailable,new {error="profile_unavailable"});
                 return;
             }
+
+            m_Store.PruneExpired();
 
             if(p.Length==4 && Is(request,"GET"))
             {
@@ -115,6 +122,9 @@ namespace NexVerse.Server.Api
                 return;
             }
 
+            bool isModerator = actorAccount.UserLevel >= 200 &&
+                principal.HasScope(NexScopes.AdminAll);
+
             if(p.Length==4 && Is(request,"POST"))
             {
                 if(actorId!=ownerId)
@@ -138,7 +148,7 @@ namespace NexVerse.Server.Api
 
             // No interaction with a private feed unless the authenticated
             // principal owns it. Anonymous viewers only see published profiles.
-            if(!profile.PublishProfile && actorId!=ownerId)
+            if(!profile.PublishProfile && actorId!=ownerId && !isModerator)
             {
                 Json(response,HttpStatusCode.NotFound,new {error="feed_not_found"});
                 return;
@@ -152,7 +162,11 @@ namespace NexVerse.Server.Api
                 }
                 if(Is(request,"PUT") || Is(request,"DELETE"))
                 {
-                    m_Store.Follow(ownerId,actorId,Is(request,"PUT"));
+                    if(!m_Store.Follow(ownerId,actorId,Is(request,"PUT")))
+                    {
+                        Json(response,HttpStatusCode.NotFound,new {error="resident_not_found"});
+                        return;
+                    }
                     Json(response,HttpStatusCode.OK,new {following=Is(request,"PUT")});
                     return;
                 }
@@ -162,13 +176,16 @@ namespace NexVerse.Server.Api
             {
                 if(p.Length==5 && Is(request,"DELETE"))
                 {
-                    if(ownerId!=actorId)
+                    if(ownerId!=actorId && !isModerator)
                     {
                         Json(response,HttpStatusCode.Forbidden,new {error="feed_owner_required"});
                         return;
                     }
-                    m_Store.DeletePost(ownerId,postId);
-                    Json(response,HttpStatusCode.OK,new {deleted=true});
+                    bool removed=m_Store.DeletePost(ownerId,postId);
+                    if(removed && isModerator && ownerId!=actorId)
+                        AuditModeratorAction(actorId,ownerId,postId,"feed.post.moderate");
+                    Json(response,removed ? HttpStatusCode.OK : HttpStatusCode.NotFound,
+                        new {deleted=removed});
                     return;
                 }
                 if(p.Length==6 && p[5].Equals("comments",StringComparison.OrdinalIgnoreCase))
@@ -192,7 +209,9 @@ namespace NexVerse.Server.Api
                 if(p.Length==7 && p[5].Equals("comments",StringComparison.OrdinalIgnoreCase) &&
                    UUID.TryParse(p[6],out UUID commentId) && Is(request,"DELETE"))
                 {
-                    bool removed=m_Store.DeleteComment(ownerId,postId,commentId,actorId);
+                    bool removed=m_Store.DeleteComment(ownerId,postId,commentId,actorId,isModerator);
+                    if(removed && isModerator && ownerId!=actorId)
+                        AuditModeratorAction(actorId,ownerId,postId,"feed.comment.moderate");
                     Json(response,removed ? HttpStatusCode.OK : HttpStatusCode.NotFound,
                         new {deleted=removed});
                     return;
@@ -200,7 +219,11 @@ namespace NexVerse.Server.Api
                 if(p.Length==6 && p[5].Equals("likes",StringComparison.OrdinalIgnoreCase) &&
                    (Is(request,"PUT") || Is(request,"DELETE")))
                 {
-                    m_Store.Like(postId,actorId,Is(request,"PUT"));
+                    if(!m_Store.Like(postId,actorId,Is(request,"PUT")))
+                    {
+                        Json(response,HttpStatusCode.NotFound,new {error="resident_not_found"});
+                        return;
+                    }
                     Json(response,HttpStatusCode.OK,new {liked=Is(request,"PUT")});
                     return;
                 }
@@ -243,6 +266,7 @@ namespace NexVerse.Server.Api
                 WebMessage(response,HttpStatusCode.NotFound,"Dieser Feed ist privat.");
                 return;
             }
+            m_Store.PruneExpired();
             var html=new StringBuilder();
             html.Append("<!doctype html><html lang=\"de\"><head><meta charset=\"utf-8\">")
                 .Append("<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">")
@@ -287,6 +311,24 @@ namespace NexVerse.Server.Api
             response.AddHeader("Referrer-Policy","no-referrer");
             response.AddHeader("Content-Security-Policy","default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'");
             response.RawBuffer=Encoding.UTF8.GetBytes(html.ToString());
+        }
+
+        private void AuditModeratorAction(UUID actor, UUID owner, UUID post, string action)
+        {
+            try
+            {
+                m_Audit.Record(new NexAuditEvent(actor.ToString(), action,
+                    "profile-feed:" + owner + "/" + post,
+                    Guid.NewGuid().ToString("N"),
+                    new Dictionary<string, string> { ["mode"] = "admin_moderation" }));
+            }
+            catch (Exception auditError)
+            {
+                // Do not disguise a committed moderation delete as a failed
+                // operation; operators can reconcile from the structured log.
+                Trace.TraceWarning("[OGL-FEED]: Moderation audit dispatch failed: " +
+                    auditError.GetType().Name);
+            }
         }
 
         private bool AllowRead(IOSHttpRequest request,IOSHttpResponse response,UUID owner,bool published)

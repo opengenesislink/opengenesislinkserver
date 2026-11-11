@@ -2,6 +2,8 @@
 // Persistent, local-grid profile activity. No OpenSim inventory data is copied.
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Threading;
 using MySql.Data.MySqlClient;
 using OpenMetaverse;
 
@@ -28,12 +30,18 @@ namespace NexVerse.Server.Api
         }
 
         private readonly string m_Connection;
+        private readonly int m_RetentionDays;
+        private long m_LastPrunedAt;
+        // Process-lifetime scheduler: a dormant/private profile still expires
+        // without needing a visitor to trigger a read.
+        private readonly Timer m_RetentionTimer;
 
-        internal OglProfileFeedStore(string connection)
+        internal OglProfileFeedStore(string connection, int retentionDays = 180)
         {
             if (string.IsNullOrWhiteSpace(connection))
                 throw new ArgumentException("Existing ROBUST MariaDB connection is required.");
             m_Connection = connection;
+            m_RetentionDays = Math.Clamp(retentionDays, 7, 3650);
             using var db = Open();
             Execute(db, @"CREATE TABLE IF NOT EXISTS ogl_profile_feed_posts(
                 id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL PRIMARY KEY,
@@ -67,6 +75,19 @@ namespace NexVerse.Server.Api
                 PRIMARY KEY(owner,follower),
                 INDEX ix_ogl_feed_follower(follower)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+            m_RetentionTimer = new Timer(_ =>
+            {
+                try
+                {
+                    PruneExpired();
+                }
+                catch (Exception error)
+                {
+                    System.Diagnostics.Trace.TraceWarning(
+                        "[OGL-FEED]: Retention sweep failed: " +
+                        error.GetType().Name);
+                }
+            }, null, TimeSpan.FromMinutes(1), TimeSpan.FromHours(1));
         }
 
         private MySqlConnection Open()
@@ -86,6 +107,71 @@ namespace NexVerse.Server.Api
         private static void Add(MySqlCommand c, string name, object value)
             => c.Parameters.AddWithValue(name, value);
         private static long Now => DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        private long Cutoff => Now - (long)m_RetentionDays * 86400;
+
+        // Bounded periodic pruning; reads filter by Cutoff even between runs.
+        // Follows represent an active relationship and are retained until
+        // unfollow or either account deletion, rather than a post retention.
+        internal void PruneExpired()
+        {
+            long now = Now;
+            long previous = Interlocked.Read(ref m_LastPrunedAt);
+            if (now - previous < 3600 ||
+                Interlocked.CompareExchange(ref m_LastPrunedAt, now, previous) != previous)
+                return;
+
+            try
+            {
+                using var db = Open();
+                using var tx = db.BeginTransaction();
+                using (var comments = db.CreateCommand())
+                {
+                    comments.Transaction = tx;
+                    comments.CommandText =
+                        "DELETE FROM ogl_profile_feed_comments WHERE created_at < @cutoff";
+                    Add(comments, "@cutoff", Cutoff);
+                    comments.ExecuteNonQuery();
+                }
+                using (var posts = db.CreateCommand())
+                {
+                    posts.Transaction = tx;
+                    posts.CommandText =
+                        "DELETE FROM ogl_profile_feed_posts WHERE created_at < @cutoff";
+                    Add(posts, "@cutoff", Cutoff);
+                    posts.ExecuteNonQuery();
+                }
+                tx.Commit();
+            }
+            catch
+            {
+                // A transient database failure must not suppress future cleanup.
+                Interlocked.Exchange(ref m_LastPrunedAt, 0);
+                throw;
+            }
+        }
+
+        // Serializes writes for each local avatar against the self-delete
+        // transaction, which locks UserAccounts before purging feed records.
+        // Neither the viewer nor its OAuth token is an authority for a
+        // deleted account. All writes must run in the same database.
+        private static bool LockExistingResidents(
+            MySqlConnection db, MySqlTransaction tx, params UUID[] residents)
+        {
+            foreach (UUID resident in residents.Distinct().OrderBy(
+                id => id.ToString(), StringComparer.Ordinal))
+            {
+                if (resident.IsZero())
+                    return false;
+                using var lockCmd = db.CreateCommand();
+                lockCmd.Transaction = tx;
+                lockCmd.CommandText = @"SELECT `PrincipalID` FROM `UserAccounts`
+                    WHERE `PrincipalID`=@resident FOR UPDATE";
+                Add(lockCmd, "@resident", resident.ToString());
+                if (lockCmd.ExecuteScalar() == null)
+                    return false;
+            }
+            return true;
+        }
 
         internal List<Post> ListPosts(UUID owner, int limit = 30)
         {
@@ -96,8 +182,10 @@ namespace NexVerse.Server.Api
                 (SELECT COUNT(*) FROM ogl_profile_feed_likes l WHERE l.post_id=p.id),
                 (SELECT COUNT(*) FROM ogl_profile_feed_comments c WHERE c.post_id=p.id)
                 FROM ogl_profile_feed_posts p WHERE p.owner=@owner
+                AND p.created_at>=@cutoff
                 ORDER BY p.created_at DESC,p.id DESC LIMIT @count";
             Add(cmd,"@owner",owner.ToString());
+            Add(cmd,"@cutoff",Cutoff);
             Add(cmd,"@count",Math.Clamp(limit,1,50));
             using var rd = cmd.ExecuteReader();
             while(rd.Read())
@@ -114,8 +202,10 @@ namespace NexVerse.Server.Api
             using var cmd = db.CreateCommand();
             cmd.CommandText = @"SELECT id,author,body,created_at
                 FROM ogl_profile_feed_comments WHERE post_id=@post
+                AND created_at>=@cutoff
                 ORDER BY created_at ASC,id ASC LIMIT @count";
             Add(cmd,"@post",post.ToString());
+            Add(cmd,"@cutoff",Cutoff);
             Add(cmd,"@count",Math.Clamp(limit,1,50));
             using var rd=cmd.ExecuteReader();
             while(rd.Read())
@@ -128,9 +218,10 @@ namespace NexVerse.Server.Api
         {
             using var db=Open();
             using var cmd=db.CreateCommand();
-            cmd.CommandText="SELECT COUNT(*) FROM ogl_profile_feed_posts WHERE owner=@owner AND id=@post";
+            cmd.CommandText="SELECT COUNT(*) FROM ogl_profile_feed_posts WHERE owner=@owner AND id=@post AND created_at>=@cutoff";
             Add(cmd,"@owner",owner.ToString());
             Add(cmd,"@post",post.ToString());
+            Add(cmd,"@cutoff",Cutoff);
             return Convert.ToInt32(cmd.ExecuteScalar())==1;
         }
 
@@ -138,7 +229,11 @@ namespace NexVerse.Server.Api
         {
             id=UUID.Random();
             using var db=Open();
+            using var tx=db.BeginTransaction();
+            if (!LockExistingResidents(db,tx,owner))
+                return false;
             using var cmd=db.CreateCommand();
+            cmd.Transaction=tx;
             // Per-avatar 10 minute throttle and a daily cap.
             cmd.CommandText=@"INSERT INTO ogl_profile_feed_posts(id,owner,author,body,created_at)
                 SELECT @id,@owner,@owner,@body,@now WHERE
@@ -150,7 +245,9 @@ namespace NexVerse.Server.Api
             Add(cmd,"@now",Now);
             Add(cmd,"@minute",Now-600);
             Add(cmd,"@day",Now-86400);
-            return cmd.ExecuteNonQuery()==1;
+            bool inserted = cmd.ExecuteNonQuery()==1;
+            tx.Commit();
+            return inserted;
         }
 
         internal bool DeletePost(UUID owner, UUID post)
@@ -166,7 +263,11 @@ namespace NexVerse.Server.Api
         {
             id=UUID.Random();
             using var db=Open();
+            using var tx=db.BeginTransaction();
+            if (!LockExistingResidents(db,tx,actor))
+                return false;
             using var cmd=db.CreateCommand();
+            cmd.Transaction=tx;
             cmd.CommandText=@"INSERT INTO ogl_profile_feed_comments(id,post_id,author,body,created_at)
                 SELECT @id,@post,@actor,@body,@now WHERE
                 (SELECT COUNT(*) FROM ogl_profile_feed_comments
@@ -175,44 +276,62 @@ namespace NexVerse.Server.Api
             Add(cmd,"@id",id.ToString());Add(cmd,"@post",post.ToString());
             Add(cmd,"@actor",actor.ToString());Add(cmd,"@body",text);
             Add(cmd,"@now",Now);Add(cmd,"@minute",Now-60);
-            return cmd.ExecuteNonQuery()==1;
+            bool inserted=cmd.ExecuteNonQuery()==1;
+            tx.Commit();
+            return inserted;
         }
 
-        internal bool DeleteComment(UUID owner, UUID post, UUID comment, UUID actor)
+        internal bool DeleteComment(UUID owner, UUID post, UUID comment, UUID actor,
+            bool moderator = false)
         {
             using var db=Open();
             using var cmd=db.CreateCommand();
             cmd.CommandText=@"DELETE c FROM ogl_profile_feed_comments c
                 INNER JOIN ogl_profile_feed_posts p ON p.id=c.post_id
                 WHERE p.owner=@owner AND c.post_id=@post AND c.id=@comment
-                AND (c.author=@actor OR p.owner=@actor)";
+                AND (c.author=@actor OR p.owner=@actor OR @moderator=1)";
             Add(cmd,"@owner",owner.ToString());Add(cmd,"@post",post.ToString());
             Add(cmd,"@comment",comment.ToString());Add(cmd,"@actor",actor.ToString());
+            Add(cmd,"@moderator",moderator ? 1 : 0);
             return cmd.ExecuteNonQuery()==1;
         }
 
-        internal void Like(UUID post, UUID actor, bool enabled)
+        internal bool Like(UUID post, UUID actor, bool enabled)
         {
             using var db=Open();
+            using var tx=db.BeginTransaction();
+            if (!LockExistingResidents(db,tx,actor))
+                return false;
             using var cmd=db.CreateCommand();
+            cmd.Transaction=tx;
             cmd.CommandText=enabled
                 ? @"INSERT IGNORE INTO ogl_profile_feed_likes(post_id,actor,created_at)
                     SELECT id,@actor,@now FROM ogl_profile_feed_posts WHERE id=@post"
                 : "DELETE FROM ogl_profile_feed_likes WHERE post_id=@post AND actor=@actor";
             Add(cmd,"@post",post.ToString());Add(cmd,"@actor",actor.ToString());
-            Add(cmd,"@now",Now);cmd.ExecuteNonQuery();
+            Add(cmd,"@now",Now);
+            cmd.ExecuteNonQuery();
+            tx.Commit();
+            return true;
         }
 
-        internal void Follow(UUID owner, UUID actor, bool enabled)
+        internal bool Follow(UUID owner, UUID actor, bool enabled)
         {
             using var db=Open();
+            using var tx=db.BeginTransaction();
+            if (!LockExistingResidents(db,tx,owner,actor))
+                return false;
             using var cmd=db.CreateCommand();
+            cmd.Transaction=tx;
             cmd.CommandText=enabled
                 ? @"INSERT IGNORE INTO ogl_profile_feed_follows(owner,follower,created_at)
                     VALUES(@owner,@actor,@now)"
                 : "DELETE FROM ogl_profile_feed_follows WHERE owner=@owner AND follower=@actor";
             Add(cmd,"@owner",owner.ToString());Add(cmd,"@actor",actor.ToString());
-            Add(cmd,"@now",Now);cmd.ExecuteNonQuery();
+            Add(cmd,"@now",Now);
+            cmd.ExecuteNonQuery();
+            tx.Commit();
+            return true;
         }
 
         internal int Followers(UUID owner)

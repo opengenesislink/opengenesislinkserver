@@ -460,6 +460,12 @@ jobs:
         shell: bash
         run: python3 tools/ci/verify_ogl_profile_feed.py
 
+      - name: Verify OGL Profile Feed account deletion and rollout
+        shell: bash
+        run: |
+          python3 tools/ci/verify_ogl_profile_feed_rollout.py
+          python3 tools/release/check_g1_fee_feed_rollout.py --sim bin/OpenSim.ini --robust bin/Robust.HG.ini
+
       - name: Verify World API OGLWeather portal contracts
         shell: bash
         run: |
@@ -1609,6 +1615,12 @@ jobs:
           NEX_LEDGER_MARIADB: "Data Source=127.0.0.1;Port=${{ job.services.mariadb.ports[3306] }};Database=ogl_ledger_ci;User ID=ledger;Password=ledgerpass;Old Guids=true;SslMode=None;"
           NEX_LEDGER_POSTGRESQL: "Host=127.0.0.1;Port=${{ job.services.postgres.ports[5432] }};Database=ogl_ledger_ci;Username=ledger;Password=ledgerpass;SSL Mode=Disable;"
         run: dotnet run --configuration Release --project tools/ci/NexLedgerSqlMatrixRegression/NexLedgerSqlMatrixRegression.csproj
+
+      - name: Run real MariaDB OGL profile feed deletion/retention race regression
+        shell: bash
+        env:
+          NEX_FEED_MARIADB: "Data Source=127.0.0.1;Port=${{ job.services.mariadb.ports[3306] }};Database=ogl_ledger_ci;User ID=ledger;Password=ledgerpass;Old Guids=true;SslMode=None;"
+        run: dotnet run --configuration Release --project tools/ci/OglProfileFeedMariaDbRegression/OglProfileFeedMariaDbRegression.csproj
 
       - name: Run real MariaDB NexPortalIM archive regression
         shell: bash
