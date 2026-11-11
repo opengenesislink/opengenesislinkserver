@@ -910,12 +910,12 @@ namespace OpenSim.Region.ScriptEngine.Shared.ScriptBase
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public LSL_String llGetRenderMaterial(int face)
         {
             return m_LSL_Functions.llGetRenderMaterial(face);
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public LSL_List llGetPrimitiveParams(LSL_List rules)
         {
             return m_LSL_Functions.llGetPrimitiveParams(rules);
