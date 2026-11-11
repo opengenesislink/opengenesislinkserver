@@ -72,9 +72,9 @@ must(dashboard,
     'window.addEventListener(\'message\',event=>',
     'adminSessionToken=access;', "event.data.type!=='ogl-auth'",
     "window.parent.postMessage({type:'ogl-logout'}",
-    'ogl-aurora',
+ 
     '/api/v1/openapi.json', 'id="page-explorer"')
-must(styles, '@media(prefers-reduced-motion:reduce)', 'color-scheme:dark')
+must(styles, '@media(prefers-reduced-motion:reduce)', 'color-scheme:dark', 'ogl-aurora')
 # The ordinary GridUser login verifies the avatar password and returns
 # a signed session. The panel independently validates it plus current UserLevel.
 must(user,
