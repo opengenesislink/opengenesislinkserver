@@ -265,16 +265,18 @@ namespace NexVerse.Server.Api
             return inserted;
         }
 
-        internal bool DeleteComment(UUID owner, UUID post, UUID comment, UUID actor)
+        internal bool DeleteComment(UUID owner, UUID post, UUID comment, UUID actor,
+            bool moderator = false)
         {
             using var db=Open();
             using var cmd=db.CreateCommand();
             cmd.CommandText=@"DELETE c FROM ogl_profile_feed_comments c
                 INNER JOIN ogl_profile_feed_posts p ON p.id=c.post_id
                 WHERE p.owner=@owner AND c.post_id=@post AND c.id=@comment
-                AND (c.author=@actor OR p.owner=@actor)";
+                AND (c.author=@actor OR p.owner=@actor OR @moderator=1)";
             Add(cmd,"@owner",owner.ToString());Add(cmd,"@post",post.ToString());
             Add(cmd,"@comment",comment.ToString());Add(cmd,"@actor",actor.ToString());
+            Add(cmd,"@moderator",moderator ? 1 : 0);
             return cmd.ExecuteNonQuery()==1;
         }
 
