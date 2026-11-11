@@ -32,6 +32,9 @@ namespace NexVerse.Server.Api
         private readonly string m_Connection;
         private readonly int m_RetentionDays;
         private long m_LastPrunedAt;
+        // Process-lifetime scheduler: a dormant/private profile still expires
+        // without needing a visitor to trigger a read.
+        private readonly Timer m_RetentionTimer;
 
         internal OglProfileFeedStore(string connection, int retentionDays = 180)
         {
@@ -72,6 +75,19 @@ namespace NexVerse.Server.Api
                 PRIMARY KEY(owner,follower),
                 INDEX ix_ogl_feed_follower(follower)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+            m_RetentionTimer = new Timer(_ =>
+            {
+                try
+                {
+                    PruneExpired();
+                }
+                catch (Exception error)
+                {
+                    System.Diagnostics.Trace.TraceWarning(
+                        "[OGL-FEED]: Retention sweep failed: " +
+                        error.GetType().Name);
+                }
+            }, null, TimeSpan.FromMinutes(1), TimeSpan.FromHours(1));
         }
 
         private MySqlConnection Open()
