@@ -11,8 +11,9 @@ getrennten MariaDB-/Simulator-Staging die Schritte abarbeiten.
   fehlende Systemgebuehrenwallet wird **vor** dem Erzeugen erkannt.
   Ledger-Timeout nach externer Mutation bleibt ein zu pruefender
   Abstimmungsfall, keine magische Exactly-once-Transaktion.
-- OGL Profilfeed v1: Posts, Kommentare, Likes und Folgen per
-  OAuth-geschuetzter World-API; lesende Web-Ansicht fuer den Viewer.
+- OGL Profilfeed v2: Posts, Kommentare, Likes und Folgen per
+  OAuth-geschuetzter World-API; direkt bedienbares responsives
+  Stadt-NexVerse-Webprofil bei erfolgreichem PKCE-Login.
 - Feed aktiviert nur auf **derselben MariaDB** wie der lokale
   UserAccountService. Schreibvorgaenge sperren die Accountzeile;
   Selbstloeschung und administrative Kernloeschung entfernen eigene
@@ -111,13 +112,17 @@ Gebuehrenwallet-Test bestaetigt werden.
 
 ## 4. Feed-Migration und Aktivierung
 
-Zuerst ROBUST mit neuem Code und `EnableProfileFeed=false` starten.
+Zuerst ROBUST im Staging mit neuem Code und bei Bedarf voruebergehend
+`EnableProfileFeed=false` starten. Der konfigurierte Standard ist nun
+`true`, sofern die gemeinsamen MariaDB-/Loeschbedingungen erfuellt sind.
 Live-Healthcheck `/api/v1/health` und aktuelle OAuth-Scopes pruefen.
 Optional und empfohlen: Migration
 `doc/OpenGenesisLINK/migrations/20261111_ogl_profile_feed.sql` vorab
-in dieselbe MariaDB einspielen. Ohne manuellen Import erzeugt der
-Opt-in-Feed beim ersten Start mit `CREATE TABLE IF NOT EXISTS` dieselben
-vier InnoDB-Tabellen. Dies ist eine **Schema-Migration**, kein bloesser
+in dieselbe MariaDB einspielen, gefolgt von
+`doc/OpenGenesisLINK/migrations/20261111_ogl_profile_feed_activity.sql`.
+Ohne manuellen Import erzeugt der
+Feed beim ersten Start mit `CREATE TABLE IF NOT EXISTS` die vier
+Basis- und zwei zusaetzliche InnoDB-Aktivitaetstabellen. Dies ist eine **Schema-Migration**, kein bloesser
 Schalter. Bei Produktionsbetrieb vorher Backup.
 
 Auf ROBUST im vorhandenen Block:
@@ -126,6 +131,7 @@ Auf ROBUST im vorhandenen Block:
 [NexVerseWorldApi]
 EnableProfileFeed = true
 ProfileFeedRetentionDays = 180
+ProfileFeedOAuthClientId = ""
 
 [GridInfoService]
 web_profile_url = https://world.stadt-nexverse.de/feed?name=[AGENT_NAME]
@@ -162,7 +168,7 @@ einer dedizierten Fee-Wallet durchspielen:
   Token/Passwoerter duerfen nicht in Logs und Browser-URLs auftauchen.
 - Staging-Kontoloeschung: der geloeschte Avatar hatte eigene Posts,
   Kommentare auf einem fremden Profil, Likes, Followers/Follows.
-  Danach in **allen vier Tabellen** keine Referenz auf diese UUID.
+  Danach in **allen sechs Tabellen** keine Referenz auf diese UUID.
   Post-Fremdkommentare auf dem geloeschten eigenen Feed fallen per
   Fremdschluessel-Kaskade ebenfalls weg.
 - Zwei parallele Requests Post-vs-Kontoloeschung: es darf kein
@@ -183,8 +189,10 @@ Nur bei allen bestandenen Schritten Rollout freigeben.
    Wallet und Profil-/Group-/Upload-Pfade testen.
 3. Zunaechst kostenpflichtige Aktionen auf weitere Nodes schalten,
    Ledger-/Job-Error-Rate und Transaktionsdifferenzen beobachten.
-4. Feed separat erst nach Datenloesch-/Privatsphaere-Tests aktivieren.
-   Den Viewer nur als lesende Webansicht kommunizieren.
+4. Feed separat erst nach Datenloesch-/Privatsphaere-Tests freigeben.
+   Der Viewer kann nach eigenstaendiger OAuth-PKCE-Anmeldung direkt
+   Statusbeitraege, Likes und Kommentare bearbeiten. Browser ohne
+   WebCrypto bleiben lesend.
 5. Erst danach uebrige Nodes/Regionen rolling aktualisieren. Keine
    gleichzeitigen grossflaechigen Neustarts, keine automatischen
    Datenbank-Loeschjobs ausser der dokumentierten Retention.
@@ -193,7 +201,8 @@ Nur bei allen bestandenen Schritten Rollout freigeben.
 
 Bei Fehlern `EnableProfileFeed=false` setzen und ROBUST kontrolliert
 neu starten; `web_profile_url` voruebergehend entfernen/deaktivieren.
-Die vier Feed-Tabellen **nicht** loeschen: dies sind Einwohnerdaten.
+Die sechs Feed-Tabellen **nicht** loeschen: dies sind Einwohnerdaten
+einschliesslich privater Opt-in-Einstellungen.
 Aktive Schreib-/Loeschoperationen vor einem Downgrade drainen.
 Wird auf einen **alten** ROBUST-Build vor diesem Fix zurueckgestellt,
 `PortalAccountSelfDeleteEnabled=false` bis zur Wiederherstellung
