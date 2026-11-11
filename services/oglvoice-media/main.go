@@ -19,6 +19,11 @@ func main() {
 		os.Exit(1)
 	}
 	server := newMediaServer(cfg)
+	server.vox, err = newVoxPortal(server)
+	if err != nil {
+		slog.Error("VoxVoice portal configuration rejected", "error", err)
+		os.Exit(1)
+	}
 	httpServer := &http.Server{
 		Addr:              cfg.Bind,
 		Handler:           server.routes(),
@@ -44,7 +49,8 @@ func main() {
 	}()
 
 	slog.Info("OGLVoice media bridge listening", "bind", cfg.Bind,
-		"node_count", len(cfg.Nodes), "tenant_count", len(cfg.Tenants))
+		"node_count", len(cfg.Nodes), "tenant_count", len(cfg.Tenants),
+		"voxvoice_portal_enabled", server.vox != nil)
 	errCh := make(chan error, 1)
 	go func() { errCh <- httpServer.ListenAndServe() }()
 	select {
