@@ -284,6 +284,9 @@ namespace NexVerse.Server.Api
                     ("post", "Destination-Aufruf für Popularitätsranking registrieren", "200")),
                 ["/api/v1/destinations/{destinationId}/moderation"] = AuthenticatedOperations(
                     ("post", "Destination freigeben oder ablehnen", "discovery:manage", "200")),
+                ["/api/v1/feed/me/activities"] = AuthenticatedOperations(
+                    ("get", "Eigene Opt-in-Einstellungen fuer oeffentliche Auto-Beitraege lesen", "profile:read", "200"),
+                    ("put", "Eigene Opt-in-Einstellungen fuer oeffentliche Auto-Beitraege aendern", "profile:write", "200")),
                 ["/api/v1/feed/me"] = AuthenticatedOperations(
                     ("get", "Eigenen Avatar fuer eine Webprofile-OAuth-Session ermitteln", "profile:read", "200")),
                 ["/api/v1/feed/timeline"] = AuthenticatedOperations(
