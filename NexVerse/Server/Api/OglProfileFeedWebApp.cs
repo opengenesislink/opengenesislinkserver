@@ -41,6 +41,22 @@ namespace NexVerse.Server.Api
                       <span aria-hidden="true">↗</span> Veroeffentlichen</button>
                   </div>
                 </section>
+                <section id="ogl-auto-settings" class="ogl-auto-settings" hidden>
+                  <div class="ogl-auto-title">
+                    <div><span class="ogl-eyebrow">AUTOMATISCHER FEED</span>
+                    <h3>Deine Aktivitaeten teilen</h3></div>
+                    <span class="ogl-private-chip">Freiwillig</span>
+                  </div>
+                  <p class="sub">Nur ausdruecklich ausgewaehlte, oeffentlich freigegebene Aktionen erscheinen automatisch in deinem Profil.</p>
+                  <label class="ogl-toggle"><input id="ogl-auto-events" type="checkbox">
+                    <span>Neue freigegebene Events veroeffentlichen</span></label>
+                  <label class="ogl-toggle"><input id="ogl-auto-classifieds" type="checkbox">
+                    <span>Neue freigegebene Eintraege veroeffentlichen</span></label>
+                  <div class="ogl-settings-actions">
+                    <span class="sub">Keine Teleports, Onlinezeiten oder privaten Orte.</span>
+                    <button id="ogl-save-activities" type="button">Auswahl speichern</button>
+                  </div>
+                </section>
                 <div id="ogl-follow-controls" class="ogl-follow-controls" hidden>
                   <span class="sub">Halte dich ueber diesen Einwohner auf dem Laufenden.</span>
                   <button id="ogl-follow" class="ogl-primary" type="button">Folgen</button>
@@ -151,6 +167,21 @@ namespace NexVerse.Server.Api
                 .ogl-compose-bottom{display:flex;align-items:center;justify-content:flex-end;
                   gap:12px;margin-top:12px;flex-wrap:wrap}
                 .ogl-compose-hint{margin-right:auto;color:#829dbb;font-size:11px}
+                .ogl-auto-settings{margin:10px 0 15px;padding:16px;
+                  border:1px solid var(--nv-border);border-radius:var(--nv-radius);
+                  background:linear-gradient(120deg,rgba(18,37,58,.97),rgba(26,31,57,.97))}
+                .ogl-auto-title{display:flex;align-items:center;justify-content:space-between;gap:10px}
+                .ogl-auto-title h3{margin:0;font-size:15px}
+                .ogl-private-chip{color:#9fe4d9;background:rgba(28,134,133,.13);
+                  border:1px solid rgba(83,189,174,.3);padding:4px 9px;border-radius:999px;
+                  font-size:10px;white-space:nowrap}
+                .ogl-toggle{display:flex;align-items:center;gap:10px;margin-top:8px;
+                  padding:10px 11px;border:1px solid rgba(130,171,218,.17);
+                  border-radius:10px;background:rgba(7,15,35,.34);cursor:pointer}
+                .ogl-toggle input{width:18px;height:18px;accent-color:#6196ec;
+                  cursor:pointer;flex:none}
+                .ogl-settings-actions{display:flex;align-items:center;justify-content:space-between;
+                  gap:9px;flex-wrap:wrap;margin-top:12px}
                 .ogl-follow-controls{display:flex;align-items:center;gap:14px;
                   justify-content:space-between;margin:12px 0;padding:10px 13px;
                   background:rgba(31,49,76,.55);border:1px solid var(--nv-border);border-radius:12px}
@@ -409,6 +440,8 @@ namespace NexVerse.Server.Api
                 if ($('ogl-follow-controls')) $('ogl-follow-controls').hidden =
                   !signedIn || !config.ownerId || me.avatar_id === config.ownerId ||
                   !config.published;
+                if ($('ogl-auto-settings')) $('ogl-auto-settings').hidden =
+                  !signedIn || me.avatar_id !== config.ownerId || tab !== 'profile';
                 if ($('ogl-tab-following')) $('ogl-tab-following').disabled = !signedIn;
                 authStatus(signedIn ? 'Angemeldet als ' + me.name :
                   (config.clientId ? 'Zum Schreiben mit deinem Avatar anmelden.' :
@@ -429,7 +462,27 @@ namespace NexVerse.Server.Api
                 if ($('ogl-follow-controls')) $('ogl-follow-controls').hidden =
                   next !== 'profile' || !me || me.avatar_id === config.ownerId ||
                   !config.published;
+                if ($('ogl-auto-settings')) $('ogl-auto-settings').hidden =
+                  next !== 'profile' || !me || me.avatar_id !== config.ownerId;
                 load().catch(e => feedback(e.message, true));
+              }
+              async function loadActivitySettings() {
+                if (!me || me.avatar_id !== config.ownerId) return;
+                const data = await api(base + 'me/activities');
+                $('ogl-auto-events').checked = !!data.auto_events;
+                $('ogl-auto-classifieds').checked = !!data.auto_classifieds;
+              }
+              async function saveActivitySettings() {
+                if (!me || me.avatar_id !== config.ownerId) return;
+                const button = $('ogl-save-activities');
+                button.disabled = true;
+                try {
+                  await api(base + 'me/activities', 'PUT', {
+                    auto_events: $('ogl-auto-events').checked,
+                    auto_classifieds: $('ogl-auto-classifieds').checked
+                  });
+                  feedback('Deine automatischen Aktivitaeten wurden gespeichert.');
+                } finally { button.disabled = false; }
               }
               async function publish() {
                 const box = $('ogl-post-text');
@@ -576,6 +629,8 @@ namespace NexVerse.Server.Api
                   });
                   $('ogl-follow').addEventListener('click', () =>
                     toggleFollow().catch(e => feedback(e.message, true)));
+                  $('ogl-save-activities').addEventListener('click', () =>
+                    saveActivitySettings().catch(e => feedback(e.message, true)));
                   for (const name of ['profile', 'following']) {
                     $('ogl-tab-' + name).addEventListener('click', () => switchTab(name));
                   }
@@ -588,6 +643,8 @@ namespace NexVerse.Server.Api
                   }
                 }
                 renderAccess();
+                try { await loadActivitySettings(); }
+                catch (error) { feedback('Auto-Aktivitaeten: ' + error.message, true); }
                 try { await load(); } catch (error) { feedback(error.message, true); }
               }
               initialize().catch(error => feedback(error.message, true));
