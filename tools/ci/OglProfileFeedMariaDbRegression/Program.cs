@@ -32,6 +32,13 @@ try
         "own post failed");
     Check(store.AddComment(post, bob, "Bob comment", out _),
         "comment failed");
+    UUID moderator = UUID.Random();
+    Check(store.AddComment(post, bob, "Moderation test", out UUID moderationComment),
+        "moderation fixture failed");
+    Check(!store.DeleteComment(alice, post, moderationComment, moderator),
+        "unprivileged visitor deleted another avatar's comment");
+    Check(store.DeleteComment(alice, post, moderationComment, moderator, true),
+        "explicitly authorized moderation failed");
     Check(store.Like(post, bob, true), "like failed");
     Check(store.Follow(alice, bob, true), "follow failed");
     Check(store.ListPosts(alice).Count == 1, "own post not visible");
