@@ -60,6 +60,9 @@ jobs:
       - name: Validate modularized control center CSS and JavaScript
         run: python3 tools/ci/verify_ogl_api_adminlte_viewers.py
 
+      - name: Verify integrated G1 closeout source contract
+        run: python3 tools/ci/verify_g1_closeout.py
+
       - name: Verify isolated .NET 10 ROBUST runtime on Linux x64
         run: |
           python3 tools/gen11/robust_runtime_smoke.py
