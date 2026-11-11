@@ -64,7 +64,7 @@ namespace NexVerse.Server.Api
                 *{box-sizing:border-box}html{scroll-behavior:smooth}
                 body{min-height:100vh;margin:0;padding:0;background:var(--nv-bg);
                   color:var(--nv-txt);font:14px/1.65 system-ui,-apple-system,"Segoe UI",sans-serif}
-                body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;
+                body::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
                   background:radial-gradient(ellipse 65% 36% at 90% 0%,rgba(103,81,211,.22),transparent),
                   radial-gradient(ellipse 55% 36% at 0% 15%,rgba(44,131,206,.20),transparent)}
                 [hidden]{display:none!important}button,textarea{font:inherit}
@@ -83,7 +83,7 @@ namespace NexVerse.Server.Api
                 button.ogl-primary:hover{background:linear-gradient(115deg,#5893ff,#8b68f3)}
                 button.ogl-outline{background:transparent}
                 a{color:#88ddec;text-decoration:none}a:hover{text-decoration:underline}
-                .ogl-shell{max-width:870px;margin:0 auto;padding:0 18px 30px}
+                .ogl-shell{position:relative;z-index:1;max-width:870px;margin:0 auto;padding:0 18px 30px}
                 .ogl-brandbar{display:flex;align-items:center;gap:12px;padding:19px 1px 15px}
                 .ogl-emblem{display:inline-flex;align-items:center;justify-content:center;
                   flex:0 0 43px;width:43px;height:43px;border-radius:14px;
@@ -491,26 +491,41 @@ namespace NexVerse.Server.Api
                   });
                 }
               }
+              function initials(displayName) {
+                const words = String(displayName || 'NexVerse').trim().split(/[.\s]+/).filter(Boolean);
+                const letters = words.slice(0, 2).map(w => w.slice(0, 1).toUpperCase()).join('');
+                return letters || 'NV';
+              }
               function renderPost(data, parent) {
                 const owner = data.owner_id || config.ownerId;
+                const name = data.owner_name || config.ownerName || 'Einwohner';
                 const section = node('article', 'post', '', parent);
+                const header = node('div', 'ogl-post-header', '', section);
+                node('span', 'ogl-post-avatar', initials(name), header)
+                  .setAttribute('aria-hidden', 'true');
+                const author = node('div', 'ogl-post-who', '', header);
+                const authorName = node('div', 'ogl-post-name', '', author);
                 if (data.owner_name) {
-                  const link = node('a', 'ogl-user-link', data.owner_name, section);
-                  link.href = '/feed?name=' + encodeURIComponent(data.owner_name.replaceAll(' ', '.'));
+                  const link = node('a', 'ogl-user-link', name, authorName);
+                  link.href = '/feed?name=' + encodeURIComponent(name.replaceAll(' ', '.'));
                 } else {
-                  node('strong', '', config.ownerName, section);
+                  node('strong', '', name, authorName);
                 }
-                node('div', 'meta', formatTime(data.created_at), section);
+                node('div', 'meta', formatTime(data.created_at), author);
                 node('div', 'content', data.text, section);
-                node('div', 'meta', (data.likes || 0) + ' Likes · ' +
-                  (data.comments || 0) + ' Kommentare', section);
+                const likes = Number(data.likes || 0);
+                const comments = Number(data.comments || 0);
+                node('div', 'ogl-reactions', likes + ' Gefaellt mir  ·  ' +
+                  comments + ' Kommentare', section);
                 const buttons = node('div', 'ogl-actions', '', section);
                 if (me) {
-                  action(liked.has(data.id) ? 'Like entfernen' : 'Gefällt mir', buttons,
-                    () => toggleLike(owner, data.id));
+                  const likeBtn = action(liked.has(data.id) ? '♥ Gefaellt mir' : '♡ Gefaellt mir',
+                    buttons, () => toggleLike(owner, data.id));
+                  if (liked.has(data.id)) likeBtn.classList.add('ogl-liked');
+                  likeBtn.setAttribute('aria-pressed', String(liked.has(data.id)));
                 }
                 const commentArea = node('div', 'ogl-comment-list', '', section);
-                action('Kommentare anzeigen', buttons,
+                action('◌ Kommentare', buttons,
                   () => displayComments(owner, data.id, commentArea));
                 if (me && me.avatar_id === owner) {
                   action('Beitrag loeschen', buttons, async () => {
@@ -523,6 +538,8 @@ namespace NexVerse.Server.Api
               }
               async function load() {
                 if (!config.ownerId) return;
+                if ($('ogl-stream-title')) $('ogl-stream-title').textContent =
+                  tab === 'following' ? 'Aus deinem Netzwerk' : 'Aktuelles aus dem Profil';
                 const target = $('ogl-feed-posts');
                 if (!target) return;
                 const route = tab === 'following' ? base + 'timeline' : base + config.ownerId;
@@ -535,8 +552,8 @@ namespace NexVerse.Server.Api
                 target.replaceChildren();
                 if (!loadedPosts.length) {
                   node('div', 'ogl-empty', tab === 'following' ?
-                    'Noch keine oeffentlichen Beitraege von abonnierten Avataren.' :
-                    'Hier gibt es noch keine Beitraege.', target);
+                    'Dein Feed ist noch ruhig. Folge anderen Einwohnern, um ihre Geschichten zu sehen.' :
+                    'Noch keine Beitraege. Der naechste NexVerse-Moment wartet schon.', target);
                   return;
                 }
                 for (const post of loadedPosts) renderPost(post, target);
