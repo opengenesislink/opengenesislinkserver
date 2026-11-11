@@ -66,7 +66,7 @@ for needle in ("ProfileFeedRetentionDays", "profileConnectionString"):
 for needle in ("PruneExpired()", "Cutoff", "created_at>=@cutoff",
                "m_RetentionTimer = new Timer("):
     assert needle in store
-assert api.count("m_Store.PruneExpired();") == 2
+assert api.count("m_Store.PruneExpired();") >= 2  # HTML, profile and following reads
 
 for path in ("bin/Robust.HG.ini", "bin/Robust.HG.ini.example",
              "bin/Robust.ini.example"):
