@@ -1,6 +1,14 @@
 # OpenGenesisLINK Generation 1: interaktiver Profilfeed (v2)
 
-Der Feed bleibt eine **opt-in ROBUST-Erweiterung**. Ab dieser Stufe kann
+Der Feed ist in der ausgelieferten ROBUST-Konfiguration standardmaessig
+aktiv. Die Serverpruefungen fuer die gemeinsame MariaDB und die lokale
+Konto-Loeschung bleiben verpflichtend; bei Fehlern wird das Modul
+abgewiesen. Die interaktive OAuth-App wird beim ersten Start mit einem
+stabilen, oeffentlichen First-Party-Client automatisch eingerichtet.
+Wenn ein Administrator diesen Client deaktiviert oder veraendert, wird
+er **nicht** automatisch wieder aktiviert.
+
+Ab dieser Stufe kann
 ein lokaler Stadt-NexVerse-Avatar im eingebetteten Firestorm-Webprofil
 nach einer **eigenstaendigen, sicheren OAuth-Anmeldung** direkt posten,
 kommentieren, liken, folgen und seine "Abonniert"-Timeline ansehen.
