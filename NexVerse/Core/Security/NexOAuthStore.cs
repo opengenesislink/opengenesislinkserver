@@ -209,6 +209,68 @@ namespace NexVerse.Core.Security
             return new NexOAuthClientRegistration(CloneClient(client), secret);
         }
 
+        // Idempotent first-party public OAuth client bootstrap. A disabled
+        // existing client is an explicit operator opt-out: never recreate or
+        // silently re-enable it. Keep this atomic within the auth store lock.
+        public NexOAuthClient EnsureProfileFeedPublicClient(
+            string redirectUri, IEnumerable<string> allowedScopes)
+        {
+            if (!Uri.TryCreate(redirectUri, UriKind.Absolute, out Uri uri) ||
+                uri.Scheme != Uri.UriSchemeHttps ||
+                uri.AbsolutePath != "/feed" ||
+                !string.IsNullOrEmpty(uri.Query) ||
+                !string.IsNullOrEmpty(uri.Fragment) ||
+                !string.IsNullOrEmpty(uri.UserInfo))
+                throw new ArgumentException(
+                    "Profile Feed OAuth requires a fixed HTTPS /feed callback.",
+                    nameof(redirectUri));
+
+            string[] scopes = NormalizeValues(allowedScopes);
+            if (scopes.Length == 0)
+                throw new ArgumentException("Allowed OAuth scopes required.", nameof(allowedScopes));
+
+            const string firstPartyName = "Stadt NexVerse Profile Feed";
+            lock (m_Sync)
+            {
+                NexOAuthClient existing = m_Document.Clients.FirstOrDefault(
+                    c => string.Equals(c.Name, firstPartyName,
+                        StringComparison.OrdinalIgnoreCase));
+                if (existing != null)
+                {
+                    // A modified redirect/scope or disabled client needs a
+                    // conscious operator decision, not a silent replacement.
+                    if (!existing.Enabled ||
+                        existing.ClientType != NexOAuthClientTypes.Public ||
+                        existing.RedirectUris == null ||
+                        existing.RedirectUris.Length != 1 ||
+                        !string.Equals(existing.RedirectUris[0], redirectUri,
+                            StringComparison.Ordinal) ||
+                        existing.AllowedScopes == null ||
+                        !scopes.SequenceEqual(
+                            NormalizeValues(existing.AllowedScopes)))
+                        return null;
+                    return CloneClient(existing);
+                }
+
+                long now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+                NexOAuthClient client = new NexOAuthClient
+                {
+                    ClientId = "nx_" + Guid.NewGuid().ToString("N"),
+                    Name = firstPartyName,
+                    ClientType = NexOAuthClientTypes.Public,
+                    RedirectUris = new[] { redirectUri },
+                    AllowedScopes = scopes,
+                    Enabled = true,
+                    SecurityStamp = 1,
+                    CreatedAt = now,
+                    UpdatedAt = now
+                };
+                m_Document.Clients.Add(client);
+                SaveLocked();
+                return CloneClient(client);
+            }
+        }
+
         public IReadOnlyList<NexOAuthClient> ListClients()
         {
             lock (m_Sync)
