@@ -11,7 +11,7 @@ web = (root / "NexVerse/Server/Api/OglProfileFeedWebApp.cs").read_text(encoding=
 for needle in (
     "Stadt NexVerse · Profilfeed",
     "ogl-shell", "ogl-brandbar", "ogl-hero", "ogl-cover",
-    "ogl-portrait", "ogl-stream-title", "ogl-post-header",
+    "ogl-portrait", "ogl-post-header",
     "ogl-reactions", "ogl-footer",
     'Powered by <strong>OpenGenesisLINK</strong>',
     "WebUtility.HtmlEncode(account.Name)",
