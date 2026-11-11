@@ -1381,7 +1381,9 @@ namespace NexVerse.Server.Api
                         {
                             try
                             {
-                                OglProfileFeedStore feedStore = new OglProfileFeedStore(profileConnectionString);
+                                OglProfileFeedStore feedStore = new OglProfileFeedStore(
+                                    profileConnectionString,
+                                    apiConfig.GetInt("ProfileFeedRetentionDays", 180));
                                 OglProfileFeedApi feedApi = new OglProfileFeedApi(
                                     userAccounts, profilesData, authenticator, feedStore);
                                 server.AddSimpleStreamHandler(
