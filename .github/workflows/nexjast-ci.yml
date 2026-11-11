@@ -448,6 +448,10 @@ jobs:
         shell: bash
         run: python3 tools/ci/verify_r409_world_portal_contract.py
 
+      - name: Verify optional OpenGenesisLINK profile feed API and viewer route
+        shell: bash
+        run: python3 tools/ci/verify_ogl_profile_feed.py
+
       - name: Verify World API OGLWeather portal contracts
         shell: bash
         run: |
