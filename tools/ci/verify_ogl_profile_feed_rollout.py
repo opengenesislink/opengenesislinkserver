@@ -41,6 +41,7 @@ assert purge.index("ogl_profile_feed_comments") < purge.rfind("DELETE FROM `ogl_
 assert "same MySQL datastore" in account
 assert "same MariaDB provider/connection" in connector or "SAME MariaDB provider/connection" in connector
 assert 'GetBoolean("EnableProfileFeed", false)' in connector
+assert "userAccounts is not IOglLocalAvatarDeletion" in connector
 
 assert "bool moderator = false" in store
 assert "OR @moderator=1" in store
