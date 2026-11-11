@@ -340,28 +340,30 @@ namespace OpenSim.Data.PGSQL
 
         private void SaveBanList(EstateSettings es)
         {
-            //Delete first
             using (NpgsqlConnection conn = new NpgsqlConnection(m_connectionString))
             {
                 conn.Open();
+                using (NpgsqlTransaction transaction = conn.BeginTransaction())
                 using (NpgsqlCommand cmd = conn.CreateCommand())
                 {
+                    cmd.Transaction = transaction;
                     cmd.CommandText = "delete from estateban where \"EstateID\" = :EstateID";
-                    cmd.Parameters.AddWithValue("EstateID", (int)es.EstateID);
+                    cmd.Parameters.Add(_Database.CreateParameter("EstateID", (int)es.EstateID));
                     cmd.ExecuteNonQuery();
 
-                    //Insert after
-                    cmd.CommandText = "insert into estateban (\"EstateID\", \"bannedUUID\",\"bannedIp\", \"bannedIpHostMask\", \"bannedNameMask\", \"banningUUID\",\"banTime\" ) values ( :EstateID, :bannedUUID, '','','', :banningUUID, :banTime )";
-                    cmd.Parameters.AddWithValue("bannedUUID", Guid.Empty);
-                    foreach (EstateBan b in es.EstateBans)
+                    cmd.CommandText = "insert into estateban (\"EstateID\", \"bannedUUID\", \"bannedIp\", \"bannedIpHostMask\", \"bannedNameMask\", \"banningUUID\", \"banTime\") values (:EstateID, :bannedUUID, '', '', '', :banningUUID, :banTime)";
+                    foreach (EstateBan ban in es.EstateBans)
                     {
-                        cmd.Parameters["EstateID"].Value = b.EstateID;
-                        cmd.Parameters["bannedUUID"].Value = b.BannedUserID.Guid;
-                        cmd.Parameters["banningUUID"].Value = b.BanningUserID.Guid;
-                        cmd.Parameters["banTime"].Value = b.BanTime;
-
+                        cmd.Parameters.Clear();
+                        cmd.Parameters.Add(_Database.CreateParameter("EstateID", (int)es.EstateID));
+                        cmd.Parameters.Add(_Database.CreateParameter("bannedUUID", ban.BannedUserID));
+                        cmd.Parameters.Add(_Database.CreateParameter("banningUUID", ban.BanningUserID));
+                        cmd.Parameters.Add(_Database.CreateParameter("banTime", ban.BanTime));
                         cmd.ExecuteNonQuery();
                     }
+
+                    // A failed insert rolls back the preceding delete and every inserted ban.
+                    transaction.Commit();
                 }
             }
         }
@@ -371,19 +373,24 @@ namespace OpenSim.Data.PGSQL
             using (NpgsqlConnection conn = new NpgsqlConnection(m_connectionString))
             {
                 conn.Open();
+                using (NpgsqlTransaction transaction = conn.BeginTransaction())
                 using (NpgsqlCommand cmd = conn.CreateCommand())
                 {
-                    cmd.Parameters.AddWithValue("EstateID", (int)estateID);
+                    cmd.Transaction = transaction;
                     cmd.CommandText = string.Format("delete from {0} where \"EstateID\" = :EstateID", table);
+                    cmd.Parameters.Add(_Database.CreateParameter("EstateID", (int)estateID));
                     cmd.ExecuteNonQuery();
 
-                    cmd.CommandText = string.Format("insert into {0} (\"EstateID\", uuid) values ( :EstateID, :uuid )", table);
-                    cmd.Parameters.AddWithValue("uuid", Guid.Empty);
+                    cmd.CommandText = string.Format("insert into {0} (\"EstateID\", uuid) values (:EstateID, :uuid)", table);
                     foreach (UUID uuid in data)
                     {
-                        cmd.Parameters["uuid"].Value = uuid.Guid; //.ToString(); //TODO check if this works
+                        cmd.Parameters.Clear();
+                        cmd.Parameters.Add(_Database.CreateParameter("EstateID", (int)estateID));
+                        cmd.Parameters.Add(_Database.CreateParameter("uuid", uuid));
                         cmd.ExecuteNonQuery();
                     }
+
+                    transaction.Commit();
                 }
             }
         }

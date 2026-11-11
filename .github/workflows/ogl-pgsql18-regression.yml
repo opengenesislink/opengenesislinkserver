@@ -1,0 +1,46 @@
+name: OpenGenesisLINK PostgreSQL 18 SQL Regression
+
+on:
+  pull_request:
+    paths:
+      - 'OpenSim/Data/PGSQL/**'
+      - 'tools/ci/pgsql18_regression.sql'
+      - '.github/workflows/ogl-pgsql18-regression.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pgsql18-sql-smoke:
+    name: PostgreSQL 18 isolated SQL regression smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: ogl_ci
+          POSTGRES_PASSWORD: ogl_ci_test_only
+          POSTGRES_DB: ogl_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ogl_ci -d ogl_ci"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install PostgreSQL client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+      - name: Verify isolated PostgreSQL 18 SQL semantics
+        env:
+          PGHOST: 127.0.0.1
+          PGPORT: 5432
+          PGUSER: ogl_ci
+          PGPASSWORD: ogl_ci_test_only
+          PGDATABASE: ogl_ci
+        run: |
+          psql -v ON_ERROR_STOP=1 -Atqc "SHOW server_version_num" | grep -E '^18[0-9]{4}$'
+          psql -v ON_ERROR_STOP=1 -f tools/ci/pgsql18_regression.sql
