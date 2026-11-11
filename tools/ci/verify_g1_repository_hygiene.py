@@ -117,4 +117,26 @@ for legacy in (
 ):
     assert not (ROOT / legacy).exists(), legacy
 
+# Removed documents must not remain as broken relative Markdown links
+# anywhere in the still-active documentation.
+removed_documents = (
+    "CHECKPOINT_0.9.3.2.md", "CHECKPOINT_0.9.3.3.md",
+    "RELEASE_0.9.3.1.md", "RELEASE_0.9.3.4.md",
+    "RELEASE_0.9.3.4_RC1.md", "RELEASE_0.9.3.8_RC1.md",
+    "RELEASE_0.9.3.8.md", "RELEASE_0.9.3.10_RC1_DRAFT.md",
+    "RELEASE_0.9.3.10.md", "RELEASE_TRAIN_0.9.3.10.md",
+    "RELEASE_0.9.3.12.md", "RELEASE_0.9.3.13_DEV.md",
+    "RELEASE_0.9.3.13_RC1.md", "09310_RC1_RELEASE_READINESS.md",
+    "09310_ACCEPTANCE_BLOCKERS.md", "RC1_OPERATOR_ACCEPTANCE_09310.md",
+    "09312_RC1_CANDIDATE_PLAN.md", "09312_RC1_STABLE_ACCEPTANCE.md",
+    "FUTURE_VIEWER_NAVIGATION.md", "R287_WORLD_API_DELIVERY.md",
+    "FIRESTORM_VOICE_PATHFINDING_LOG_20261010.md",
+)
+for file in (ROOT / "doc").rglob("*.md"):
+    body = file.read_text(encoding="utf-8")
+    for obsolete in removed_documents:
+        assert "](" + obsolete + ")" not in body, (
+            f"Defekter Markdown-Link auf geloeschte Datei: {file}: {obsolete}"
+        )
+
 print("Generation 1 (.NET 10) repository hygiene, docs, branches and build: PASS")
