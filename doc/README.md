@@ -23,14 +23,21 @@ Aktuelle Produktinformationen: **https://opengenesislink.de**.
 - [Oekonomie und Ledger](NexVerse/ECONOMY_LEDGER.md)
 - [NPC Owner World API](NexVerse/WORLD_NPC_OWNER_API_R617.md)
 
-## Historische Nachweise
+## Bereinigter Dokumentationsstand
 
-Fruehere Release-, Sicherheits-, Migrations- und Operator-Abnahmeberichte
-bleiben **unter `doc/NexVerse/` erhalten**, da sie fuer bestehende Grids,
-Vorfallanalysen und den Nachweis vergangener Aenderungen notwendig sein
-koennen. Diese Dokumente beschreiben nicht automatisch die aktuelle
-Generation-1-Version. Alte GitHub-Tags und Release-Dateien werden nicht
-umgeschrieben.
+Die frueheren Vorabplanungen, RC-Entwuerfe, alten Checkpoints und
+nicht mehr verwendeten Release-Handbuecher wurden **aus dem aktuellen
+Branch entfernt**, statt sie in ein weiteres Archiv zu verschieben.
+
+Erhalten bleiben nur Dokumente mit aktuellen Funktionen, laufenden
+Betriebs- oder Sicherheitsvertraegen, Migrationen und nachweislich
+weiterhin benoetigten Abnahmeinformationen. Alte veroeffentlichte
+Git-Tags bleiben unveraendert; sie sind nicht der aktuelle Buildstand.
+
+Fuer weitere Aenderungen gelten die
+[deutschen Beitrags- und Commit-Regeln](../CONTRIBUTING.md).
+Registrierte Regionskonfigurationen gehoeren ausschliesslich in die
+jeweilige Installation, nicht in Git.
 
 ## Repository-Struktur
 
@@ -42,7 +49,7 @@ addon-modules/    Separat baubare Modulintegrationen
 services/         Begleitdienste
 bin/              Laufzeit und notwendige mitgelieferte Abhaengigkeiten
 tools/            Build-, Test-, Migrations- und Releasewerkzeuge
-doc/              Technische Dokumentation, Tests und Releasehistorie
+doc/              Aktuelle Technik-, Betriebs- und Testdokumentation
 .github/workflows/ CI und Releaseautomatisierung
 ```
 
