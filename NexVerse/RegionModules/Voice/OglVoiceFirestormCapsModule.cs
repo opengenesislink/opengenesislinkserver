@@ -169,6 +169,44 @@ namespace NexVerse.RegionModules.Voice
             m_Features = scene.RequestModuleInterface<ISimulatorFeaturesModule>();
             if (m_Features != null)
                 m_Features.OnSimulatorFeaturesRequest += OnSimulatorFeaturesRequest;
+            if (m_VoxProvider != null)
+                _ = Task.Run(() => RegisterVoxRegionAsync(scene));
+        }
+
+        private async Task RegisterVoxRegionAsync(Scene scene)
+        {
+            try
+            {
+                if (m_VoxProvider == null || m_Http == null || scene == null)
+                    return;
+                byte[] body = JsonSerializer.SerializeToUtf8Bytes(new
+                {
+                    RegionID = scene.RegionInfo.RegionID.ToString()
+                });
+                Uri root = new Uri(m_VoxProvider.provider_url);
+                using HttpRequestMessage request = new(HttpMethod.Post,
+                    new Uri(root, "/internal/voxvoice/v1/regions"));
+                request.Content = new ByteArrayContent(body);
+                request.Content.Headers.ContentType =
+                    new System.Net.Http.Headers.MediaTypeHeaderValue("application/json");
+                long stamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+                string nonce = OglVoiceDiscoveryProof.NewNonce();
+                request.Headers.TryAddWithoutValidation("X-OGLVoice-Node", m_NodeId);
+                request.Headers.TryAddWithoutValidation("X-OGLVoice-Timestamp",
+                    stamp.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                request.Headers.TryAddWithoutValidation("X-OGLVoice-Nonce", nonce);
+                request.Headers.TryAddWithoutValidation("X-OGLVoice-Signature",
+                    OglVoiceMediaProof.Sign(m_Key, m_NodeId, stamp, nonce, body));
+                using HttpResponseMessage response = await m_Http.SendAsync(request)
+                    .ConfigureAwait(false);
+                if (!response.IsSuccessStatusCode)
+                    m_Log.DebugFormat("[VOXVOICE]: SIM registration not accepted ({0})",
+                        (int)response.StatusCode);
+            }
+            catch (Exception ex)
+            {
+                m_Log.Debug("[VOXVOICE]: SIM registration deferred: " + ex.GetType().Name);
+            }
         }
 
         public void PostInitialise()
