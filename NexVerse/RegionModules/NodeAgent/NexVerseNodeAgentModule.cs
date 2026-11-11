@@ -1490,39 +1490,7 @@ namespace NexVerse.RegionModules.NodeAgent
             {
                 try
                 {
-                    OglRegionFrame[] frames = scenes
-                        .OrderBy(x => x.RegionInfo.RegionID.ToString(), StringComparer.Ordinal)
-                        .Select(x =>
-                        {
-                            // Per-region window is drained only on the signed
-                            // NodeAgent heartbeat (never on every scene frame).
-                            OglRegionTimingSample? timings =
-                                x.OglPerformanceTiming?.TakeSnapshotAndReset();
-                            return new OglRegionFrame(
-                                x.RegionInfo.RegionID.ToString(), x.Frame, x.FrameTime,
-                                timings?.Frames ?? 0,
-                                timings?.WorkAverageMs ?? 0,
-                                timings?.FrameAverageMs ?? 0,
-                                timings?.WorkP95Ms ?? 0,
-                                timings?.FrameP95Ms ?? 0,
-                                timings?.FrameP99Ms ?? 0,
-                                timings?.WorkOverBudgetPercent ?? 0,
-                                timings?.FrameOverBudgetPercent ?? 0);
-                        })
-                        .ToArray();
-                    foreach (KeyValuePair<string, string> sample in m_PerformanceSampler.Capture(frames))
-                        data[sample.Key] = sample.Value;
-
-                    // The active shared cache is discovered through its existing
-                    // region interface; NodeAgent remains decoupled from Flotsam.
-                    if (scenes.Length > 0 &&
-                        scenes[0].RequestModuleInterface<IAssetCache>()
-                            is IOglAssetCacheMetricsProvider assetMetrics)
-                    {
-                        foreach (KeyValuePair<string, long> metric in assetMetrics.CaptureAssetCacheMetrics())
-                            data[metric.Key] = metric.Value.ToString(
-                                System.Globalization.CultureInfo.InvariantCulture);
-                    }
+                    OglNodePerformanceHeartbeat.Append(scenes, m_PerformanceSampler, data);
                 }
                 catch (Exception error)
                 {
