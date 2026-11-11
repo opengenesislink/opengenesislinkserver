@@ -44,6 +44,14 @@ try
         "explicitly authorized moderation failed");
     Check(store.Like(post, bob, true), "like failed");
     Check(store.Follow(alice, bob, true), "follow failed");
+    Check(store.IsFollowing(alice, bob), "follow state not visible");
+    Check(store.ListFollowingPosts(bob).Any(x =>
+        x.Owner == alice && x.Entry.Id == post.ToString()),
+        "follower timeline did not include public owner's post");
+    Check(store.ListLikedPostIds(alice, bob).Contains(post.ToString()),
+        "profile reaction state missing");
+    Check(store.ListLikedFollowingPostIds(bob).Contains(post.ToString()),
+        "timeline reaction state missing");
     Check(store.ListPosts(alice).Count == 1, "own post not visible");
     Check(store.ListPosts(alice)[0].Likes == 1 &&
           store.ListPosts(alice)[0].Comments == 1 &&
