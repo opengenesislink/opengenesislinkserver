@@ -71,6 +71,18 @@ dotnet OpenSim.dll
 
 Vor Updates produktiver Systeme Konfigurationen, Datenbanken, Inventar und Assets sichern. Beispielkonfigurationen sind keine fertig eingerichtete Produktivinstallation.
 
+## Stable-Release und laufende Updates
+
+Die offizielle **Generation 1 (0.9.4.0)** wird nach produktionsnaher
+Abnahme einmalig als Stable-Version mit unveraenderlichem Tag
+`v0.9.4.0` veroeffentlicht. Kompatible Updates folgen ohne neue
+Versionsreihe ueber den separaten Downloadkanal `gen1-updates`,
+jeweils nachvollziehbar anhand des Commit-SHA und der SHA256-Pruefsumme.
+Der aktuelle `main`-Entwicklungsstand ist bis zur Freigabe nicht
+automatisch Stable.
+
+Details: [Stable- und Update-Richtlinie](doc/OpenGenesisLINK/GEN1_STABLE_UPDATE_POLICY.md).
+
 ## Weitere Informationen
 
 **Projektseite, technische Informationen und aktuelle Hinweise:** **[opengenesislink.de](https://opengenesislink.de)**
