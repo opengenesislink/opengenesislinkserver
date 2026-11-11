@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using OpenMetaverse;
+using OpenMetaverse.StructuredData;
 using static OpenMetaverse.Primitive.RenderMaterials;
 
 namespace OpenSim.Framework
@@ -28,9 +29,33 @@ namespace OpenSim.Framework
             return UUID.Zero;
         }
 
+        // Preserve only the four-slot texture-transform field (ti); all
+        // color, metallic, emissive and alpha overrides are reset. Fail closed
+        // on malformed previous data, without interpreting arbitrary objects.
+        public static string KeepUvTransforms(string previous)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(previous) ||
+                    OSDParser.DeserializeLLSDNotation(previous) is not OSDMap old ||
+                    !old.TryGetValue("ti", out OSD ti) ||
+                    ti is not OSDArray transforms || transforms.Count > 4)
+                    return string.Empty;
+
+                return OSDParser.SerializeLLSDNotation(new OSDMap
+                {
+                    ["ti"] = transforms
+                });
+            }
+            catch (Exception)
+            {
+                return string.Empty;
+            }
+        }
+
         public static bool Set(PrimitiveBaseShape shape, int face, int sides, UUID materialId)
         {
-            if (shape is null || sides <= 0 || sides > 255 ||
+            if (shape is null || sides <= 0 || sides > 256 ||
                 (face != -1 && (face < 0 || face >= sides)))
                 return false;
 
@@ -80,14 +105,22 @@ namespace OpenSim.Framework
                     changed = true;
                 }
 
-                // SL's llSetRenderMaterial replaces the glTF material and
-                // clears face overrides (the viewer retains UV transform
-                // components in its native handling). Do not leave stale
-                // override JSON referring to a previous material asset.
+                // SL retains repeats, offsets and rotation while resetting
+                // other per-face glTF overrides on material replacement.
                 int existingOverride = overrides.FindIndex(x => x.te_index == target);
                 if (existingOverride >= 0)
                 {
-                    overrides.RemoveAt(existingOverride);
+                    string retainedTransforms = KeepUvTransforms(overrides[existingOverride].data);
+                    if (retainedTransforms.Length == 0)
+                        overrides.RemoveAt(existingOverride);
+                    else
+                    {
+                        overrides[existingOverride] = new RenderMaterialOverrideEntry
+                        {
+                            te_index = (byte)target,
+                            data = retainedTransforms
+                        };
+                    }
                     changed = true;
                 }
             }
