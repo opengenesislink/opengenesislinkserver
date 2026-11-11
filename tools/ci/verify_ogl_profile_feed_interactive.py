@@ -29,7 +29,7 @@ for needle in ("ListFollowingPosts(", "IsFollowing(", "ListLikedPostIds(",
                "f.follower=@follower"):
     assert needle in store, needle
 assert "profile.PublishProfile ? m_Store.ListPosts(" in api, "SSR private-profile leak"
-for needle in ("GetString(\"ProfileFeedOAuthClientId\"",
+for needle in ('"ProfileFeedOAuthClientId", string.Empty',
                "publicBaseUrl.TrimEnd('/') + \"/feed\""):
     assert needle in connector, needle
 assert "X-Frame-Options" in api
