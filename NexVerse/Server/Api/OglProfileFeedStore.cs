@@ -195,6 +195,59 @@ namespace NexVerse.Server.Api
             return posts;
         }
 
+        internal List<(UUID Owner, Post Entry)> ListFollowingPosts(UUID follower, int limit=60)
+        {
+            var result=new List<(UUID Owner, Post Entry)>();
+            using var db=Open();
+            using var cmd=db.CreateCommand();
+            cmd.CommandText=@"SELECT p.owner,p.id,p.author,p.body,p.created_at,
+                (SELECT COUNT(*) FROM ogl_profile_feed_likes l WHERE l.post_id=p.id),
+                (SELECT COUNT(*) FROM ogl_profile_feed_comments c WHERE c.post_id=p.id)
+                FROM ogl_profile_feed_follows f
+                INNER JOIN ogl_profile_feed_posts p ON p.owner=f.owner
+                WHERE f.follower=@follower AND p.created_at>=@cutoff
+                ORDER BY p.created_at DESC,p.id DESC LIMIT @count";
+            Add(cmd,"@follower",follower.ToString());
+            Add(cmd,"@cutoff",Cutoff);
+            Add(cmd,"@count",Math.Clamp(limit,1,100));
+            using var rd=cmd.ExecuteReader();
+            while(rd.Read())
+                result.Add((new UUID(rd.GetString(0)),new Post {
+                    Id=rd.GetString(1),AuthorId=rd.GetString(2),
+                    Text=rd.GetString(3),CreatedAt=rd.GetInt64(4),
+                    Likes=Convert.ToInt32(rd.GetValue(5)),
+                    Comments=Convert.ToInt32(rd.GetValue(6))
+                }));
+            return result;
+        }
+
+        internal List<string> ListLikedPostIds(UUID owner, UUID actor)
+        {
+            var result=new List<string>();
+            using var db=Open();
+            using var cmd=db.CreateCommand();
+            cmd.CommandText=@"SELECT l.post_id FROM ogl_profile_feed_likes l
+                INNER JOIN ogl_profile_feed_posts p ON p.id=l.post_id
+                WHERE p.owner=@owner AND l.actor=@actor AND p.created_at>=@cutoff";
+            Add(cmd,"@owner",owner.ToString());
+            Add(cmd,"@actor",actor.ToString());
+            Add(cmd,"@cutoff",Cutoff);
+            using var rd=cmd.ExecuteReader();
+            while(rd.Read())result.Add(rd.GetString(0));
+            return result;
+        }
+
+        internal bool IsFollowing(UUID owner, UUID follower)
+        {
+            using var db=Open();
+            using var cmd=db.CreateCommand();
+            cmd.CommandText=@"SELECT COUNT(*) FROM ogl_profile_feed_follows
+                WHERE owner=@owner AND follower=@follower";
+            Add(cmd,"@owner",owner.ToString());
+            Add(cmd,"@follower",follower.ToString());
+            return Convert.ToInt32(cmd.ExecuteScalar())>0;
+        }
+
         internal List<Comment> ListComments(UUID post, int limit = 30)
         {
             var result = new List<Comment>();
