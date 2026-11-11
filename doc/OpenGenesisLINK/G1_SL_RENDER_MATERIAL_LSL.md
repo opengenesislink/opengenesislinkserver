@@ -24,9 +24,11 @@ und `llGetRenderMaterial(integer face)` als native YEngine-LSL-Funktionen.
 
 ## Grenzen
 
-Der bestehende `PRIM_RENDER_MATERIAL=49`-Konstantenwert wird nicht
-geaendert; eine separate Verhaltensparitaetspruefung fuer die
-`PRIM_RENDER_MATERIAL`-Listenregel bleibt erforderlich. Neue Funktionen
+Die bestehende `PRIM_RENDER_MATERIAL=49`-Konstante wird jetzt auch
+im `llSetPrimitiveParams`-/`llSetLinkPrimitiveParams[Fast]`-Pfad und
+`llGet[Link]PrimitiveParams` verarbeitet. Die volle Verhaltensparitaet
+fuer alle Berechtigungs- und Listenregel-Kombinationen muss dennoch
+im Firestorm-End-to-End-Test geprueft werden. Neue Funktionen
 allein beweisen keine SL-Paritaet fuer alle Material-Ownership-
 und Permissions-Edge-Cases oder einen nativen .glb/.gltf-Uploader.
 
