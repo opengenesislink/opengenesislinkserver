@@ -918,8 +918,13 @@ namespace OpenSim.Groups
             if (money != null)
             {
                 // do the transaction, that is if the agent has got sufficient funds
-                if (!money.AmountCovered(remoteClient.AgentId, money.GroupCreationCharge)) {
-                    remoteClient.SendCreateGroupReply(UUID.Zero, false, "Insufficient funds to create a group.");
+                string feeReason = "Insufficient funds to create a group.";
+                bool canCreate = money is IMoneyChargePreflight preflight
+                    ? preflight.TryPreflightCharge(remoteClient.AgentId, money.GroupCreationCharge, out feeReason)
+                    : money.AmountCovered(remoteClient.AgentId, money.GroupCreationCharge);
+                if (!canCreate)
+                {
+                    remoteClient.SendCreateGroupReply(UUID.Zero, false, feeReason);
                     return UUID.Zero;
                 }
             }
@@ -930,10 +935,25 @@ namespace OpenSim.Groups
 
             if (!groupID.IsZero())
             {
+                bool feeConfirmed = true;
                 if (money != null && money.GroupCreationCharge > 0)
-                    money.ApplyCharge(remoteClient.AgentId, money.GroupCreationCharge, MoneyTransactionType.GroupCreate, name);
+                {
+                    try
+                    {
+                        money.ApplyCharge(remoteClient.AgentId, money.GroupCreationCharge,
+                            MoneyTransactionType.GroupCreate, name);
+                    }
+                    catch (Exception feeError)
+                    {
+                        feeConfirmed = false;
+                        m_log.ErrorFormat("[GROUPS]: Group {0} created for {1}, but NV$ charge not confirmed; reconcile ledger: {2}",
+                            groupID, remoteClient.AgentId, feeError.Message);
+                        remoteClient.SendAlertMessage("Group created, but NV$ fee could not be confirmed. Contact grid support before retrying.");
+                    }
+                }
 
-                remoteClient.SendCreateGroupReply(groupID, true, "Group created successfully");
+                remoteClient.SendCreateGroupReply(groupID, true,
+                    feeConfirmed ? "Group created successfully" : "Group created; NV$ fee pending review.");
 
                 // Update the founder with new group information.
                 SendAgentGroupDataUpdate(remoteClient, true);
@@ -1136,9 +1156,13 @@ namespace OpenSim.Groups
             if (money != null && groupRecord.MembershipFee > 0)
             {
                 // Does the agent have the funds to cover the group join fee?
-                if (!money.AmountCovered(remoteClient.AgentId, groupRecord.MembershipFee))
+                string feeReason = "Insufficient funds to join the group.";
+                bool canJoin = money is IMoneyChargePreflight preflight
+                    ? preflight.TryPreflightCharge(remoteClient.AgentId, groupRecord.MembershipFee, out feeReason)
+                    : money.AmountCovered(remoteClient.AgentId, groupRecord.MembershipFee);
+                if (!canJoin)
                 {
-                    remoteClient.SendAlertMessage("Insufficient funds to join the group.");
+                    remoteClient.SendAlertMessage(feeReason);
                     remoteClient.SendJoinGroupReply(groupID, false);
                     return;
                 }
@@ -1150,7 +1174,19 @@ namespace OpenSim.Groups
             if (m_groupData.AddAgentToGroup(requestingAgentIDStr, requestingAgentIDStr, groupID, UUID.Zero, string.Empty, out reason))
             {
                 if (money != null && groupRecord.MembershipFee > 0)
-                    money.ApplyCharge(remoteClient.AgentId, groupRecord.MembershipFee, MoneyTransactionType.GroupJoin, groupRecord.GroupName);
+                {
+                    try
+                    {
+                        money.ApplyCharge(remoteClient.AgentId, groupRecord.MembershipFee,
+                            MoneyTransactionType.GroupJoin, groupRecord.GroupName);
+                    }
+                    catch (Exception feeError)
+                    {
+                        m_log.ErrorFormat("[GROUPS]: Agent {0} joined group {1}, but NV$ charge not confirmed; reconcile ledger: {2}",
+                            remoteClient.AgentId, groupID, feeError.Message);
+                        remoteClient.SendAlertMessage("Membership created, but NV$ fee could not be confirmed. Contact grid support.");
+                    }
+                }
 
                 remoteClient.SendJoinGroupReply(groupID, true);
 
