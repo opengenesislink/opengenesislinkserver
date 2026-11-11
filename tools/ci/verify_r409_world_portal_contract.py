@@ -50,6 +50,8 @@ assert "NexScopes.AdminAll" in security
 assert "R409 P0:" in instructions
 assert "keine truncation-Metadaten" in instructions
 assert "Portal-Bugreport-Empfaenger" in instructions
-assert "R409" in (root / "README.md").read_text()
+assert "OpenGenesisLINK Server" in (root / "README.md").read_text()
+# Revision-specific audit details are kept in the API documentation, not in
+# the short public project README.
 assert "OPEN_GENESISLINK_WORLD_API_GEGENPRUEFUNG_R409.md" in (root / "doc/NexVerse/WORLD_API.md").read_text()
 print("R409 static World/Portal route and security boundary audit: OK (NOT E2E)")

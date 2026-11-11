@@ -1,6 +1,6 @@
 # OpenGenesisLINK Roadmap
 
-> **0.9.3.12 RC1-/Stable-Gates:** [Operator-Abnahmematrix](09312_RC1_STABLE_ACCEPTANCE.md) – Entwicklungsstand, kein RC- oder Stable-Tag.
+> **0.9.3.12 RC1-/Stable-Gates:** Operator-Abnahmematrix (historisches Dokument entfernt) – Entwicklungsstand, kein RC- oder Stable-Tag.
 > **Letzte offizielle Stable-Version:** **[OpenGenesisLINK v0.9.3.13](https://github.com/opengenesislink/opengenesislinkserver/releases/tag/v0.9.3.13)** (veröffentlicht am 27.10.2026); **OpenGenesisLINK Generation 1 ist aktuell in Entwicklung.**
 > **Status:** Stabilisierungsrelease abgeschlossen; [Betreiberfreigabe und dokumentierte Abweichungen](09310_OPERATOR_RELEASE_DECISION.md)
 > **Vorheriger Stable-Stand:** v0.9.3.8 (historisch, veröffentlicht am 08.10.2026)
@@ -10,7 +10,7 @@
 > **Historische Quellbasis:** OpenSimulator 0.9.3.0 ("Nessie")
 
 **Scope- und Freigabebeschluss vom 12.10.2026:** 0.9.3.10 Stable ist
-veröffentlicht. Die ursprünglich geplanten [22 RC1-/23 Stable-Operatorfälle](09310_RC1_RELEASE_READINESS.md)
+veröffentlicht. Die ursprünglich geplanten 22 RC1-/23 Stable-Operatorfälle (historisches Dokument entfernt)
 wurden aufgrund einer [ausdrücklich dokumentierten einmaligen Betreiberentscheidung](09310_OPERATOR_RELEASE_DECISION.md)
 nicht vollständig mit individuellen Nachweisen belegt; offene Formalnachweise
 werden **nicht** als bestanden ausgegeben. Die Experience-/Pathfinding-/My-Outfits-2.0-
@@ -1261,7 +1261,7 @@ No new feature milestone should begin until this gate is closed. The 0.9.3.8 fea
 
 # Milestone 0.9.3.9
 
-> **Historischer Entwicklungs-Checkpoint (abgeschlossen):** Die Runtime-Arbeiten gingen in die veröffentlichte **0.9.3.10 Stable** ein. Für 0.9.3.9 gab es **keinen separaten Stable-Release**. OGLVoice bleibt auf einen späteren, noch nicht terminierten Entwicklungszweig verschoben. Historische Release-Gates: [RELEASE_TRAIN_0.9.3.10.md](RELEASE_TRAIN_0.9.3.10.md).
+> **Historischer Entwicklungs-Checkpoint (abgeschlossen):** Die Runtime-Arbeiten gingen in die veröffentlichte **0.9.3.10 Stable** ein. Für 0.9.3.9 gab es **keinen separaten Stable-Release**. OGLVoice bleibt auf einen späteren, noch nicht terminierten Entwicklungszweig verschoben. Historische Release-Gates: RELEASE_TRAIN_0.9.3.10.md (historisches Dokument entfernt).
 
 ### 13.0 Runtime-/ThreadPool-Modernisierung
 
@@ -1342,7 +1342,7 @@ Architektur- und Abnahmedokument: [OGLVOICE_ARCHITECTURE.md](OGLVOICE_ARCHITECTU
 > **Abgeschlossen am 12.10.2026:** [Stable v0.9.3.10](https://github.com/opengenesislink/opengenesislinkserver/releases/tag/v0.9.3.10).
 > Verbindliche Featuregrenzen und die einmalige, transparent dokumentierte
 > Abweichung von den ursprünglich festgelegten Operator-Nachweisen stehen
-> in [RELEASE_0.9.3.10.md](RELEASE_0.9.3.10.md) und
+> in RELEASE_0.9.3.10.md (historisches Dokument entfernt) und
 > [09310_OPERATOR_RELEASE_DECISION.md](09310_OPERATOR_RELEASE_DECISION.md).
 
 ## 14.1 .NET-8-Runtime und Basisdienste

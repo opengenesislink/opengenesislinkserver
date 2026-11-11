@@ -45,4 +45,4 @@ Fuer jeden getesteten Fall Datum, Simulator-Commit, Firestorm-Version, Avatar-Ro
 
 Die GitHub-CI kann die **vorhandenen LSL-API-Signaturen und Script-Marker** statisch pruefen. Ein echter Inworld-LSL-Compilerlauf, Firestorm-Consent-Dialoge, mehrere Simulatoren, Restart/Backup und Rechteisolation werden dadurch **nicht** automatisch nachgewiesen. Alle noch nicht ausgefuehrten Operator-Tests bleiben `NOT RUN`.
 
-Siehe [RC1 Operator Acceptance](RC1_OPERATOR_ACCEPTANCE_09310.md) und [Firestorm Experience Setup](FIRESTORM_EXPERIENCE_ACQUIRE_09310.md).
+Siehe RC1 Operator Acceptance (historisches Dokument entfernt) und [Firestorm Experience Setup](FIRESTORM_EXPERIENCE_ACQUIRE_09310.md).

@@ -1,0 +1,48 @@
+name: OpenGenesisLINK Generation 1 - Abgeschlossene Branches bereinigen
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      ausfuehren:
+        description: "Eindeutig erledigte Branches wirklich loeschen"
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+  pull-requests: read
+
+concurrency:
+  group: ogl-g1-branch-bereinigung
+  cancel-in-progress: false
+
+jobs:
+  aufraeumen:
+    name: Abgeschlossene und nicht mehr benoetigte Branches entfernen
+    if: github.repository == 'opengenesislink/opengenesislinkserver'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Quellcode aus main holen
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: false
+
+      - name: Sicherheitsregeln fuer Branch-Loeschungen testen
+        run: python3 tools/ops/bereinige_gemergte_branches.py --selbsttest
+
+      - name: Eindeutig erledigte Branches auflisten
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 tools/ops/bereinige_gemergte_branches.py
+
+      - name: Gepruefte Branches dauerhaft entfernen
+        if: github.event_name == 'push' || inputs.ausfuehren == true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 tools/ops/bereinige_gemergte_branches.py --ausfuehren

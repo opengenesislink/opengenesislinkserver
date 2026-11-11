@@ -1,6 +1,6 @@
-# OpenGenesisLINK Generation 1.1 – .NET 10 Build
+# OpenGenesisLINK Generation 1 (0.9.4.0) – .NET 10 Build
 
-> **Der offizielle Generation-1-`main`-Quellcode wird auf .NET 10 modernisiert.** Lokale Builds ändern keine laufende Grid-Installation und ersetzen keine produktiven Daten oder INI-Dateien. Ältere OpenSimulator-Bauanweisungen für .NET 8 gelten nicht mehr.
+> **OpenGenesisLINK Generation 1 (0.9.4.0) wird mit .NET 10 gebaut und betrieben.** Lokale Builds ändern keine laufende Grid-Installation und ersetzen keine produktiven Daten oder INI-Dateien. Ältere OpenSimulator-Bauanweisungen für .NET 8 gelten nicht mehr.
 
 ## Voraussetzungen / Requirements
 
@@ -64,9 +64,9 @@ Start im vorbereiteten Staging: `dotnet bin/Robust.dll` bzw. `dotnet bin/OpenSim
 - `.github/workflows/gen11-net10-build.yml`: Windows-x64-Full-Solution-Build und ROBUST-Runtime-Test.
 - `.github/workflows/gen11-net10-arm64.yml`: Linux-ARM64-Full-Solution-Build, ROBUST-Runtime-Test und Paketlaufzeitprüfung.
 
-Der ROBUST-HTTP-Smoke ist ein **Start- und Laufzeitnachweis**, nicht die Abnahme eines produktiven Login-/Inventory-/Asset-/Hypergrid-Szenarios. Diese benötigt in G11-06 eine isolierte MariaDB/FSAssets-Staging-Kopie und echte Viewer-/Simulator-End-to-End-Tests.
+Der ROBUST-HTTP-Smoke ist ein **Start- und Laufzeitnachweis**, nicht die Abnahme eines produktiven Login-/Inventory-/Asset-/Hypergrid-Szenarios. Diese benötigt im produktiven Grid eine isolierte MariaDB/FSAssets-Staging-Kopie und echte Viewer-/Simulator-End-to-End-Tests.
 
-## Noch offen vor einer echten G1.1-Produktionsmigration
+## Checkliste fuer eine sichere Produktionsmigration
 
 1. Integrationsbetrieb mit MariaDB, FSAssets/WebDAV, Inventar, Login, Simulator, ScriptEngine (LSL/OSSL), Addons und Fremd-Hypergrid.
 2. Konsistentes Backup, Restore und vollständig getesteter Rückweg auf die bisherige G1-Version.
@@ -75,4 +75,4 @@ Der ROBUST-HTTP-Smoke ist ein **Start- und Laufzeitnachweis**, nicht die Abnahme
 
 ---
 
-**English quick reference:** Generation 1.1 uses the .NET 10 SDK and runtime, **not .NET 8**. Regenerate projects with `runprebuild.sh` on Linux or `runprebuild.bat` on Windows (both include the legacy-Prebuild retargeting step), then `dotnet build -c Release OpenSim.sln`. Run `tools/gen11/verify_net10.py` and the isolated ROBUST runtime smoke. Never point CI test configs at the live NexVerse database or replace production INI files automatically.
+**English quick reference:** Generation 1 (0.9.4.0) uses the .NET 10 SDK and runtime, **not .NET 8**. Regenerate projects with `runprebuild.sh` on Linux or `runprebuild.bat` on Windows (both include the legacy-Prebuild retargeting step), then `dotnet build -c Release OpenSim.sln`. Run `tools/gen11/verify_net10.py` and the isolated ROBUST runtime smoke. Never point CI test configs at the live NexVerse database or replace production INI files automatically.

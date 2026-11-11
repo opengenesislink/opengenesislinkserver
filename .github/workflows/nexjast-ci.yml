@@ -57,37 +57,15 @@ jobs:
           test -f OpenSim/Region/CoreModules/Scripting/XMLRPC/XMLRPCModule.cs
           test -f OpenSim/Region/OptionalModules/Scripting/XmlRpcRouterModule/XmlRpcRouterModule.cs
 
-      - name: Verify immutable stable release gating on development main
+      - name: Verify Generation 1 repository hygiene and .NET 10 build commands
         shell: bash
-        run: python3 tools/ci/verify_stable_release_gate.py
+        run: python3 tools/ci/verify_g1_repository_hygiene.py
 
       - name: Verify current-main Gen1 ZIP publisher and secret-safe packaging
         shell: bash
         run: |
           python3 tools/ci/verify_gen1_snapshot_release.py
           python3 tools/release/ogl_gen1_snapshot_zip.py --self-test
-
-      - name: Test fail-closed OpenGenesisLINK 0.9.3.10 release evidence gate
-        shell: bash
-        run: |
-          python3 -m unittest discover -s tools/ci -p 'test_verify_09310_release_readiness.py' -v
-          python3 -m unittest discover -s tools/diagnostics -p 'test_ogl_09310_operator_preflight.py' -v
-          # Do not invoke an empty operator manifest as a simulated PASS:
-          # the real RC1/Stable evidence check is a separate manual gate.
-
-      - name: Regression-test 0.9.3.12 RC1 release evidence gate
-        shell: bash
-        run: |
-          python3 -m unittest discover -s tools/ci -p 'test_09312_release_gate.py' -v
-          # A blank manifest MUST NOT be accepted as an RC1 sign-off.
-          directory="$(mktemp -d)"
-          trap 'rm -rf "$directory"' EXIT
-          python3 tools/release/ogl_09312_gate.py init --manifest "$directory/manifest.json"
-          python3 tools/release/ogl_09312_gate.py inventory --manifest "$directory/manifest.json"
-          if python3 tools/release/ogl_09312_gate.py rc1 --manifest "$directory/manifest.json"; then
-            echo "::error::0.9.3.12 RC1 gate accepted empty evidence"
-            exit 1
-          fi
 
       - name: Verify OpenGenesisLINK protected admin Control Center
         shell: bash
@@ -949,16 +927,7 @@ jobs:
         shell: bash
         run: dotnet run --configuration Release --project tools/ci/XmlRpcRemoteDataRegression/XmlRpcRemoteDataRegression.csproj
 
-      - name: Verify 0.9.3.13 Stable operator decision and unchanged evidence validator
-        shell: bash
-        run: |
-          python3 tools/release/ogl_09313_acceptance_gate.py --self-test
-          test -s doc/NexVerse/RELEASE_0.9.3.13_RC1.md
-          test -s doc/NexVerse/09313_OPERATOR_RELEASE_DECISION.md
-          test -s doc/NexVerse/RELEASE_0.9.3.13.md
-          # Operator exception is documented; evidence validator remains fail-closed.
-
-      - name: Verify NexVerse version
+      - name: OpenGenesisLINK Generation 1 Version 0.9.4.0 pruefen
         shell: bash
         run: |
           grep -F 'public const string ProductName = "OpenGenesisLINK";' OpenSim/Framework/VersionInfo.cs
@@ -968,8 +937,6 @@ jobs:
           grep -F 'return global::OpenSim.VersionInfo.ProductName;' OpenSim/Region/ScriptEngine/Shared/Api/Implementation/LSL_Api.cs
           grep -F 'private string m_lsl_shard = global::OpenSim.VersionInfo.ProductName;' OpenSim/Region/CoreModules/Scripting/LSLHttp/UrlModule.cs
           grep -F 'public const string MilestoneVersion = "0.9.4.0";' NexVerse/Core/NexVersePlatform.cs
-          grep -F 'Development checkpoint status: completed 3 October 2026' doc/NexVerse/CHECKPOINT_0.9.3.2.md
-          grep -F '36/36 explicit checklist items completed' doc/NexVerse/CHECKPOINT_0.9.3.2.md
 
       - name: Verify Generation 1 Hypergrid asset egress lockdown
         shell: bash

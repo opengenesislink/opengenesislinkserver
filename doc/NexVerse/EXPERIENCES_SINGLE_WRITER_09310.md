@@ -93,6 +93,6 @@ CI testet:
 **Nicht damit bestanden:** Zwei-Avatar-Firestorm-Allow/Block/Forget,
 Regionswechsel, gleichzeitige K/V-CAS-Anfragen aus mehreren Simulatoren,
 Multi-Host-Redundanz, Restore-Probe oder harte Last-/IO-Störungstests.
-Siehe [RC1_OPERATOR_ACCEPTANCE_09310.md](RC1_OPERATOR_ACCEPTANCE_09310.md).
+Siehe RC1_OPERATOR_ACCEPTANCE_09310.md (historisches Dokument entfernt).
 
 **Freigabestatus: Dev; keine 0.9.3.10 RC1/Stable-Aussage.**
