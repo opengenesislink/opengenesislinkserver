@@ -62,6 +62,8 @@ namespace NexVerse.Server.Api
                 return;
             }
 
+            m_Store.PruneExpired();
+
             if(p.Length==4 && Is(request,"GET"))
             {
                 if(!AllowRead(request,response,ownerId,profile.PublishProfile))return;
@@ -251,6 +253,7 @@ namespace NexVerse.Server.Api
                 WebMessage(response,HttpStatusCode.NotFound,"Dieser Feed ist privat.");
                 return;
             }
+            m_Store.PruneExpired();
             var html=new StringBuilder();
             html.Append("<!doctype html><html lang=\"de\"><head><meta charset=\"utf-8\">")
                 .Append("<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">")
