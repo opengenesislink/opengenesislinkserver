@@ -119,6 +119,11 @@ namespace OpenSim.Region.CoreModules.World.Warp3DMap
         private float m_renderMaxHeight = 4096f;
 
         private bool m_Enabled = false;
+        // Preserve legacy defaults. Operators can disable forced full GC
+        // and on-disk map PNG dumps after comparing OGLPerformance baselines.
+        private bool m_ForceFullGC = true;
+        private bool m_WriteMapDiagnosticPng = true;
+        private readonly object m_RenderLock = new();
 
         #region Region Module interface
 
@@ -131,6 +136,10 @@ namespace OpenSim.Region.CoreModules.World.Warp3DMap
                 return;
 
             m_Enabled = true;
+            m_ForceFullGC =
+                Util.GetConfigVarFromSections<bool>(source, "Warp3DForceFullGC", configSections, m_ForceFullGC);
+            m_WriteMapDiagnosticPng =
+                Util.GetConfigVarFromSections<bool>(source, "Warp3DWriteMapPng", configSections, m_WriteMapDiagnosticPng);
 
             m_drawPrimVolume =
                 Util.GetConfigVarFromSections<bool>(source, "DrawPrimOnMapTile", configSections, m_drawPrimVolume);
@@ -266,6 +275,8 @@ namespace OpenSim.Region.CoreModules.World.Warp3DMap
 
         public Bitmap CreateMapTile()
         {
+            lock (m_RenderLock)
+            {
             List<string> renderers = RenderingLoader.ListRenderers(Util.ExecutingDirectory());
             if (renderers.Count > 0)
             {
@@ -283,16 +294,37 @@ namespace OpenSim.Region.CoreModules.World.Warp3DMap
             cameraDir = -Vector3.UnitZ;
             orto = true;
 
-            Bitmap tile = GenImage();
-            // image may be reloaded elsewhere, so no compression format
-            string filename = "MAP-" + m_scene.RegionInfo.RegionID.ToString() + ".png";
-            tile.Save(filename,ImageFormat.Png);
-            m_primMesher = null;
-            return tile;
+            try
+            {
+                Bitmap tile = GenImage();
+                if (m_WriteMapDiagnosticPng)
+                {
+                    // The PNG is diagnostic output, not an authoritative map
+                    // tile; do not leave a Bitmap allocated on a failed write.
+                    try
+                    {
+                        string filename = "MAP-" + m_scene.RegionInfo.RegionID + ".png";
+                        tile.Save(filename, ImageFormat.Png);
+                    }
+                    catch
+                    {
+                        tile.Dispose();
+                        throw;
+                    }
+                }
+                return tile;
+            }
+            finally
+            {
+                m_primMesher = null;
+            }
+            }
         }
 
         public Bitmap CreateViewImage(Vector3 camPos, Vector3 camDir, float pfov, int width, int height, bool useTextures)
         {
+            lock (m_RenderLock)
+            {
             List<string> renderers = RenderingLoader.ListRenderers(Util.ExecutingDirectory());
             if (renderers.Count > 0)
             {
@@ -306,63 +338,83 @@ namespace OpenSim.Region.CoreModules.World.Warp3DMap
             fov = pfov;
             orto = false;
 
-            Bitmap tile = GenImage();
-            m_primMesher = null;
-            return tile;
+            try
+            {
+                return GenImage();
+            }
+            finally
+            {
+                m_primMesher = null;
+            }
+            }
         }
 
         private Bitmap GenImage()
         {
-            m_colors= new Dictionary<UUID, int>();
-            m_warpTextures= new Dictionary<UUID, warp_Texture>();
+            m_colors = new Dictionary<UUID, int>();
+            m_warpTextures = new Dictionary<UUID, warp_Texture>();
             m_meshGeometryCache = new Dictionary<(UUID, DetailLevel), FacetedMesh>();
             m_meshDecodeMisses = new HashSet<(UUID, DetailLevel)>();
 
             WarpRenderer renderer = new WarpRenderer();
+            try
+            {
+                if (!renderer.CreateScene(viewWidth, viewHeight))
+                    return new Bitmap(viewWidth, viewHeight);
 
-            if (!renderer.CreateScene(viewWidth, viewHeight))
-                return new Bitmap(viewWidth, viewHeight);
+                warp_Vector pos = ConvertVector(ref cameraPos);
+                warp_Vector lookat = ConvertVector(cameraPos + cameraDir);
 
-            #region Camera
+                if (orto)
+                    renderer.Scene.defaultCamera.setOrthographic(true, viewWidth, viewHeight);
+                else
+                    renderer.Scene.defaultCamera.setFov(fov);
 
-            warp_Vector pos = ConvertVector(ref cameraPos);
-            warp_Vector lookat = ConvertVector(cameraPos + cameraDir);
+                renderer.Scene.defaultCamera.setPos(pos);
+                renderer.Scene.defaultCamera.lookAt(lookat);
+                renderer.Scene.setAmbient(warp_Color.getColor(192, 191, 173));
+                renderer.Scene.addLight("Light1",
+                    new warp_Light(new warp_Vector(0f, 1f, 8f), warp_Color.White, 0, 200, 20));
 
-            if (orto)
-                renderer.Scene.defaultCamera.setOrthographic(true, viewWidth, viewHeight);
-            else
-                renderer.Scene.defaultCamera.setFov(fov);
+                CreateWater(renderer);
+                CreateTerrain(renderer);
+                if (m_drawPrimVolume)
+                    CreateAllPrims(renderer);
 
-            renderer.Scene.defaultCamera.setPos(pos);
-            renderer.Scene.defaultCamera.lookAt(lookat);
-            #endregion Camera
+                renderer.Render();
+                return renderer.Scene.getImage();
+            }
+            finally
+            {
+                // Even failed scene generation must release native Warp3D
+                // resources and large per-render texture/mesh caches.
+                try
+                {
+                    if (renderer.Scene != null)
+                        renderer.Scene.destroy();
+                }
+                finally
+                {
+                    renderer.Reset();
+                    m_colors = null;
+                    m_warpTextures = null;
+                    m_meshGeometryCache = null;
+                    m_meshDecodeMisses = null;
 
-            renderer.Scene.setAmbient(warp_Color.getColor(192, 191, 173));
-            renderer.Scene.addLight("Light1", new warp_Light(new warp_Vector(0f, 1f, 8f), warp_Color.White, 0, 200, 20));
-
-            CreateWater(renderer);
-            CreateTerrain(renderer);
-            if (m_drawPrimVolume)
-                CreateAllPrims(renderer);
-
-            renderer.Render();
-            Bitmap bitmap = renderer.Scene.getImage();
-
-            renderer.Scene.destroy();
-            renderer.Reset();
-            renderer = null;
-
-            m_colors = null;
-            m_warpTextures = null;
-            m_meshGeometryCache = null;
-            m_meshDecodeMisses = null;
-
-            GCSettings.LargeObjectHeapCompactionMode = GCLargeObjectHeapCompactionMode.CompactOnce;
-            GC.Collect();
-            GC.WaitForPendingFinalizers();
-            GC.Collect();
-            GCSettings.LargeObjectHeapCompactionMode = GCLargeObjectHeapCompactionMode.Default;
-            return bitmap;
+                    if (m_ForceFullGC)
+                    {
+                        // Legacy compatibility mode. Disabled only by an
+                        // explicit opt-in after controlled GC/Heap benchmarks.
+                        GCSettings.LargeObjectHeapCompactionMode =
+                            GCLargeObjectHeapCompactionMode.CompactOnce;
+                        GC.Collect();
+                        GC.WaitForPendingFinalizers();
+                        GC.Collect();
+                        GCSettings.LargeObjectHeapCompactionMode =
+                            GCLargeObjectHeapCompactionMode.Default;
+                    }
+                }
+            }
         }
 
         public byte[] WriteJpeg2000Image()

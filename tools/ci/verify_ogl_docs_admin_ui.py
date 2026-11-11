@@ -6,6 +6,9 @@ root = Path(__file__).resolve().parents[2]
 api = (root / "NexVerse/Server/Api/NexVerseWorldApiConnector.cs").read_text()
 access = (root / "NexVerse/Server/Api/OglApiDocsAccess.cs").read_text()
 dashboard = (root / "NexVerse/Server/Api/NexApiDocsPage.cs").read_text()
+styles = (root / "NexVerse/Server/Api/NexApiDocsStyles.cs").read_text()
+assert '.Replace("OGL_CONTROL_CENTER_STYLES", NexApiDocsStyles.Content)' in dashboard
+
 user = (root / "NexVerse/Server/Api/NexVerseUserApi.cs").read_text()
 
 def must(text, *parts):
@@ -69,8 +72,9 @@ must(dashboard,
     'window.addEventListener(\'message\',event=>',
     'adminSessionToken=access;', "event.data.type!=='ogl-auth'",
     "window.parent.postMessage({type:'ogl-logout'}",
-    '@media(prefers-reduced-motion:reduce)', 'ogl-aurora',
+ 
     '/api/v1/openapi.json', 'id="page-explorer"')
+must(styles, '@media(prefers-reduced-motion:reduce)', 'color-scheme:dark', 'ogl-aurora')
 # The ordinary GridUser login verifies the avatar password and returns
 # a signed session. The panel independently validates it plus current UserLevel.
 must(user,

@@ -111,6 +111,13 @@
 
 
 [Map]
+    ; Warp3D diagnostic PNGs are optional, but legacy behavior remains
+    ; enabled by default until an operator benchmarks and switches them off.
+    Warp3DWriteMapPng = true
+    ; Double full GC + LOH compaction after each tile is expensive.
+    ; Opt-in false for test nodes after measuring OGLPerformance GC pauses.
+    Warp3DForceFullGC = true
+
     GenerateMaptiles = true
     ; OGL FastMap 2.0: opt in after testing (keep true for normal map rendering).
     FastMapAsyncStartup = false

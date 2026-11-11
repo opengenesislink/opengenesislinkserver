@@ -254,6 +254,7 @@
     </Compile>
     <Compile Include="OglApprovedViewerPolicy.cs" />
     <Compile Include="OglBudgetedLruCache.cs" />
+    <Compile Include="OglRenderMaterialFaces.cs" />
     <Compile Include="OglInFlightByteLimiter.cs" />
     <Compile Include="OglPerformanceWorkerPolicy.cs" />
     <Compile Include="OglRegionTimingWindow.cs" />

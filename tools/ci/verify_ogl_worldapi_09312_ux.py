@@ -7,6 +7,7 @@ def read(path):
     return (root / path).read_text(encoding="utf-8")
 
 ui = read("NexVerse/Server/Api/NexApiDocsPage.cs")
+styles = read("NexVerse/Server/Api/NexApiDocsStyles.cs")
 generator = read("NexVerse/Server/Api/NexChatGptInstructionDownloads.cs")
 api = read("NexVerse/Server/Api/NexVerseWorldApiHandlers.cs")
 feature = read("NexVerse/Server/Api/OglFeatureControlApi.cs")
@@ -24,11 +25,14 @@ expect(ui, "Dashboard visual refresh",
        'async function runOglDiagnostics()',
        "document.getElementById('diagnosticsRefresh').addEventListener",
        '/api/v1/health', '/api/v1/version', '/api/v1/chatgpt-instructions.md',
-       '@keyframes ogl-orbit', 'prefers-reduced-motion:reduce',
+       
        "version.server_version||'OpenGenesisLINK'",
        "status.textContent='Lizenzmodul nicht aktiviert.",
        "response.status===404", "data.error==='not_found'",
        "'/api/v1/feature-control/nodes'")
+expect(ui, "CSS composition", 'NexApiDocsStyles.Content')
+expect(styles, "Dashboard visual refresh CSS",
+       '@keyframes ogl-orbit', 'prefers-reduced-motion:reduce')
 expect(generator, "Current ChatGPT instructions",
        "OpenGenesisLINK World API - ChatGPT Gesamtanweisung",
        "opengenesislink-chatgpt-anweisung.md",
