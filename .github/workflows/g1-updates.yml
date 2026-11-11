@@ -1,0 +1,134 @@
+name: Publish Generation 1 (0.9.4.0) rolling updates
+
+on:
+  workflow_run:
+    workflows: ["NexVerse CI"]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: write
+  checks: read
+
+concurrency:
+  group: ogl-g1-rolling-updates
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: >-
+      ${{ vars.OGL_GEN1_UPDATES_APPROVED == 'true' &&
+          github.event.workflow_run.conclusion == 'success' &&
+          github.event.workflow_run.event == 'push' &&
+          github.event.workflow_run.head_branch == 'main' &&
+          github.event.workflow_run.head_repository.full_name == github.repository }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - name: Checkout exact successful NexVerse CI SHA
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          persist-credentials: false
+
+      - name: Verify Stable lineage and all mandatory CI checks
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$RELEASE_SHA"
+          test "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" = "$RELEASE_SHA"
+          grep -Fq 'VersionNumber = "0.9.4.0"' OpenSim/Framework/VersionInfo.cs
+          grep -Fq 'VERSION_FLAVOUR = Flavour.Release;' OpenSim/Framework/VersionInfo.cs
+          stable="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/v0.9.4.0" --jq '.object.sha')"
+          git merge-base --is-ancestor "$stable" "$RELEASE_SHA"
+          # GitHub workflow_run events can arrive before the other build gates finish.
+          # Never publish if any mandatory gate is absent, pending or failed.
+          for i in $(seq 1 30); do
+            gh api "repos/$GITHUB_REPOSITORY/commits/$RELEASE_SHA/check-runs?per_page=100" > "$RUNNER_TEMP/checks.json"
+            if python3 - "$RUNNER_TEMP/checks.json" <<'PY'
+          import json, sys
+          checks = json.load(open(sys.argv[1], encoding="utf-8"))["check_runs"]
+          needed = (
+              "Build NexVerse",
+              "NV dollar live database matrix",
+              ".NET 10 generated-project and server build",
+              ".NET 10 Windows x64 build",
+              "ROBUST and Simulator .NET 10 ARM64 build + boot",
+          )
+          for name in needed:
+              runs = [c for c in checks if c.get("name") == name]
+              if not runs or runs[0].get("conclusion") != "success":
+                  print(f"Gate not green: {name}")
+                  raise SystemExit(1)
+          print("All mandatory CI checks are green.")
+          PY
+            then
+              exit 0
+            fi
+            sleep 20
+          done
+          echo "::error::Mandatory CI checks did not all pass"; exit 1
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Install native build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgdiplus libc6-dev
+
+      - name: Build and verify current Linux x64 update ZIP
+        env:
+          RELEASE_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -euo pipefail
+          bash runprebuild.sh
+          python3 tools/gen11/verify_net10.py
+          dotnet restore OpenSim.sln
+          dotnet build OpenSim.sln --configuration Release --no-restore
+          python3 tools/gen11/robust_runtime_smoke.py
+          python3 tools/gen11/stage_net10_runtime.py --rid linux-x64 --output "$RUNNER_TEMP/g1-updates"
+          python3 tools/gen11/robust_runtime_smoke.py --bin "$RUNNER_TEMP/g1-updates/bin"
+          mkdir -p dist
+          python3 tools/release/ogl_gen1_snapshot_zip.py \
+            --bin-dir "$RUNNER_TEMP/g1-updates/bin" \
+            --output dist/OpenGenesisLINK-Generation1-Updates-Linux-x64.zip \
+            --sha "$RELEASE_SHA" --channel generation1-updates
+          (cd dist && sha256sum *.zip > OpenGenesisLINK-Generation1-Updates-Linux-x64.zip.sha256)
+
+      - name: Refresh update prerelease, never touch official Stable
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_SHA: ${{ github.event.workflow_run.head_sha }}
+          CI_RUN: ${{ github.event.workflow_run.id }}
+        run: |
+          set -euo pipefail
+          test "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" = "$RELEASE_SHA"
+          gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/v0.9.4.0" >/dev/null
+          tag="gen1-updates"
+          zip="dist/OpenGenesisLINK-Generation1-Updates-Linux-x64.zip"
+          sum="dist/OpenGenesisLINK-Generation1-Updates-Linux-x64.zip.sha256"
+          printf 'OpenGenesisLINK Generation 1 (0.9.4.0) - aktuelles freigegebenes Update.\n\nCommit: %s\nNexVerse CI: %s\nLaufzeit: .NET 10, Linux x64.\nDies ist ein aktualisierbarer Update-Download, KEIN neues Stable-Release.\nDas offizielle Stable-Release v0.9.4.0 bleibt unveraendert.\nVor Installation Backup und Rollback pruefen.\n' "$RELEASE_SHA" "$CI_RUN" > dist/notes.md
+          if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            test "$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$tag" --jq .prerelease)" = "true"
+            test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$tag" --jq '.object.type')" = "commit"
+            gh api -X PATCH "repos/$GITHUB_REPOSITORY/git/refs/tags/$tag" \
+              -f sha="$RELEASE_SHA" -F force=true >/dev/null
+            gh release edit "$tag" --repo "$GITHUB_REPOSITORY" \
+              --title 'OpenGenesisLINK Generation 1 - Aktuelle Updates' \
+              --notes-file dist/notes.md --prerelease
+            gh release upload "$tag" "$zip" "$sum" --repo "$GITHUB_REPOSITORY" --clobber
+          else
+            if gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$tag" >/dev/null 2>&1; then
+              echo "::error::Update tag exists without expected prerelease"; exit 1
+            fi
+            gh release create "$tag" "$zip" "$sum" \
+              --repo "$GITHUB_REPOSITORY" --target "$RELEASE_SHA" \
+              --title 'OpenGenesisLINK Generation 1 - Aktuelle Updates' \
+              --notes-file dist/notes.md --prerelease
+          fi
+          echo "Published Generation 1 update for $RELEASE_SHA"
