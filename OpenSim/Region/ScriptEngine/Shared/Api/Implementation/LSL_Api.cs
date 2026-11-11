@@ -8870,6 +8870,83 @@ namespace OpenSim.Region.ScriptEngine.Shared.Api
             part.UpdateShape(shapeBlock);
         }
 
+        // SL-compatible glTF render-material convenience functions. The
+        // underlying per-face shape path is shared with the viewer CAPS.
+        // Never accept arbitrary material types from an inventory name.
+        private void SetRenderMaterialOnLink(int link, string material, int face,
+            string origin)
+        {
+            UUID materialId = UUID.Zero;
+            if (!string.IsNullOrEmpty(material) && material != ScriptBaseClass.NULL_KEY)
+            {
+                TaskInventoryItem inventory = m_host.Inventory.GetInventoryItem(material);
+                if (inventory != null)
+                {
+                    if (inventory.Type != (int)AssetType.Material)
+                    {
+                        Error(origin, "Inventory item is not a PBR material");
+                        return;
+                    }
+                    materialId = inventory.AssetID;
+                }
+                else if (!UUID.TryParse(material, out materialId))
+                {
+                    Error(origin, "Expected a material UUID or an inventory material name");
+                    return;
+                }
+            }
+
+            foreach (SceneObjectPart target in GetLinkParts(link))
+            {
+                if (!OglRenderMaterialFaces.Set(target.Shape, face,
+                        GetNumberOfSides(target), materialId))
+                    continue;
+
+                target.ParentGroup.HasGroupChanged = true;
+                target.TriggerScriptChangedEvent(Changed.TEXTURE);
+                target.ScheduleUpdate(PrimUpdateFlags.MaterialOvr | PrimUpdateFlags.FullUpdate);
+            }
+        }
+
+        public void llSetRenderMaterial(LSL_String material, int face)
+        {
+            SetRenderMaterialOnLink(ScriptBaseClass.LINK_THIS, material, face,
+                "llSetRenderMaterial");
+            ScriptSleep(200);
+        }
+
+        public void llSetLinkRenderMaterial(int link, LSL_String material, int face)
+        {
+            SetRenderMaterialOnLink(link, material, face, "llSetLinkRenderMaterial");
+            ScriptSleep(200);
+        }
+
+        public LSL_String llGetRenderMaterial(int face)
+        {
+            UUID id = OglRenderMaterialFaces.Get(m_host.Shape, face,
+                GetNumberOfSides(m_host));
+            if (id.IsZero())
+                return new LSL_String(ScriptBaseClass.NULL_KEY);
+
+            // Second Life returns an inventory material name when the item
+            // exists in the scripting prim, rather than exposing its UUID.
+            lock (m_host.TaskInventory)
+            {
+                foreach (TaskInventoryItem item in m_host.TaskInventory.Values)
+                {
+                    if (item.Type == (int)AssetType.Material && item.AssetID == id)
+                        return new LSL_String(item.Name);
+                }
+            }
+
+            // Do not leak a no-copy/no-transfer material asset UUID via LSL.
+            uint full = (uint)(PermissionMask.Modify |
+                               PermissionMask.Copy | PermissionMask.Transfer);
+            if ((m_host.OwnerMask & full) != full)
+                return new LSL_String(ScriptBaseClass.NULL_KEY);
+            return new LSL_String(id.ToString());
+        }
+
         public void llSetPrimitiveParams(LSL_List rules)
         {
 
