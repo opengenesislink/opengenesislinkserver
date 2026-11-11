@@ -44,43 +44,40 @@ HTTPS und PKCE/WebCrypto unterstuetzen.
   `/oauth/authorize`-Browser-Flow. UserLevel/Scopes stammen aus
   `NexAuthorizationPolicy`. Keine manuelle Weitergabe von Tokens.
 
-## 2. Oeffentlichen OAuth-Client einmalig einrichten
+## 2. OAuth-Client wird standardmaessig automatisch eingerichtet
 
-Mit einem **berechtigten Administrator-Bearer** den vorhandenen
-Client-Verwaltungs-Endpunkt aufrufen:
-
-```bash
-curl --fail-with-body -X POST \
-  https://world.stadt-nexverse.de/api/v1/auth/clients \
-  -H "Authorization: Bearer ${ADMIN_BEARER_TOKEN}" \
-  -H "Content-Type: application/json" \
-  --data '{
-    "name": "Stadt NexVerse Profile Feed",
-    "client_type": "public",
-    "redirect_uris": ["https://world.stadt-nexverse.de/feed"],
-    "allowed_scopes": [
-      "profile:read", "profile:write",
-      "relationships:read", "relationships:write"
-    ]
-  }'
-```
-
-Die Antwort enthaelt `client.client_id`. Einen **public**-Client
-registrieren: kein `client_secret` in INIs, HTML, Viewer oder LSL.
-`redirect_uris` darf keine variablen Avatarnamen enthalten.
-In der **bereits bestehenden** `[NexVerseWorldApi]`-Sektion:
+Bei einer normalen ROBUST-Installation reicht:
 
 ```ini
+[NexVerseWorldApi]
 EnableProfileFeed = true
+EnableNativeTokens = true
 ProfileFeedRetentionDays = 180
-ProfileFeedOAuthClientId = "DIE-REGISTRIERTE-CLIENT-ID"
+ProfileFeedOAuthClientId = ""
 PublicBaseUrl = "https://world.stadt-nexverse.de"
 ```
 
-Danach ROBUST kontrolliert neu starten, die OAuth-Registrierung
-gegenpruefen und `https://world.stadt-nexverse.de/feed?name=First.Last`
-aufrufen. Bei leerer `ProfileFeedOAuthClientId` bleibt das Profil
-**absichtlich lesend**. Gespeicherte Posts bleiben davon unberuehrt.
+ROBUST erstellt beim ersten Start einen **oeffentlichen First-Party-OAuth-
+Client** `Stadt NexVerse Profile Feed` im bestehenden, persistenten
+OAuth-Speicher. Der Client hat ausschliesslich
+`profile:read profile:write relationships:read relationships:write` und
+die exakt registrierte HTTPS-Redirect-Adresse
+`https://world.stadt-nexverse.de/feed`. Es wird kein geheimer
+Client-Key in den Browser gegeben.
+
+Weitere ROBUST-Neustarts verwenden denselben Client, ohne Duplikate.
+Ein absichtlich deaktivierter oder in Redirect/Berechtigungen
+veraenderter Client wird **nicht** stillschweigend wiederhergestellt:
+die interaktive Anmeldung bleibt dann aus, waehrend das Feedprofil
+lesbar bleibt. Ein Administrator kann stattdessen einen eigenen
+Public Client registrieren und dessen ID explizit in
+`ProfileFeedOAuthClientId` setzen. `EnableProfileFeed=false` deaktiviert
+das gesamte Feed-Modul.
+
+Nach einem Upgrade ROBUST kontrolliert neu starten, dann
+`https://world.stadt-nexverse.de/feed?name=First.Last`
+im Viewer oeffnen und die Anmeldung mit einem Testavatar pruefen.
+Vorhandene Posts/Kommentare werden nicht neu angelegt oder geloescht.
 
 ## 3. Bedienung im Profil
 
