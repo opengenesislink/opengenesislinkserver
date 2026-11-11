@@ -53,6 +53,11 @@ bin/maptiles/
 bin/fsassets/tmp/*
 !bin/fsassets/tmp/.gitkeep
 
+# Region configuration is installation-specific, never stored in git
+/bin/Regions/*.ini
+/bin/Regions/*.ini.example
+!/bin/Regions/.keep
+
 # Grid-specific terrain source data and accidental filesystem cache copy
 bin/nexverse-deutschland/
 bin/opt/
