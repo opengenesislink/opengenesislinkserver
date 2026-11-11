@@ -13,7 +13,7 @@ Aktuelle Produktinformationen: **https://opengenesislink.de**.
 | Migration und Laufzeit | [.NET-10-Migration](GEN1_NET10_MAIN_MIGRATION.md) |
 | Grid, Portale und Funktionen | [NexVerse-Dokumentation](NexVerse/) |
 | OpenGenesisLINK-Module | [OGL-Dokumentation](OpenGenesisLINK/) |
-| World API und Integration | [World-API-Uebersicht](NexVerse/ROADMAP.md) |
+| World API und Integration | [World-API-Uebersicht](NexVerse/WORLD_API.md) |
 
 ## Wichtige Fachbereiche
 
