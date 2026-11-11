@@ -63,14 +63,14 @@ namespace NexVerse.Server.Api
                 }
                 if (!m_Auth.TryAuthenticate(request,
                     read ? NexScopes.ProfileRead : NexScopes.ProfileWrite,
-                    out NexPrincipal principal,out UserAccount account,
-                    out int status,out string authError))
+                    out NexPrincipal activityPrincipal,out UserAccount account,
+                    out int activityStatus,out string activityAuthError))
                 {
-                    Json(response,(HttpStatusCode)status,new {error=authError});
+                    Json(response,(HttpStatusCode)activityStatus,new {error=activityAuthError});
                     return;
                 }
                 if (account == null || !account.LocalToGrid ||
-                    !UUID.TryParse(principal.Subject,out UUID resident) ||
+                    !UUID.TryParse(activityPrincipal.Subject,out UUID resident) ||
                     resident != account.PrincipalID)
                 {
                     Json(response,HttpStatusCode.Forbidden,
