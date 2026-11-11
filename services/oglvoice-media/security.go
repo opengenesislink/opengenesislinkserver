@@ -85,8 +85,8 @@ func loadConfig() (config, error) {
 		}
 		cfg.WebRTCPortMin, cfg.WebRTCPortMax = uint16(minPort), uint16(maxPort)
 	}
-	if len(cfg.Nodes) == 0 || len(cfg.Tenants) == 0 {
-		return cfg, errors.New("media node ACL and tenant registry must not be empty")
+	if (len(cfg.Nodes) == 0 || len(cfg.Tenants) == 0) && os.Getenv("VOXVOICE_ACCOUNTS_FILE") == "" {
+		return cfg, errors.New("media node ACL and tenant registry must not be empty without VoxVoice portal")
 	}
 	for name, n := range cfg.Nodes {
 		if !validNode.MatchString(name) || len(n.Secret) < 32 || len(n.Tenant) == 0 {
