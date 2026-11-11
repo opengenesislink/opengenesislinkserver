@@ -81,7 +81,7 @@ def create_zip(bin_dir, out, sha, repo, channel="development-main-snapshot"):
             ("Generation 1 (0.9.4.0) official Stable.\\n" if channel == "generation1-stable"
              else "Generation 1 (0.9.4.0) approved rolling update.\\n" if approved
              else "Development build; NOT an approved Stable release.\\n")
-            "Do not overwrite production INI files or databases.\n"
+            + "Do not overwrite production INI files or databases.\n"
             "Back up local configuration and persistent assets first.\n"
             "Verify BUILD-MANIFEST.json and the published SHA256 checksum.\n")
     with zipfile.ZipFile(out) as z:
