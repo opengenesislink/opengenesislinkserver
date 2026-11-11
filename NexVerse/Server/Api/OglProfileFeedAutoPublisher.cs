@@ -10,6 +10,7 @@ using NexVerse.Core.Discovery;
 using NexVerse.Core.Messaging;
 using OpenMetaverse;
 using OpenSim.Data;
+using OpenSim.Framework;
 using OpenSim.Services.Interfaces;
 
 namespace NexVerse.Server.Api
