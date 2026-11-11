@@ -3,7 +3,7 @@
 **Dieses Dokument ist keine Testbestaetigung.** Solange ein Feld PENDING ist, darf kein offizielles Stable-Release entstehen.
 
 Status: PENDING
-Gepruefter Commit: PENDING
+Gepruefter Code-Commit: PENDING
 Pruefdatum: PENDING
 Freigabe durch: PENDING
 
@@ -38,4 +38,4 @@ Nachweise/Log-Referenzen: PENDING
 Bekannte Einschraenkungen: PENDING
 Rollback-Test und Ergebnis: PENDING
 
-**Freigabeprozess:** Erst nach dokumentierter Abnahme dieses Dokument in einem PR auf den exakt geprueften Commitstand aktualisieren. Da die Dokumentaenderung selbst einen Commit erzeugt, sind CI und Staging-Freigabe auf den finalen neuen Commitstand erneut zu pruefen. Fuer einen stabilen Freigabestand nach Abnahme keine weiteren Codeaenderungen vornehmen. Im Freigabe-Workflow muss der gepruefte HEAD-SHA exakt mit `Gepruefter Commit` uebereinstimmen. Die Repository-Variable `OGL_GEN1_STABLE_RELEASE_APPROVED=true` ist eine zweite, explizite Betreiberfreigabe; GitHub Environment `generation1-stable` sollte zusaetzlich erforderliche Reviewer haben.
+**Freigabeprozess:** Erst nach dokumentierter Abnahme dieses Dokument in einem PR auf den exakt geprueften Commitstand aktualisieren. Das Abnahmeprotokoll referenziert den letzten tatsaechlich im Staging getesteten CODE-Commit. Danach duerfen bis zum finalen HEAD ausschliesslich Aenderungen an diesem Abnahmeprotokoll erfolgen, damit die Staging-Abnahme weiterhin fuer exakt denselben Code gilt. Der finale HEAD muss erneut alle CI-Gates bestehen. Der Freigabe-Workflow prueft die Commit-Abstammung und den vollstaendigen Diff; der Selbstverweis auf den SHA des Abnahmedokuments wird bewusst vermieden. Die Repository-Variable `OGL_GEN1_STABLE_RELEASE_APPROVED=true` ist eine zweite, explizite Betreiberfreigabe; GitHub Environment `generation1-stable` sollte zusaetzlich erforderliche Reviewer haben.
