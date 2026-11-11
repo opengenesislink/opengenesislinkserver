@@ -150,7 +150,13 @@ einer dedizierten Fee-Wallet durchspielen:
 - Normale Avatar-Transfers und Landkaeufe trotz Systemfee-Einstellung.
 - Feed: Eigentuemer erstellt und loescht Post; zwei lokale Avatare
   kommentieren, folgen, liken; fremde HG-UUID, fehlende Scopes,
-  gesperrtes Profil und ungültige IDs werden abgewiesen.
+  gesperrtes Profil und ungueltige IDs werden abgewiesen.
+- Moderation: Lokaler Administrator nur mit **UserLevel >= 200 UND
+  admin:*** kann in fremden Feeds Posts/Kommentare loeschen. Jeder
+  solche Vorgang wird als `feed.post.moderate` bzw.
+  `feed.comment.moderate` im bestehenden Audit-Sink protokolliert.
+  Einfacher User-Level oder ein fremder Maschinenkey reicht nicht.
+  Eine Benutzer-Meldefunktion/Moderationsqueue fehlt weiterhin.
 - Privates Profil erscheint nicht anonym. HTML/XSS wird escaped;
   Token/Passwoerter duerfen nicht in Logs und Browser-URLs auftauchen.
 - Staging-Kontoloeschung: der geloeschte Avatar hatte eigene Posts,
