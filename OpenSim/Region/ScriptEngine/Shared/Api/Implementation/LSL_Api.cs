@@ -8873,8 +8873,8 @@ namespace OpenSim.Region.ScriptEngine.Shared.Api
         // SL-compatible glTF render-material convenience functions. The
         // underlying per-face shape path is shared with the viewer CAPS.
         // Never accept arbitrary material types from an inventory name.
-        private void SetRenderMaterialOnLink(int link, string material, int face,
-            string origin)
+        private bool SetRenderMaterialOnPart(SceneObjectPart target,
+            string material, int face, string origin)
         {
             UUID materialId = UUID.Zero;
             if (!string.IsNullOrEmpty(material) && material != ScriptBaseClass.NULL_KEY)
@@ -8885,27 +8885,53 @@ namespace OpenSim.Region.ScriptEngine.Shared.Api
                     if (inventory.Type != (int)AssetType.Material)
                     {
                         Error(origin, "Inventory item is not a PBR material");
-                        return;
+                        return false;
                     }
                     materialId = inventory.AssetID;
                 }
                 else if (!UUID.TryParse(material, out materialId))
                 {
-                    Error(origin, "Expected a material UUID or an inventory material name");
-                    return;
+                    Error(origin, "Expected a material UUID or inventory material name");
+                    return false;
                 }
             }
 
-            foreach (SceneObjectPart target in GetLinkParts(link))
-            {
-                if (!OglRenderMaterialFaces.Set(target.Shape, face,
-                        GetNumberOfSides(target), materialId))
-                    continue;
+            if (!OglRenderMaterialFaces.Set(target.Shape, face,
+                    GetNumberOfSides(target), materialId))
+                return false;
 
-                target.ParentGroup.HasGroupChanged = true;
-                target.TriggerScriptChangedEvent(Changed.TEXTURE);
-                target.ScheduleUpdate(PrimUpdateFlags.MaterialOvr | PrimUpdateFlags.FullUpdate);
+            target.ParentGroup.HasGroupChanged = true;
+            target.TriggerScriptChangedEvent(Changed.TEXTURE);
+            target.ScheduleUpdate(PrimUpdateFlags.MaterialOvr | PrimUpdateFlags.FullUpdate);
+            return true;
+        }
+
+        private void SetRenderMaterialOnLink(int link, string material, int face,
+            string origin)
+        {
+            foreach (SceneObjectPart target in GetLinkParts(link))
+                SetRenderMaterialOnPart(target, material, face, origin);
+        }
+
+        private LSL_String GetRenderMaterialForPart(SceneObjectPart target, int face)
+        {
+            UUID id = OglRenderMaterialFaces.Get(target.Shape, face,
+                GetNumberOfSides(target));
+            if (id.IsZero())
+                return new LSL_String(ScriptBaseClass.NULL_KEY);
+
+            lock (target.TaskInventory)
+            {
+                foreach (TaskInventoryItem item in target.TaskInventory.Values)
+                    if (item.Type == (int)AssetType.Material && item.AssetID == id)
+                        return new LSL_String(item.Name);
             }
+
+            uint full = (uint)(PermissionMask.Modify |
+                               PermissionMask.Copy | PermissionMask.Transfer);
+            if ((target.OwnerMask & full) != full)
+                return new LSL_String(ScriptBaseClass.NULL_KEY);
+            return new LSL_String(id.ToString());
         }
 
         public void llSetRenderMaterial(LSL_String material, int face)
@@ -8923,28 +8949,7 @@ namespace OpenSim.Region.ScriptEngine.Shared.Api
 
         public LSL_String llGetRenderMaterial(int face)
         {
-            UUID id = OglRenderMaterialFaces.Get(m_host.Shape, face,
-                GetNumberOfSides(m_host));
-            if (id.IsZero())
-                return new LSL_String(ScriptBaseClass.NULL_KEY);
-
-            // Second Life returns an inventory material name when the item
-            // exists in the scripting prim, rather than exposing its UUID.
-            lock (m_host.TaskInventory)
-            {
-                foreach (TaskInventoryItem item in m_host.TaskInventory.Values)
-                {
-                    if (item.Type == (int)AssetType.Material && item.AssetID == id)
-                        return new LSL_String(item.Name);
-                }
-            }
-
-            // Do not leak a no-copy/no-transfer material asset UUID via LSL.
-            uint full = (uint)(PermissionMask.Modify |
-                               PermissionMask.Copy | PermissionMask.Transfer);
-            if ((m_host.OwnerMask & full) != full)
-                return new LSL_String(ScriptBaseClass.NULL_KEY);
-            return new LSL_String(id.ToString());
+            return GetRenderMaterialForPart(m_host, face);
         }
 
         public void llSetPrimitiveParams(LSL_List rules)
@@ -10832,6 +10837,15 @@ namespace OpenSim.Region.ScriptEngine.Shared.Api
 
                             break;
 
+                        case ScriptBaseClass.PRIM_RENDER_MATERIAL:
+                            if (remain < 2)
+                                return new LSL_List();
+
+                            face = rules.GetIntegerItem(idx++);
+                            string renderMaterial = rules.Data[idx++].ToString();
+                            SetRenderMaterialOnPart(part, renderMaterial, face, originFunc);
+                            break;
+
                         case ScriptBaseClass.PRIM_LINK_TARGET:
                             if (remain < 3) // setting to 3 on the basis that parsing any usage of PRIM_LINK_TARGET that has nothing following it is pointless.
                                 return new LSL_List();
@@ -12103,6 +12117,14 @@ namespace OpenSim.Region.ScriptEngine.Shared.Api
                                 getLSLFaceMaterial(ref res, code, part, texface);
                             }
                         }
+                        break;
+
+                    case ScriptBaseClass.PRIM_RENDER_MATERIAL:
+                        if (remain < 1)
+                            return new LSL_List();
+
+                        face = rules.GetIntegerItem(idx++);
+                        res.Add(GetRenderMaterialForPart(part, face));
                         break;
 
                     case ScriptBaseClass.PRIM_LINK_TARGET:
