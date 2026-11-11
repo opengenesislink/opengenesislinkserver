@@ -237,6 +237,23 @@ namespace NexVerse.Server.Api
             return result;
         }
 
+        internal List<string> ListLikedFollowingPostIds(UUID follower)
+        {
+            var result=new List<string>();
+            using var db=Open();
+            using var cmd=db.CreateCommand();
+            cmd.CommandText=@"SELECT l.post_id FROM ogl_profile_feed_likes l
+                INNER JOIN ogl_profile_feed_posts p ON p.id=l.post_id
+                INNER JOIN ogl_profile_feed_follows f ON f.owner=p.owner
+                WHERE f.follower=@follower AND l.actor=@follower
+                AND p.created_at>=@cutoff";
+            Add(cmd,"@follower",follower.ToString());
+            Add(cmd,"@cutoff",Cutoff);
+            using var rd=cmd.ExecuteReader();
+            while(rd.Read())result.Add(rd.GetString(0));
+            return result;
+        }
+
         internal bool IsFollowing(UUID owner, UUID follower)
         {
             using var db=Open();
