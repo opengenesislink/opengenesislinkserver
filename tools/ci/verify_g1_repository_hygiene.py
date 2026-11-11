@@ -77,9 +77,44 @@ for name in ("TESTING.md", "NexVerse/", "OpenGenesisLINK/",
              "GEN1_NET10_MAIN_MIGRATION.md"):
     assert name in docs, f"Documentation index missing: {name}"
 
-# Ensure active CI protects the cleanup and historical release audit
-# workflows are still available; this PR does not rewrite old releases.
-for old_release in ("publish-0.9.3.8-stable.yml", "publish-0.9.3.10-stable.yml"):
-    assert (ROOT / ".github" / "workflows" / old_release).is_file()
+# Runtime-region INIs must remain operator-owned, not delivered as
+# source-controlled production identities and externally reachable ports.
+assert "/bin/Regions/*.ini" in ignored
+assert (ROOT / "bin/Regions/.keep").exists()
+assert not (ROOT / "bin/Regions/NexVerse-Deutschland.ini").exists()
+assert "CONTRIBUTING.md" in read("doc/README.md")
+commit_rules = read("CONTRIBUTING.md")
+for prefix in ("Neu:", "Update:", "Verbesserung:"):
+    assert prefix in commit_rules, prefix
 
-print("Generation 1 (.NET 10) repository hygiene, docs and build: PASS")
+# Completed old publishers must not be reintroduced on new main commits.
+for publisher in (
+    "publish-0.9.3.8-stable.yml", "publish-0.9.3.10-stable.yml",
+    "publish-0.9.3.12-stable.yml", "publish-0.9.3.13-dev.yml",
+    "publish-0.9.3.13-stable.yml",
+):
+    assert not (ROOT / ".github/workflows" / publisher).exists(), publisher
+
+# Branch deletion only via checks for closed/merged PRs with unchanged SHA
+# or full reachability from main. Protected and open work must survive.
+branch_cleaner = read("tools/ops/bereinige_gemergte_branches.py")
+assert "darf_entfernt_werden" in branch_cleaner
+assert "hat_offenen_pr" in branch_cleaner
+assert "unveraendert(" in branch_cleaner
+assert "LONG_LIVED" in branch_cleaner
+assert (ROOT / ".github/workflows/g1-branches-bereinigung.yml").is_file()
+subprocess.run(
+    ["python3", "tools/ops/bereinige_gemergte_branches.py", "--selbsttest"],
+    cwd=ROOT, check=True,
+)
+
+for legacy in (
+    "doc/NexVerse/RELEASE_0.9.3.4_RC1.md",
+    "doc/NexVerse/RELEASE_0.9.3.10_RC1_DRAFT.md",
+    "doc/NexVerse/RELEASE_0.9.3.13_DEV.md",
+    "doc/NexVerse/09312_RC1_CANDIDATE_PLAN.md",
+    "tools/ci/verify_stable_release_gate.py",
+):
+    assert not (ROOT / legacy).exists(), legacy
+
+print("Generation 1 (.NET 10) repository hygiene, docs, branches and build: PASS")
