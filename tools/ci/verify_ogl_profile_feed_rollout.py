@@ -42,6 +42,12 @@ assert "same MySQL datastore" in account
 assert "same MariaDB provider/connection" in connector or "SAME MariaDB provider/connection" in connector
 assert 'GetBoolean("EnableProfileFeed", false)' in connector
 
+assert "bool moderator = false" in store
+assert "OR @moderator=1" in store
+assert "actorAccount.UserLevel >= 200" in api
+assert "principal.HasScope(NexScopes.AdminAll)" in api
+assert "AuditModeratorAction(" in api
+assert "new NexAuditEvent(" in api
 assert "LockExistingResidents(" in store
 assert "SELECT `PrincipalID` FROM `UserAccounts`" in store
 assert "FOR UPDATE" in store
