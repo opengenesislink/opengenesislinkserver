@@ -659,6 +659,9 @@
     ; Feedbeitraege und Kommentare nach 180 Tagen automatisch ausblenden
     ; und loeschen; zulaessig 7..3650 Tage. Follows bis zur Entfolgung.
     ProfileFeedRetentionDays = 180
+    ; Public OAuth client ID from POST /oauth/clients. No secret is stored
+    ; here. Leave empty for read-only profile feed.
+    ProfileFeedOAuthClientId = ""
     ; P0 #301: keep disabled until the portal has migrated to World-owned
     ; one-time challenges. Backend must hold separate recovery-only API key.
     ; Challenges are stored in a new InnoDB table (ogl_password_recovery)
