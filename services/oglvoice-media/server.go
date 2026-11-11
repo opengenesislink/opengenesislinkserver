@@ -21,6 +21,7 @@ type mediaServer struct {
 	mu       sync.Mutex
 	sessions map[string]*peerState
 	newPeer  func(config, admission, string, func()) (*peerState, error)
+	vox      *voxPortal
 }
 func newMediaServer(cfg config) *mediaServer {
 	return &mediaServer{
@@ -39,6 +40,7 @@ func (g *mediaServer) routes() http.Handler {
 		_, _ = w.Write([]byte("oglvoice-media:ready\n"))
 	})
 	mux.HandleFunc(exchangeRoute, g.exchange)
+	if g.vox != nil { g.vox.registerHTTP(mux) }
 	return mux
 }
 func jsonReply(w http.ResponseWriter, code int, p reply) {
@@ -56,6 +58,7 @@ func (g *mediaServer) exchange(w http.ResponseWriter, req *http.Request) {
 	}
 	node := req.Header.Get("X-OGLVoice-Node")
 	n, permitted := g.cfg.Nodes[node]
+	if !permitted && g.vox != nil { n, permitted = g.vox.nodeConfig(node) }
 	if !permitted {
 		jsonReply(w, http.StatusForbidden, reply{Protocol: wireProtocol, Status: "unknown_node"})
 		return
@@ -95,7 +98,13 @@ func sessionKey(node string, a admission) string {
 }
 
 func (g *mediaServer) capacityAllowed(a admission) bool {
-	c := g.cfg.Tenants[a.TenantID]
+	c, known := g.cfg.Tenants[a.TenantID]
+	if !known {
+		if g.vox == nil { return false }
+		if _, ok := g.vox.nodeConfig(a.TenantID); !ok { return false }
+		// MVP bounds prevent public signup from allocating unlimited media resources.
+		c = tenantConfig{MaxSessions: 64, MaxRegions: 16}
+	}
 	count := 0
 	regionSet := make(map[string]struct{})
 	for _, s := range g.sessions {
@@ -194,6 +203,7 @@ func (g *mediaServer) offer(w http.ResponseWriter, nodeConfig nodeConfig, node s
 		jsonReply(w, http.StatusBadGateway, reply{Protocol: wireProtocol, Status: "invalid_sdp_answer"})
 		return
 	}
+	if g.vox != nil { g.vox.recordSession(node, e.Admission.RegionID, e.Admission.AvatarID) }
 	jsonReply(w, http.StatusOK, reply{Protocol: wireProtocol, SDPAnswer: sdp, ViewerSession: id})
 }
 
