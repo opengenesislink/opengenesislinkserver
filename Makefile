@@ -1,6 +1,6 @@
 # OpenGenesisLINK Generation 1 (0.9.4.0) - .NET 10 developer commands
 # A normal build must regenerate the generated OpenSim projects first.
-# Run "make help" for supported targets. This is NOT the legacy NAnt Makefile.
+# Run "make help" for supported targets. Older build tooling is superseded.
 
 SHELL := /bin/sh
 DOTNET ?= dotnet
