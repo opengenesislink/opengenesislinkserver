@@ -1,34 +1,61 @@
-# NexVerse repository hygiene
+# OpenGenesisLINK Generation 1 - source-controlled files only
 
-# .NET / MSBuild intermediate output
+# Build intermediates and IDE state
 **/obj/
-
-# IDE-local state
 .vs/
 **/.vs/
 *.user
 *.suo
+.vscode/
+.idea/
+Makefile.local
 
-# OS-local metadata
+# Local Python output
+__pycache__/
+**/__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Operating system / editor temporary files
 .DS_Store
 Thumbs.db
+*~
+*.swp
+*.swo
+*.bak
+*.orig
+*.rej
+
+# Runtime logs, crash dumps, process state, temp files
+*.log
+*.log.*
+*.pid
+*.core
+core.*
+*.dmp
+bin/*.tmp
+bin/*.lock
+bin/*.out
 
 # Runtime-generated NexVerse identity/auth state and private OIDC keys
 bin/data/
 data/
 
-# Local NexVerse runtime secrets (never commit)
+# Local runtime secrets
 bin/nexverse.local.env
 .secrets/
 
-# Runtime-created Mono.Addins registry and map tile cache (never version)
+# Mono.Addins registry, temporary map and cache data
 bin/addin-db-*/
 bin/maptiles/
+bin/fsassets/tmp/*
+!bin/fsassets/tmp/.gitkeep
 
 # Grid-specific terrain source data and accidental filesystem cache copy
 bin/nexverse-deutschland/
 bin/opt/
 
-# Optional, pinned external wolfvoice region addon, fetched by operator.
-# Do not accidentally vendor its full upstream source or build outputs.
+# Optional, pinned external wolfvoice region addon, fetched by operator
 /addon-modules/os-webrtc-janus/
