@@ -84,6 +84,7 @@ namespace NexVerse.Server.Api
                 // PublishProfile setting. No private posts in this timeline.
                 var items=m_Store.ListFollowingPosts(me,80);
                 var visible=new List<object>();
+                var visibleIds=new HashSet<string>(StringComparer.Ordinal);
                 foreach(var item in items)
                 {
                     UserAccount followed=m_Accounts.GetUserAccount(UUID.Zero,item.Owner);
@@ -93,6 +94,7 @@ namespace NexVerse.Server.Api
                     string profileError="";
                     if(!m_Profiles.GetAvatarProperties(ref properties,ref profileError) ||
                        !properties.PublishProfile)continue;
+                    visibleIds.Add(item.Entry.Id);
                     visible.Add(new {
                         owner_id=item.Owner.ToString(),owner_name=followed.Name,
                         id=item.Entry.Id,text=item.Entry.Text,
@@ -101,7 +103,11 @@ namespace NexVerse.Server.Api
                     });
                     if(visible.Count>=30)break;
                 }
-                Json(response,HttpStatusCode.OK,new {posts=visible});
+                Json(response,HttpStatusCode.OK,new {
+                    posts=visible,
+                    liked_post_ids=m_Store.ListLikedFollowingPostIds(me)
+                        .Where(visibleIds.Contains).ToArray()
+                });
                 return;
             }
             if(p.Length < 4 || p.Length > 7 ||
