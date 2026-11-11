@@ -123,6 +123,7 @@ namespace OpenSim.Region.CoreModules.World.Warp3DMap
         // and on-disk map PNG dumps after comparing OGLPerformance baselines.
         private bool m_ForceFullGC = true;
         private bool m_WriteMapDiagnosticPng = true;
+        private readonly object m_RenderLock = new();
 
         #region Region Module interface
 
@@ -274,6 +275,8 @@ namespace OpenSim.Region.CoreModules.World.Warp3DMap
 
         public Bitmap CreateMapTile()
         {
+            lock (m_RenderLock)
+            {
             List<string> renderers = RenderingLoader.ListRenderers(Util.ExecutingDirectory());
             if (renderers.Count > 0)
             {
@@ -315,10 +318,13 @@ namespace OpenSim.Region.CoreModules.World.Warp3DMap
             {
                 m_primMesher = null;
             }
+            }
         }
 
         public Bitmap CreateViewImage(Vector3 camPos, Vector3 camDir, float pfov, int width, int height, bool useTextures)
         {
+            lock (m_RenderLock)
+            {
             List<string> renderers = RenderingLoader.ListRenderers(Util.ExecutingDirectory());
             if (renderers.Count > 0)
             {
@@ -339,6 +345,7 @@ namespace OpenSim.Region.CoreModules.World.Warp3DMap
             finally
             {
                 m_primMesher = null;
+            }
             }
         }
 
