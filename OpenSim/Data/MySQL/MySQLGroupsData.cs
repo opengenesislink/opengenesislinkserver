@@ -345,13 +345,22 @@ namespace OpenSim.Data.MySQL
         #region combinations
         public MembershipData RetrievePrincipalGroupMembership(string principalID, UUID groupID)
         {
-            // TODO
-            return null;
+            if (string.IsNullOrWhiteSpace(principalID) || groupID.IsZero())
+                return null;
+
+            MembershipData[] matches = m_Membership.Get(
+                new[] { "GroupID", "PrincipalID" },
+                new[] { groupID.ToString(), principalID });
+            return matches is { Length: > 0 } ? matches[0] : null;
         }
+
         public MembershipData[] RetrievePrincipalGroupMemberships(string principalID)
         {
-            // TODO
-            return null;
+            if (string.IsNullOrWhiteSpace(principalID))
+                return Array.Empty<MembershipData>();
+
+            return m_Membership.Get("PrincipalID", principalID) ??
+                Array.Empty<MembershipData>();
         }
 
         #endregion

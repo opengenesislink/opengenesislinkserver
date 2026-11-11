@@ -912,6 +912,30 @@ namespace OpenSim.Region.OptionalModules.Materials
                 OSDArray req = (OSDArray)OSDParser.DeserializeLLSDXml(httpRequest.InputStream);
                 httpRequest.InputStream.Dispose();
 
+                if (req.Count > m_maxMaterialsPerTransaction)
+                    throw new FormatException("Too many PBR material changes in one request");
+
+                // Preflight every authorized, applicable glTF override before
+                // mutating any face in this request. Invalid factor/vector
+                // lengths, indices or JSON must not leave new asset IDs behind.
+                foreach (OSD candidate in req)
+                {
+                    if (candidate is not OSDMap candidateMap)
+                        throw new FormatException("PBR material change must be a map");
+                    if (!candidateMap.TryGetValue("object_id", out OSD rawObjectId) ||
+                        !candidateMap.TryGetValue("side", out OSD rawSide) ||
+                        !TryParseMaterialSide(rawSide, out int candidateSide) ||
+                        !candidateMap.TryGetValue("gltf_json", out OSD rawGltf))
+                        continue;
+                    SceneObjectPart target = m_scene.GetSceneObjectPart(rawObjectId.AsUUID());
+                    if (target is null || target.Shape is null ||
+                        !m_scene.Permissions.CanEditObject(target.UUID, agentID))
+                        continue;
+                    string gltf = rawGltf.AsString().TrimEnd('\n');
+                    if (gltf.Length > 0 && !CanApplyMaterialOverride(gltf, candidateSide))
+                        throw new FormatException("Invalid PBR glTF override");
+                }
+
                 OSD tmp;
                 HashSet<SceneObjectPart> changedSOPs = new();
 
@@ -1104,6 +1128,20 @@ namespace OpenSim.Region.OptionalModules.Materials
             transforms[channel] = transform;
         }
 
+        private static OSDArray RequireFiniteColorFactor(OSD value, int components)
+        {
+            if (value is not OSDArray values || values.Count != components)
+                throw new FormatException("Invalid glTF color factor length");
+            foreach (OSD component in values)
+            {
+                if ((component is not OSDReal && component is not OSDInteger) ||
+                    !double.IsFinite(component.AsReal()) ||
+                    component.AsReal() < 0 || component.AsReal() > 1)
+                    throw new FormatException("Invalid glTF color factor component");
+            }
+            return values;
+        }
+
         private static OSDArray RequireFiniteVector2(OSD value)
         {
             if (value is not OSDArray items || items.Count != 2)
@@ -1158,6 +1196,15 @@ namespace OpenSim.Region.OptionalModules.Materials
             }
             output = mapped;
             return true;
+        }
+
+        // Probe conversion against a private temporary array. The converter
+        // never sees any live face state; false means invalid glTF or an
+        // unsupported/empty override, never a partially committed asset ID.
+        private static bool CanApplyMaterialOverride(string data, int side)
+        {
+            RenderMaterialOverrideEntry[] scratch = null;
+            return AddMaterialOverride(ref scratch, data, side);
         }
 
         private static bool AddMaterialOverride(ref RenderMaterialOverrideEntry[] overrides, string data, int side)
@@ -1263,8 +1310,9 @@ namespace OpenSim.Region.OptionalModules.Materials
                         }
                         SetTextureTransform(ti, 2, pmrMapmrt);
                     }
-                    if (pmrMap.TryGetValue("baseColorFactor", out tmposd) && tmposd is OSDArray baseColorFactor)
+                    if (pmrMap.TryGetValue("baseColorFactor", out tmposd))
                     {
+                        OSDArray baseColorFactor = RequireFiniteColorFactor(tmposd, 4);
                         outosd["bc"] = new OSDArray()
                         {
                             Math.Round((double) baseColorFactor[0], 4),
@@ -1273,13 +1321,15 @@ namespace OpenSim.Region.OptionalModules.Materials
                             Math.Round((double) baseColorFactor[3], 4)
                         };
                     }
-                    if (pmrMap.TryGetValue("metallicFactor", out tmposd) && tmposd is OSDReal metallicFactor)
+                    if (pmrMap.TryGetValue("metallicFactor", out tmposd))
                     {
-                        outosd["mf"] = Math.Round((double)metallicFactor, 3);
+                        OSDArray factor = RequireFiniteColorFactor(new OSDArray { tmposd }, 1);
+                        outosd["mf"] = Math.Round(factor[0].AsReal(), 3);
                     }
-                    if (pmrMap.TryGetValue("roughnessFactor", out tmposd) && tmposd is OSDReal roughnessFactor)
+                    if (pmrMap.TryGetValue("roughnessFactor", out tmposd))
                     {
-                        outosd["rf"] = Math.Round((double)roughnessFactor, 3);
+                        OSDArray factor = RequireFiniteColorFactor(new OSDArray { tmposd }, 1);
+                        outosd["rf"] = Math.Round(factor[0].AsReal(), 3);
                     }
                 }
 
@@ -1363,8 +1413,9 @@ namespace OpenSim.Region.OptionalModules.Materials
                     outosd["ac"] = Math.Round((double)alphaCutoff, 3);
                 }
 
-                if (material.TryGetValue("emissiveFactor", out tmposd) && tmposd is OSDArray emissiveFactor)
+                if (material.TryGetValue("emissiveFactor", out tmposd))
                 {
+                    OSDArray emissiveFactor = RequireFiniteColorFactor(tmposd, 3);
                     outosd["ec"] = new OSDArray()
                         {
                             Math.Round((double) emissiveFactor[0], 4),
