@@ -344,7 +344,7 @@ func (p *voxPortal) logout(w http.ResponseWriter,r *http.Request) {
     http.Redirect(w,r,"/",http.StatusSeeOther)
 }
 
-type voxAvatarStatus struct { UUID string; Active bool }
+type voxAvatarStatus struct { UUID string; Active bool; Speaking bool }
 type voxRegionStatus struct { UUID string; Avatars []voxAvatarStatus }
 type voxDashboard struct { User string; Regions []voxRegionStatus }
 
@@ -358,10 +358,24 @@ func (p *voxPortal) dashboard(w http.ResponseWriter,r *http.Request) {
     if stored!=nil{for region,avatars:=range stored.Regions{regions[region]=append([]string(nil),avatars...)}}
     p.mu.Unlock()
     live:=make(map[string]bool)
+    speaking:=make(map[string]bool)
     p.media.mu.Lock()
     for _,peer:=range p.media.sessions {
-        if peer.node==user && peer.pc!=nil && peer.pc.ConnectionState()==webrtc.PeerConnectionStateConnected{
-            live[strings.ToLower(peer.admission.RegionID)+"/"+strings.ToLower(peer.admission.AvatarID)]=true
+        if peer.node!=user { continue }
+        roomRegion:=strings.ToLower(peer.admission.RegionID)
+        if peer.pc!=nil && peer.pc.ConnectionState()==webrtc.PeerConnectionStateConnected{
+            live[roomRegion+"/"+strings.ToLower(peer.admission.AvatarID)]=true
+        }
+        // LiveKit supplies VAD for remote participants observed by this room.
+        // A lone user's own speech may not be observable without another peer.
+        if peer.room!=nil {
+            for _,remote:=range peer.room.GetRemoteParticipants(){
+                if remote.IsSpeaking(){
+                    if id:=avatarFromMetadata(remote.Metadata());id!=""{
+                        speaking[roomRegion+"/"+id]=true
+                    }
+                }
+            }
         }
     }
     p.media.mu.Unlock()
@@ -369,12 +383,12 @@ func (p *voxPortal) dashboard(w http.ResponseWriter,r *http.Request) {
     for region,avatars:=range regions {
         s:=voxRegionStatus{UUID:region}
         sort.Strings(avatars)
-        for _,uuid:=range avatars{s.Avatars=append(s.Avatars,voxAvatarStatus{UUID:uuid,Active:live[region+"/"+uuid]})}
+        for _,uuid:=range avatars{s.Avatars=append(s.Avatars,voxAvatarStatus{UUID:uuid,Active:live[region+"/"+uuid],Speaking:speaking[region+"/"+uuid]})}
         view.Regions=append(view.Regions,s)
     }
     sort.Slice(view.Regions,func(i,j int)bool{return view.Regions[i].UUID<view.Regions[j].UUID})
     // Refresh for near-live presence without WebSockets, JS or a frontend framework.
     w.Header().Set("Refresh","10")
-    const body="<h2>Meine Simulatoren</h2><p>Angemeldet als <code>{{.User}}</code>. Gruen = Voice verbunden, Rot = aktuell keine Voice-Verbindung. Das ist kein Mikrofon-VAD.</p>{{range .Regions}}<h3>Region UUID: <code>{{.UUID}}</code></h3>{{range .Avatars}}<div class='row'><span class='dot {{if .Active}}on{{else}}off{{end}}'></span><code>{{.UUID}}</code> – {{if .Active}}Voice aktiv{{else}}Voice inaktiv{{end}}</div>{{end}}{{else}}<p>Noch keine Region registriert. Eine Region erscheint nach der ersten erfolgreichen WebRTC-Verbindung.</p>{{end}}<form action='/logout' method='post'><button>Abmelden</button></form>"
+    const body="<h2>Meine Simulatoren</h2><p>Angemeldet als <code>{{.User}}</code>. Gruen = Voice verbunden, Rot = keine Voice-Verbindung. "Spricht" = von LiveKit bestaetigte Sprachaktivitaet; bei Einzelteilnehmern kann diese Information fehlen.</p>{{range .Regions}}<h3>Region UUID: <code>{{.UUID}}</code></h3>{{range .Avatars}}<div class='row'><span class='dot {{if .Active}}on{{else}}off{{end}}'></span><code>{{.UUID}}</code> – {{if .Active}}Voice aktiv{{else}}Voice inaktiv{{end}}{{if .Speaking}} · Spricht{{end}}</div>{{end}}{{else}}<p>Noch keine Region registriert. Eine Region erscheint nach der ersten erfolgreichen WebRTC-Verbindung.</p>{{end}}<form action='/logout' method='post'><button>Abmelden</button></form>"
     p.page(w,"Dashboard",body,view)
 }
