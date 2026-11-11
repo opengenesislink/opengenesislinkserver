@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: MPL-2.0
-// Server-owned, opt-in profile activity feed. Public viewer pages are read-only:
-// browser profile tabs do not receive a resident OAuth token by default.
+// Server-owned, opt-in profile activity feed. No avatar credentials from
+// simulator circuits: interactive writes require browser OAuth PKCE S256.
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Net;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Linq;
@@ -315,6 +316,18 @@ namespace NexVerse.Server.Api
                 Json(response,HttpStatusCode.MethodNotAllowed,new {error="get_required"});
                 return;
             }
+            string nonce=Convert.ToBase64String(RandomNumberGenerator.GetBytes(16));
+            // OAuth uses one exact registered redirect URI: /feed, never
+            // unregistered per-avatar query strings. This page processes the
+            // one-time code only in the browser and immediately erases its URL.
+            if(request.QueryString?["code"]!=null ||
+               request.QueryString?["error"]!=null)
+            {
+                WriteFeedHtml(response,
+                    OglProfileFeedWebApp.CallbackPage(nonce,m_OAuthClientId,
+                        m_OAuthRedirectUri),nonce);
+                return;
+            }
             string name=(request.QueryString?["name"] ?? "").Trim();
             // Firestorm expands [AGENT_NAME] to First.Last or First.Resident.
             // Do not infer identity or permission from the URL alone.
@@ -338,7 +351,7 @@ namespace NexVerse.Server.Api
                 WebMessage(response,HttpStatusCode.ServiceUnavailable,"Profil derzeit nicht verfügbar.");
                 return;
             }
-            if(!profile.PublishProfile)
+            if(!profile.PublishProfile && string.IsNullOrWhiteSpace(m_OAuthClientId))
             {
                 WebMessage(response,HttpStatusCode.NotFound,"Dieser Feed ist privat.");
                 return;
@@ -353,10 +366,15 @@ namespace NexVerse.Server.Api
                 .Append(".sub{color:#93b5ce;font-size:12px}.post{background:#13273b;border:1px solid #304c64;border-radius:11px;margin:12px 0;padding:16px}")
                 .Append(".content{white-space:pre-wrap;overflow-wrap:anywhere;margin:10px 0}.meta{font-size:11px;color:#90abc1}")
                 .Append(".comment{margin:7px 0 0 15px;padding:8px 11px;border-left:2px solid #417e9e;color:#c5daec;white-space:pre-wrap;overflow-wrap:anywhere}")
-                .Append("a{color:#7acfee}footer{font-size:12px;color:#8aa5b9;margin-top:19px}</style></head><body>");
+                .Append("a{color:#7acfee}footer{font-size:12px;color:#8aa5b9;margin-top:19px}")
+                .Append(OglProfileFeedWebApp.Styles())
+                .Append("</style></head><body>");
             html.Append("<header><div class=\"sub\">STADT NEXVERSE · OPEN GENESIS LINK</div><h1>")
                 .Append(WebUtility.HtmlEncode(account.Name)).Append("</h1><div class=\"sub\">Profilfeed</div></header>");
-            var posts=m_Store.ListPosts(account.PrincipalID,20);
+            html.Append(OglProfileFeedWebApp.Controls())
+                .Append("<main id=\"ogl-feed-posts\">");
+            var posts=profile.PublishProfile ? m_Store.ListPosts(account.PrincipalID,20)
+                : new List<OglProfileFeedStore.Post>();
             if(posts.Count==0)html.Append("<p class=\"sub\">Hier wurden noch keine Beiträge veröffentlicht.</p>");
             foreach(var post in posts)
             {
@@ -379,15 +397,28 @@ namespace NexVerse.Server.Api
                 }
                 html.Append("</article>");
             }
-            html.Append("<footer>Beiträge, Kommentare und Reaktionen werden über das authentifizierte Stadtportal verwaltet.")
-                .Append(" <a href=\"https://stadt-nexverse.de/\" target=\"_blank\" rel=\"noopener noreferrer\">Stadt NexVerse</a></footer></body></html>");
+            html.Append("</main><footer>Stadt NexVerse Profile Feed · ")
+                .Append(" <a href=\"https://stadt-nexverse.de/\" target=\"_blank\" rel=\"noopener noreferrer\">Stadt NexVerse</a></footer>");
+            html.Append(OglProfileFeedWebApp.Script(nonce,
+                account.PrincipalID.ToString(),account.Name,profile.PublishProfile,
+                m_OAuthClientId,m_OAuthRedirectUri));
+            html.Append("</body></html>");
+            WriteFeedHtml(response,html.ToString(),nonce);
+        }
+
+        private static void WriteFeedHtml(IOSHttpResponse response,string html,string nonce)
+        {
             response.StatusCode=(int)HttpStatusCode.OK;
             response.ContentType="text/html; charset=utf-8";
             response.AddHeader("Cache-Control","no-store");
             response.AddHeader("X-Content-Type-Options","nosniff");
             response.AddHeader("Referrer-Policy","no-referrer");
-            response.AddHeader("Content-Security-Policy","default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'");
-            response.RawBuffer=Encoding.UTF8.GetBytes(html.ToString());
+            response.AddHeader("X-Frame-Options","DENY");
+            response.AddHeader("Content-Security-Policy",
+                "default-src 'none'; style-src 'unsafe-inline'; " +
+                "script-src 'nonce-" + nonce + "'; connect-src 'self'; " +
+                "base-uri 'none'; form-action 'none'; frame-ancestors 'none'");
+            response.RawBuffer=Encoding.UTF8.GetBytes(html);
         }
 
         private void AuditModeratorAction(UUID actor, UUID owner, UUID post, string action)
