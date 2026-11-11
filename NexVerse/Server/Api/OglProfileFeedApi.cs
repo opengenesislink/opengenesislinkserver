@@ -366,32 +366,45 @@ namespace NexVerse.Server.Api
             var html=new StringBuilder();
             html.Append("<!doctype html><html lang=\"de\"><head><meta charset=\"utf-8\">")
                 .Append("<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">")
-                .Append("<title>Stadt NexVerse – Profilfeed</title>")
-                .Append("<style>:root{color-scheme:dark}*{box-sizing:border-box}body{margin:0;padding:17px;background:#0b1420;color:#e4effa;font:14px/1.55 system-ui,sans-serif}")
-                .Append("header{border-bottom:1px solid #304961;padding-bottom:16px;margin-bottom:15px}h1{font-size:20px;margin:0;color:#f0faff}")
-                .Append(".sub{color:#93b5ce;font-size:12px}.post{background:#13273b;border:1px solid #304c64;border-radius:11px;margin:12px 0;padding:16px}")
-                .Append(".content{white-space:pre-wrap;overflow-wrap:anywhere;margin:10px 0}.meta{font-size:11px;color:#90abc1}")
-                .Append(".comment{margin:7px 0 0 15px;padding:8px 11px;border-left:2px solid #417e9e;color:#c5daec;white-space:pre-wrap;overflow-wrap:anywhere}")
-                .Append("a{color:#7acfee}footer{font-size:12px;color:#8aa5b9;margin-top:19px}")
+                .Append("<meta name=\"theme-color\" content=\"#070e1e\">")
+                .Append("<title>Stadt NexVerse · Profilfeed</title><style>")
                 .Append(OglProfileFeedWebApp.Styles())
-                .Append("</style></head><body>");
-            html.Append("<header><div class=\"sub\">STADT NEXVERSE · OPEN GENESIS LINK</div><h1>")
-                .Append(WebUtility.HtmlEncode(account.Name)).Append("</h1><div class=\"sub\">Profilfeed</div></header>");
+                .Append("</style></head><body><div class=\"ogl-shell\">");
+            html.Append("<div class=\"ogl-brandbar\" aria-label=\"Stadt NexVerse\">")
+                .Append("<span class=\"ogl-emblem\" aria-hidden=\"true\">NV</span>")
+                .Append("<div><div class=\"ogl-brandname\">Stadt NexVerse</div>")
+                .Append("<span class=\"ogl-brandtag\">Dein virtuelles Zuhause</span></div>")
+                .Append("<span class=\"ogl-spacer\"></span>")
+                .Append("<span class=\"ogl-network-chip\">NexVerse Community</span></div>");
+            html.Append("<header class=\"ogl-hero\"><div class=\"ogl-cover\" aria-hidden=\"true\"></div>")
+                .Append("<div class=\"ogl-profile\"><span class=\"ogl-portrait\" aria-hidden=\"true\">")
+                .Append(WebUtility.HtmlEncode((names[0].Substring(0,1) +
+                    names[1].Substring(0,1)).ToUpperInvariant()))
+                .Append("</span><div class=\"ogl-profile-copy\">")
+                .Append("<span class=\"ogl-kicker\">Einwohnerprofil</span><h1>")
+                .Append(WebUtility.HtmlEncode(account.Name))
+                .Append("</h1><div class=\"ogl-subtitle\">Momente, Geschichten und Neuigkeiten aus Stadt NexVerse</div>")
+                .Append("</div></div></header>");
             html.Append(OglProfileFeedWebApp.Controls())
-                .Append("<main id=\"ogl-feed-posts\">");
+                .Append("<main id=\"ogl-feed-posts\" aria-label=\"Feed-Beitraege\">");
             var posts=profile.PublishProfile ? m_Store.ListPosts(account.PrincipalID,20)
                 : new List<OglProfileFeedStore.Post>();
             if(posts.Count==0)html.Append("<p class=\"sub\">Hier wurden noch keine Beiträge veröffentlicht.</p>");
             foreach(var post in posts)
             {
-                html.Append("<article class=\"post\"><strong>")
+                html.Append("<article class=\"post\"><div class=\"ogl-post-header\">")
+                    .Append("<span class=\"ogl-post-avatar\" aria-hidden=\"true\">")
+                    .Append(WebUtility.HtmlEncode((names[0].Substring(0,1) +
+                        names[1].Substring(0,1)).ToUpperInvariant()))
+                    .Append("</span><div class=\"ogl-post-who\"><div class=\"ogl-post-name\">")
                     .Append(WebUtility.HtmlEncode(account.Name))
-                    .Append("</strong><div class=\"meta\">")
+                    .Append("</div><div class=\"meta\">")
                     .Append(DateTimeOffset.FromUnixTimeSeconds(post.CreatedAt).UtcDateTime.ToString("dd.MM.yyyy HH:mm"))
-                    .Append(" UTC</div><div class=\"content\">")
+                    .Append(" UTC</div></div></div><div class=\"content\">")
                     .Append(WebUtility.HtmlEncode(post.Text))
-                    .Append("</div><div class=\"meta\">Gefällt mir: ")
-                    .Append(post.Likes).Append(" · Kommentare: ").Append(post.Comments).Append("</div>");
+                    .Append("</div><div class=\"ogl-reactions\">")
+                    .Append(post.Likes).Append(" Gefaellt mir · ").Append(post.Comments)
+                    .Append(" Kommentare</div>");
                 foreach(var comment in m_Store.ListComments(new UUID(post.Id),10))
                 {
                     UserAccount author=UUID.TryParse(comment.AuthorId,out UUID cid)
@@ -403,8 +416,10 @@ namespace NexVerse.Server.Api
                 }
                 html.Append("</article>");
             }
-            html.Append("</main><footer>Stadt NexVerse Profile Feed · ")
-                .Append(" <a href=\"https://stadt-nexverse.de/\" target=\"_blank\" rel=\"noopener noreferrer\">Stadt NexVerse</a></footer>");
+            html.Append("</main><footer class=\"ogl-footer\">")
+                .Append("<span>© Stadt NexVerse · Deine Welt. Deine Community.</span>")
+                .Append("<span class=\"ogl-powered\">Powered by <strong>OpenGenesisLINK</strong></span>")
+                .Append("</footer></div>");
             html.Append(OglProfileFeedWebApp.Script(nonce,
                 account.PrincipalID.ToString(),account.Name,profile.PublishProfile,
                 m_OAuthClientId,m_OAuthRedirectUri));
