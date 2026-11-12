@@ -53,6 +53,7 @@ namespace OpenSim.Services.PresenceService
         private readonly int m_HgCleanupMinimumAge;
         private readonly int m_HgCleanupMaxRows;
         private static int s_HgCleanupInProgress;
+        private int m_HgCleanupAuditCycles;
         const int EXPIREMS = 300000;
         static ExpiringCacheOS<UUID, PresenceData> BySessionCache = new ExpiringCacheOS<UUID, PresenceData>(60000);
         static ExpiringCacheOS<string, PresenceData> ByUserCache = new ExpiringCacheOS<string, PresenceData>(60000);
@@ -117,8 +118,20 @@ namespace OpenSim.Services.PresenceService
                         ByUserCache.Remove(stale.UserID);
                 }
                 if (removed.Count > 0)
-                    m_log.WarnFormat("[HGSP2] Presence orphan cleanup: {0} confirmed " +
-                        "foreign stale sessions removed (local/online records excluded).", removed.Count);
+                    m_log.WarnFormat("[HGSP2] Presence orphan cleanup: {0} stale foreign " +
+                        "sessions removed after state revalidation.", removed.Count);
+
+                // Every fourth pass, report ambiguous old foreign rows with
+                // an Online=true state. They MUST NOT be deleted on age alone.
+                if (System.Threading.Interlocked.Increment(ref m_HgCleanupAuditCycles) % 4 == 1)
+                {
+                    int uncertain = m_HgCleanupAdapter.CountUnverifiedOnlineGuests(
+                        m_HgCleanupMinimumAge);
+                    if (uncertain > 0)
+                        m_log.InfoFormat("[HGSP2] Presence audit: {0} old foreign " +
+                            "sessions still reported online; preserved pending " +
+                            "authoritative region-liveness confirmation.", uncertain);
+                }
             }
             catch (Exception error)
             {
