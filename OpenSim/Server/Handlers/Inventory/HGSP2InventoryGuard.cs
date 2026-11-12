@@ -17,7 +17,7 @@ namespace OpenSim.Server.Handlers.Inventory
     /// Peer public keys are pinned by the operator; no unsigned HTTP version
     /// assertion can confer trust or cause automatic legacy downgrade.
     /// </summary>
-    internal sealed class HGSP2InventoryGuard : IDisposable
+    public sealed class HGSP2InventoryGuard : IDisposable
     {
         private readonly ECDsa localPublic;
         private readonly Dictionary<string, ECDsa> pinnedPeers = new(StringComparer.Ordinal);
