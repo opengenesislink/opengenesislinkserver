@@ -1,0 +1,31 @@
+name: Generation 1 Installer checks
+
+on:
+  pull_request:
+    paths:
+      - 'installer/**'
+      - 'tools/release/ogl_gen1_snapshot_zip.py'
+      - '.github/workflows/ogl-g1-installer.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'installer/**'
+      - 'tools/release/ogl_gen1_snapshot_zip.py'
+
+permissions:
+  contents: read
+
+jobs:
+  installer:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Bootstrap shell syntax
+        run: bash -n installer/bootstrap.sh
+      - name: Python compile
+        run: python3 -m py_compile installer/install.py installer/test_install.py
+      - name: Offline installer tests
+        run: python3 -m unittest discover -s installer -p 'test_*.py' -v
+      - name: Release ZIP packaging regression tests
+        run: python3 tools/release/ogl_gen1_snapshot_zip.py --self-test
