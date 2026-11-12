@@ -90,6 +90,7 @@ class InstallerTests(unittest.TestCase):
             d = Path(td)
             shutil.copy2(REPO / "bin/Robust.HG.ini.example", d / "Robust.HG.ini.example")
             cfg = {
+                "simulator": False,
                 "public_host": "grid.example.org", "public_port": 8002,
                 "private_url": "http://127.0.0.1:8003", "local_db": True,
                 "dbhost": "127.0.0.1", "dbname": "opengenesislink",
