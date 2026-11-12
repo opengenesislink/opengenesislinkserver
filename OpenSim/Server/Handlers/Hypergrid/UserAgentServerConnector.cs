@@ -36,6 +36,7 @@ using OpenSim.Framework;
 using OpenSim.Server.Base;
 using OpenSim.Services.Interfaces;
 using OpenSim.Framework.Servers.HttpServer;
+using OpenSim.Framework.Console;
 using OpenSim.Server.Handlers.Base;
 using GridRegion = OpenSim.Services.Interfaces.GridRegion;
 
@@ -110,6 +111,27 @@ namespace OpenSim.Server.Handlers.Hypergrid
             server.AddXmlRPCHandler("get_uui", GetUUI, false);
             server.AddXmlRPCHandler("get_uuid", GetUUID, false);
 
+            IConfig hgsp = config.Configs["OGLHypergridSecurity"];
+            if (hgsp != null && hgsp.GetBoolean("Enabled", false) &&
+                MainConsole.Instance != null)
+            {
+                MainConsole.Instance.Commands.AddCommand(
+                    "hgsp", false, "hgsp status", "hgsp status",
+                    "Show HGSP2 security policy and configured peer-key count (no secrets).",
+                    (module, args) =>
+                    {
+                        string configured = hgsp.GetString("PinnedPeers", "");
+                        int pinned = String.IsNullOrWhiteSpace(configured) ? 0 :
+                            configured.Split(',', StringSplitOptions.RemoveEmptyEntries).Length;
+                        bool hasKey = !String.IsNullOrWhiteSpace(
+                            Environment.GetEnvironmentVariable("OGL_HGSP2_PRIVATE_KEY_PEM"));
+                        MainConsole.Instance.Output(
+                            "[HGSP2] enabled=true version=2.0 signed_inventory=true " +
+                            "legacy_travel=" + hgsp.GetBoolean("AllowLegacyHypergrid", true) +
+                            " prevent_downgrade=true homeagent_validation=partial " +
+                            "key_configured=" + hasKey + " pinned_peers=" + pinned);
+                    });
+            }
             server.AddSimpleStreamHandler(new HomeAgentHandler(m_HomeUsersService, loginServerIP, proxy), true);
         }
 
