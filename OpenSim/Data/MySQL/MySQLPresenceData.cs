@@ -100,7 +100,9 @@ namespace OpenSim.Data.MySQL
         /// Cleans only provably foreign, old and disconnected sessions.
         /// LastSeen is NOT a regular heartbeat in classic OpenSim: an aged
         /// record with Online=true and a nonzero RegionID is deliberately
-        /// left untouched even if it is many days old. Never issue an
+        /// left untouched even if it is many days old. Even Online=false
+        /// alone is insufficient: a recorded, later logout must also exist.
+        /// Never issue an
         /// unrestricted DELETE FROM Presence.
         /// </summary>
         public List<HGStalePresence> CleanupConfirmedOrphans(int minimumAgeHours, int maxRows)
@@ -132,11 +134,20 @@ namespace OpenSim.Data.MySQL
                 WHERE onlineUser.`UserID` LIKE CONCAT(p.`UserID`, ';%')
                   AND LOWER(TRIM(onlineUser.`Online`)) = 'true'
             )";
+            const string recordedForeignLogout = @"EXISTS (
+                SELECT 1 FROM `GridUser` AS logoutUser
+                WHERE logoutUser.`UserID` LIKE CONCAT(p.`UserID`, ';%')
+                  AND LOWER(TRIM(logoutUser.`Online`)) = 'false'
+                  AND CAST(logoutUser.`Logout` AS UNSIGNED) >
+                      CAST(logoutUser.`Login` AS UNSIGNED)
+                  AND CAST(logoutUser.`Logout` AS UNSIGNED) >= UNIX_TIMESTAMP(p.`LastSeen`)
+            )";
             string predicate = $@"
                 p.`LastSeen` < DATE_SUB(NOW(), INTERVAL ?MinAge HOUR)
                 AND {foreign}
                 AND {noLocal}
-                AND (p.`RegionID` = ?EmptyRegion OR {noOnlineForeign})";
+                AND (p.`RegionID` = ?EmptyRegion
+                     OR ({noOnlineForeign} AND {recordedForeignLogout}))";
 
             var candidates = new List<(string User, UUID Session, UUID Region, DateTime Seen)>();
             // Use DB wall-clock for both read and conditional delete: the
