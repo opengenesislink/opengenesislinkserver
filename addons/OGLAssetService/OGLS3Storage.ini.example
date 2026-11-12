@@ -1,0 +1,34 @@
+; OpenGenesisLINK Generation 1 - optional S3 payload backend.
+; DO NOT activate on a production ROBUST/region. S3 is not the default.
+; Both [OGLAssetService] StorageBackend=s3 and [OGLS3Storage] Enabled=true
+; are required for a deliberate, isolated staging cutover.
+;
+; The OGLAssetConnector MUST be explicitly loaded in a dedicated staging ROBUST.
+; Do not replace a live FSAssetConnector or enable a migration here.
+
+[OGLS3Storage]
+    Enabled = false
+    Endpoint = http://127.0.0.1:9000
+    Bucket = ogl-assets
+    Region = us-east-1
+    AccessKey =
+    SecretKey =
+    ForcePathStyle = true
+    UseSSL = false
+    ConnectionTimeoutSeconds = 10
+    RequestTimeoutSeconds = 60
+    MaxRetryAttempts = 3
+    HealthCheckEnabled = false
+
+; S3 credentials: prefer OGL_S3_ACCESS_KEY / OGL_S3_SECRET_KEY from a
+; private environment/secret provider. Do not commit real credentials.
+;
+; In a future separate isolated staging config only:
+;
+; [OGLAssetService]
+;     Enabled = true
+;     Mode = compatibility
+;     StorageBackend = s3
+;
+; StorageBackend defaults to fsassets if omitted.
+; Enabled=false or a missing section never contacts S3.
