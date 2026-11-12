@@ -64,6 +64,13 @@ namespace OpenSim.Data
         /// deleting, so an active heartbeat or fresh session survives.
         /// </summary>
         List<HGStalePresence> CleanupConfirmedOrphans(int minimumAgeHours, int maxRows);
+
+        /// <summary>
+        /// Count old foreign sessions still marked Online=true with a
+        /// region assignment. Not a deletion signal: LastSeen is not a
+        /// continuous heartbeat in classic OpenSimulator.
+        /// </summary>
+        int CountUnverifiedOnlineGuests(int minimumAgeHours);
     }
 
     public interface IPresenceData
