@@ -11,6 +11,14 @@ NEEDED = ("OpenSim.dll", "Robust.dll", "OpenGenesisLINK.Addons.OGLWeather.dll")
 SKIP_SUFFIXES = (".log", ".bak", ".db", ".sqlite", ".sqlite3",
                  ".pass", ".pem", ".key", ".p12", ".pfx", ".pdb", ".tmp", ".dmp")
 SKIP_DIRS = {"logs", "log", "backups", "cache", "tmp", "temp", "obj", "data"}
+# Audited, static INIs required by a clean first-time Hypergrid setup.
+# Operator-specific OpenSim.ini, Robust.HG.ini, GridCommon.ini etc remain excluded.
+SAFE_RUNTIME_INIS = {
+    "OpenSimDefaults.ini",
+    "config-include/GridHypergrid.ini",
+    "config-include/FlotsamCache.ini",
+    "config-include/osslDefaultEnable.ini",
+}
 
 def allowed(path):
     parts = path.parts
@@ -19,7 +27,8 @@ def allowed(path):
             and not any(p.lower() in SKIP_DIRS for p in parts[:-1])
             and not name.endswith(SKIP_SUFFIXES)
             and name not in ("secrets.json", "appsettings.production.json")
-            and not (name.endswith(".ini") and not name.endswith(".ini.example")))
+            and not (name.endswith(".ini") and not name.endswith(".ini.example")
+                      and path.as_posix() not in SAFE_RUNTIME_INIS))
 
 def create_zip(bin_dir, out, sha, repo, channel="development-main-snapshot"):
     channels = ("development-main-snapshot", "generation1-stable", "generation1-updates")
@@ -102,11 +111,20 @@ def selftest():
         for name in ("OpenSim.ini", "system.pass", "access.log"):
             (bin_dir / name).write_text("PRIVATE")
         (bin_dir / "OpenSim.ini.example").write_text("example")
+        (bin_dir / "OpenSimDefaults.ini").write_text("safe generic defaults")
+        (bin_dir / "config-include").mkdir()
+        (bin_dir / "config-include/GridHypergrid.ini").write_text("safe grid modules")
+        (bin_dir / "config-include/GridCommon.ini").write_text("PRIVATE")
+        (bin_dir / "config-include/FlotsamCache.ini").write_text("safe cache")
         out = root / "test.zip"
         create_zip(bin_dir, out, "a" * 40, root)
         with zipfile.ZipFile(out) as z:
             names = set(z.namelist())
             assert f"{PREFIX}/bin/OpenSim.ini.example" in names
+            assert f"{PREFIX}/bin/OpenSimDefaults.ini" in names
+            assert f"{PREFIX}/bin/config-include/GridHypergrid.ini" in names
+            assert f"{PREFIX}/bin/config-include/FlotsamCache.ini" in names
+            assert f"{PREFIX}/bin/config-include/GridCommon.ini" not in names
             assert f"{PREFIX}/bin/OpenSim.ini" not in names
             assert f"{PREFIX}/bin/system.pass" not in names
             assert f"{PREFIX}/bin/access.log" not in names
