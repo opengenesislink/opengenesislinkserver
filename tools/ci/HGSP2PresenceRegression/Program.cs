@@ -19,7 +19,10 @@ using (var conn = new MySqlConnection(connection)) {
     conn.Open();
     using var cmd = conn.CreateCommand();
     cmd.CommandText = @"CREATE TABLE IF NOT EXISTS `GridUser` (
-        `UserID` VARCHAR(255) NOT NULL PRIMARY KEY, `Online` CHAR(5) NOT NULL DEFAULT 'false');
+        `UserID` VARCHAR(255) NOT NULL PRIMARY KEY,
+        `Online` CHAR(5) NOT NULL DEFAULT 'false',
+        `Login` CHAR(16) NOT NULL DEFAULT '0',
+        `Logout` CHAR(16) NOT NULL DEFAULT '0');
       CREATE TABLE IF NOT EXISTS `UserAccounts` (
         `PrincipalID` CHAR(36) NOT NULL PRIMARY KEY);";
     cmd.ExecuteNonQuery();
@@ -29,7 +32,8 @@ using (var conn = new MySqlConnection(connection)) {
 var store = new MySQLPresenceData(connection, "Presence");
 var entries = new Dictionary<string, (string User, string Session)>();
 void Add(string label, bool gridOnline, bool foreign, bool local, bool zeroRegion, int ageHours,
-    bool extraOnlineForSameAvatar = false)
+    bool extraOnlineForSameAvatar = false, bool hasRecordedLogout = true,
+    bool logoutBeforePresence = false)
 {
     string user = Guid.NewGuid().ToString("D");
     string session = Guid.NewGuid().ToString("D");
@@ -50,9 +54,18 @@ void Add(string label, bool gridOnline, bool foreign, bool local, bool zeroRegio
     if (foreign)
     {
         cmd.Parameters.Clear();
-        cmd.CommandText = "INSERT INTO `GridUser` (`UserID`,`Online`) VALUES (?User,?Online)";
+        cmd.CommandText = "INSERT INTO `GridUser` (`UserID`,`Online`,`Login`,`Logout`) " +
+            "VALUES (?User,?Online,?Login,?Logout)";
         cmd.Parameters.AddWithValue("?User", user + ";https://origin.example:8002;Visitor Test");
         cmd.Parameters.AddWithValue("?Online", gridOnline ? "true" : "false");
+        cmd.Parameters.AddWithValue("?Login",
+            DateTimeOffset.UtcNow.AddHours(-ageHours - 4).ToUnixTimeSeconds().ToString());
+        cmd.Parameters.AddWithValue("?Logout",
+            !gridOnline && hasRecordedLogout
+                ? (logoutBeforePresence
+                    ? DateTimeOffset.UtcNow.AddHours(-ageHours - 1)
+                    : DateTimeOffset.UtcNow.AddMinutes(-10)).ToUnixTimeSeconds().ToString()
+                : "0");
         Check(cmd.ExecuteNonQuery() == 1, "Unable to seed foreign GridUser");
         if (extraOnlineForSameAvatar)
         {
@@ -78,6 +91,10 @@ Add("foreign_offline_recent", false, true, false, false, 1);
 Add("local_same_uuid_collision", false, true, true, false, 300);
 Add("not_verified_foreign", false, false, false, false, 500);
 Add("foreign_other_grid_online", false, true, false, false, 250, true);
+Add("foreign_offline_without_logout", false, true, false, false, 240,
+    hasRecordedLogout: false);
+Add("foreign_logout_older_than_presence", false, true, false, false, 225,
+    logoutBeforePresence: true);
 
 bool RejectBadAge = false;
 try { store.CleanupConfirmedOrphans(1, 40); }
@@ -107,4 +124,4 @@ using (var conn = new MySqlConnection(connection)) {
     }
 }
 Console.WriteLine("HGSP2 isolated MariaDB Presence cleanup PASS: stale guest removed; "+
-    "online, recent, local, unclassified and duplicate-active identities preserved.");
+    "online, recent, local, unclassified, unrecorded logout and duplicate-active identities preserved.");
