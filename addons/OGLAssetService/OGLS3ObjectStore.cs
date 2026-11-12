@@ -168,7 +168,7 @@ namespace OpenGenesisLINK.Addons.AssetService
                 request.Metadata["sha256"] = hash;
                 try
                 {
-                    using var response = client.PutObjectAsync(request, timeout.Token)
+                    var response = client.PutObjectAsync(request, timeout.Token)
                         .GetAwaiter().GetResult();
                     if (response.HttpStatusCode != HttpStatusCode.OK)
                         throw new IOException("OGL S3 did not acknowledge the object upload.");
