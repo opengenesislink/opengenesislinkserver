@@ -164,12 +164,24 @@ namespace OpenGenesisLINK.Addons.AssetService
                     throw; // A missing/unreachable bucket must prevent startup.
                 }
             }
-            OglLog.InfoFormat(
-                "[OGL-ASSETS]: AssetService geladen; backend={0}; local_cache={1}; redis_coordination={2}; atomic_updates={3}",
-                s3Selected ? "s3" : "fsassets",
-                localCacheEnabled, redisEnabled, atomicUpdatesEnabled);
-            OglLog.InfoFormat("[OGL-ASSETS]: parallel_store={0}; parallel_read_preferred={1}; s3_active={2}",
-                parallelEnabled, parallelReadPreferred, s3Selected);
+            if (!s3Selected)
+            {
+                // Preserve the legacy startup diagnostics verbatim. Existing
+                // ROBUST smoke checks and operational monitors depend on them.
+                OglLog.InfoFormat(
+                    "[OGL-ASSETS]: OGL AssetService geladen; authoritative=FSAssets; " +
+                    "mode=compatibility; local_cache={0}; redis_coordination={1}; atomic_updates={2}",
+                    localCacheEnabled, redisEnabled, atomicUpdatesEnabled);
+                OglLog.InfoFormat(
+                    "[OGL-ASSETS]: parallel_store={0}; parallel_read_preferred={1}; authoritative=FSAssets",
+                    parallelEnabled, parallelReadPreferred);
+            }
+            else
+            {
+                OglLog.InfoFormat(
+                    "[OGL-ASSETS]: OGL AssetService geladen; authoritative=S3; mode=compatibility; " +
+                    "local_cache={0}; redis_coordination={1}", localCacheEnabled, redisEnabled);
+            }
         }
 
         /// <summary>
