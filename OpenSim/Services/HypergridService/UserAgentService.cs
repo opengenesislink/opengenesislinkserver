@@ -469,7 +469,15 @@ namespace OpenSim.Services.HypergridService
 
         public void LogoutAgent(UUID userID, UUID sessionID)
         {
-            m_log.DebugFormat("[USER AGENT SERVICE]: User {0} logged out", userID);
+            HGTravelingData existing = m_Database.Get(sessionID);
+            // Remote callers can supply arbitrary UUID values. A logout
+            // MUST never delete a different user's travel record.
+            if (existing == null || existing.UserID != userID)
+            {
+                m_log.Warn("[HGSP2] Logout with invalid owner/session binding rejected.");
+                return;
+            }
+            m_log.Debug("[USER AGENT SERVICE]: Authenticated session owner matched for logout.");
 
             m_Database.Delete(sessionID);
 
@@ -523,8 +531,11 @@ namespace OpenSim.Services.HypergridService
             }
 
             TravelingAgentInfo travel = new TravelingAgentInfo(hgt);
-            m_log.DebugFormat("[USER AGENT SERVICE]: Verifying agent token {0} against {1}", token, travel.ServiceToken);
-            return travel.ServiceToken == token;
+            // Tokens and service session secrets must never enter logs.
+            return !String.IsNullOrEmpty(token) &&
+                System.Security.Cryptography.CryptographicOperations.FixedTimeEquals(
+                    System.Text.Encoding.UTF8.GetBytes(travel.ServiceToken ?? String.Empty),
+                    System.Text.Encoding.UTF8.GetBytes(token));
         }
 
         [Obsolete]
