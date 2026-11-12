@@ -34,7 +34,7 @@ namespace OpenGenesisLINK.Addons.AssetService
                 ServiceURL = options.Endpoint,
                 AuthenticationRegion = options.Region,
                 ForcePathStyle = options.ForcePathStyle,
-                Timeout = TimeSpan.FromSeconds(options.ConnectionTimeoutSeconds),
+                ConnectTimeout = TimeSpan.FromSeconds(options.ConnectionTimeoutSeconds),
                 MaxErrorRetry = options.MaxRetryAttempts - 1
             };
             client = new AmazonS3Client(
