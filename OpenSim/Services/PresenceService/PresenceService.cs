@@ -44,6 +44,15 @@ namespace OpenSim.Services.PresenceService
         private static readonly ILog m_log = LogManager.GetLogger(MethodBase.GetCurrentMethod().DeclaringType);
 
         protected bool m_allowDuplicatePresences = false;
+
+        // Opt-in HGSP2 cleanup of specifically verified foreign stale rows.
+        // The regular local PresenceService API and cache semantics remain
+        // untouched when HGSP2/cleanup is not configured.
+        private readonly System.Threading.Timer m_HgCleanupTimer;
+        private readonly IHGForeignPresenceMaintenance m_HgCleanupAdapter;
+        private readonly int m_HgCleanupMinimumAge;
+        private readonly int m_HgCleanupMaxRows;
+        private static int s_HgCleanupInProgress;
         const int EXPIREMS = 300000;
         static ExpiringCacheOS<UUID, PresenceData> BySessionCache = new ExpiringCacheOS<UUID, PresenceData>(60000);
         static ExpiringCacheOS<string, PresenceData> ByUserCache = new ExpiringCacheOS<string, PresenceData>(60000);
@@ -57,6 +66,70 @@ namespace OpenSim.Services.PresenceService
             if (presenceConfig != null)
             {
                 m_allowDuplicatePresences = presenceConfig.GetBoolean("AllowDuplicatePresences", m_allowDuplicatePresences);
+            }
+
+            IConfig security = config.Configs["OGLHypergridSecurity"];
+            if (security != null && security.GetBoolean("Enabled", false) &&
+                security.GetBoolean("PresenceCleanupEnabled", true))
+            {
+                m_HgCleanupMinimumAge = security.GetInt("PresenceStaleAfterHours", 72);
+                m_HgCleanupMaxRows = security.GetInt("PresenceCleanupBatchSize", 50);
+                int interval = security.GetInt("PresenceCleanupIntervalMinutes", 15);
+                if (m_HgCleanupMinimumAge < 24 || m_HgCleanupMinimumAge > 8760 ||
+                    m_HgCleanupMaxRows < 1 || m_HgCleanupMaxRows > 500 ||
+                    interval < 5 || interval > 1440)
+                    throw new InvalidOperationException(
+                        "[HGSP2] Invalid Presence cleanup limits; expected age 24..8760 hours, " +
+                        "batch 1..500, interval 5..1440 minutes.");
+                m_HgCleanupAdapter = m_Database as IHGForeignPresenceMaintenance;
+                if (m_HgCleanupAdapter == null)
+                {
+                    m_log.Warn("[HGSP2] Presence cleanup is unsupported by the configured " +
+                        "database adapter; no rows will be deleted.");
+                }
+                else
+                {
+                    m_HgCleanupTimer = new System.Threading.Timer(
+                        _ => RunConfirmedForeignPresenceCleanup(),
+                        null, TimeSpan.FromMinutes(5), TimeSpan.FromMinutes(interval));
+                    m_log.InfoFormat("[HGSP2] Presence orphan cleaner enabled; min_age_h={0} " +
+                        "interval_min={1} batch_max={2}. Only verified foreign/offline records.",
+                        m_HgCleanupMinimumAge, interval, m_HgCleanupMaxRows);
+                }
+            }
+        }
+
+        private void RunConfirmedForeignPresenceCleanup()
+        {
+            if (System.Threading.Interlocked.CompareExchange(ref s_HgCleanupInProgress, 1, 0) != 0)
+                return;
+            try
+            {
+                List<HGStalePresence> removed = m_HgCleanupAdapter.CleanupConfirmedOrphans(
+                    m_HgCleanupMinimumAge, m_HgCleanupMaxRows);
+                foreach (HGStalePresence stale in removed)
+                {
+                    BySessionCache.Remove(stale.SessionID);
+                    // Never invalidate another session that logged in while
+                    // this task was processing an earlier orphan.
+                    if (ByUserCache.TryGetValue(stale.UserID, out PresenceData current) &&
+                        current.SessionID == stale.SessionID)
+                        ByUserCache.Remove(stale.UserID);
+                }
+                if (removed.Count > 0)
+                    m_log.WarnFormat("[HGSP2] Presence orphan cleanup: {0} confirmed " +
+                        "foreign stale sessions removed (local/online records excluded).", removed.Count);
+            }
+            catch (Exception error)
+            {
+                // Do not log connection strings or other potentially sensitive
+                // exception details from MySQL/SQL providers.
+                m_log.ErrorFormat("[HGSP2] Presence orphan cleanup failed ({0}); no " +
+                    "unconditional delete attempted.", error.GetType().Name);
+            }
+            finally
+            {
+                System.Threading.Volatile.Write(ref s_HgCleanupInProgress, 0);
             }
         }
 
