@@ -32,7 +32,11 @@ aus `Presence` entfernt werden:
 3. In `UserAccounts` gibt es **kein lokales Konto** mit derselben UUID.
 4. Entweder `RegionID=UUID.Zero` (Anmeldung hat nie eine Region
    erreicht) oder **kein** zum Avatar passender fremder
-   `GridUser`-Datensatz steht noch auf `Online=true`.
+   `GridUser`-Datensatz steht noch auf `Online=true`. Bei einer
+   zugewiesenen Region ist zusaetzlich ein **echter, spaeterer Logout**
+   nachweisbar: `GridUser.Logout > GridUser.Login` und
+   `GridUser.Logout >= UNIX_TIMESTAMP(Presence.LastSeen)`. Ein
+   `Online=false`-Flag ohne nachgewiesenen Logout reicht nicht.
 5. Direkt vor dem `DELETE` werden UUID, `SessionID`, `RegionID`,
    `LastSeen` und die Punkte 2–4 erneut in **einer bedingten
    SQL-Löschanweisung** geprueft. Eine dazwischen erneuerte Sitzung
@@ -51,6 +55,12 @@ Regions-Liveness-Information darf dieser Eintrag **nicht** automatisch
 geloescht werden. Das vermeidet unterbrochene legitime Aufenthalte.
 Es gibt keinen Ersatz durch ein pauschales `DELETE FROM Presence WHERE
 LastSeen < ...`.
+
+Der Cleaner protokolliert stündlich die **Anzahl** alter, aber noch
+online gemeldeter fremder Presences gesondert als
+`[HGSP2] Presence audit`. Diese Eintraege bleiben bestehen, bis
+ein verlaesslicher Lebensnachweis des Regionsservers oder ein echter
+Logout vorliegt. Es werden keine Avatar-Namen oder UUIDs ausgegeben.
 
 Die automatische Bereinigung ist bisher **nur fuer MariaDB/MySQL**
 implementiert. Andere bestehende Provider bleiben unveraendert, und
@@ -96,6 +106,10 @@ Actions eine disposable MariaDB-Datenbank auf
 - Lokales Konto mit derselben UUID: nicht loeschen.
 - Fehlende Fremdgrid-Zuordnung: nicht loeschen.
 - Zweiter, online gemeldeter Fremdgrid-Kontext: nicht loeschen.
+- `Online=false` ohne echten Login-/Logout-Zeitstempel: nicht loeschen.
+- Logout vor dem letzten Presence-Report: nicht loeschen.
+- Nicht verifizierbare alte `Online=true`-Sitzungen nur zaehlen,
+  **nicht** automatisch loeschen.
 - Batch-Obergrenze, wiederholter Lauf und ungueltige Grenzwerte.
 
 Der Test verwendet den echten `MySQLPresenceData`-Provider, keine
