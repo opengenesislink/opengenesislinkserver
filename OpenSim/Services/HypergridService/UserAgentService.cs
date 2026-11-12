@@ -29,6 +29,7 @@ using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Reflection;
+using System.Security.Cryptography;
 
 using OpenSim.Data;
 using OpenSim.Framework;
@@ -279,6 +280,28 @@ namespace OpenSim.Services.HypergridService
             agentCircuit.ServiceSessionID = region.ServerURI + ";" + UUID.Random();
             TravelingAgentInfo travel = CreateTravelInfo(agentCircuit, region, fromLogin, out TravelingAgentInfo old);
 
+            // HGSP2 is a home-grid signed capability carried in the existing
+            // circuit ServiceURLs; no Viewer changes and no leaked session
+            // secrets. Pinned known peers must never silently downgrade.
+            try
+            {
+                if (!TryPrepareHGSP2Travel(agentCircuit, travel, gridName, out string securityReason))
+                {
+                    if (old != null) StoreTravelInfo(old);
+                    else m_Database.Delete(agentCircuit.SessionID);
+                    reason = securityReason;
+                    return false;
+                }
+            }
+            catch (Exception error)
+            {
+                if (old != null) StoreTravelInfo(old);
+                else m_Database.Delete(agentCircuit.SessionID);
+                m_log.Error("[HGSP2] Secure travel preparation rejected.", error);
+                reason = "HGSP2 secure travel preparation failed.";
+                return false;
+            }
+
             if(!fromLogin && old is not null && !string.IsNullOrEmpty(old.ClientIPAddress))
             {
                 m_log.DebugFormat("[USER AGENT SERVICE]: stored IP = {0}. Old circuit IP: {1}", old.ClientIPAddress, agentCircuit.IPAddress);
@@ -317,6 +340,93 @@ namespace OpenSim.Services.HypergridService
 
             StoreTravelInfo(travel);
 
+            return true;
+        }
+
+        private bool TryPrepareHGSP2Travel(AgentCircuitData circuit, TravelingAgentInfo travel,
+            string destinationGrid, out string reason)
+        {
+            reason = String.Empty;
+            IConfig sec = m_Configuration.Configs["OGLHypergridSecurity"];
+            if (sec == null || !sec.GetBoolean("Enabled", false))
+                return true;
+
+            string localGrid = HypergridUri.Normalize(sec.GetString("LocalGridURI", ""));
+            string destination = HypergridUri.Normalize(destinationGrid);
+            if (String.IsNullOrEmpty(localGrid) || String.IsNullOrEmpty(destination))
+            {
+                reason = "HGSP2 grid identity configuration is incomplete.";
+                return false;
+            }
+
+            string peerPublic = null;
+            string configuredPeers = sec.GetString("PinnedPeers", "");
+            foreach (string entry in configuredPeers.Split(',', StringSplitOptions.RemoveEmptyEntries))
+            {
+                string[] pair = entry.Trim().Split('|');
+                if (pair.Length != 2) { reason = "HGSP2 pinned peer syntax is invalid."; return false; }
+                if (HypergridUri.Equivalent(pair[0], destination))
+                {
+                    peerPublic = pair[1];
+                    break;
+                }
+            }
+
+            if (peerPublic == null)
+            {
+                if (!sec.GetBoolean("AllowLegacyHypergrid", true))
+                {
+                    reason = "HGSP2 legacy travel is disabled.";
+                    return false;
+                }
+                // Unknown peers are allowed through classic travel. Their
+                // inventory requests are NOT implicitly allowed through the
+                // HGSP2 protected public inventory endpoint.
+                m_log.Warn("[HGSP2] Legacy compatibility active for an unpinned peer; no secure inventory grant.");
+                return true;
+            }
+
+            // A known secure peer may only be reached with a valid ES256
+            // signing key. Failure cannot silently switch to legacy.
+            string privatePem = Environment.GetEnvironmentVariable("OGL_HGSP2_PRIVATE_KEY_PEM");
+            if (String.IsNullOrWhiteSpace(privatePem))
+            {
+                reason = "HGSP2 private signing key missing; downgrade denied.";
+                m_log.Error("[HGSP2] Protocol downgrade denied: missing local signing key.");
+                return false;
+            }
+            using ECDsa signer = ECDsa.Create();
+            signer.ImportFromPem(privatePem.Replace("\\n", "\n"));
+            int grantMinutes = sec.GetInt("TravelGrantMinutes", 360);
+            if (grantMinutes < 1 || grantMinutes > 480)
+            {
+                reason = "HGSP2 travel grant lifetime must be 1..480 minutes.";
+                return false;
+            }
+
+            string trip = UUID.Random().ToString();
+            var issuedAt = DateTimeOffset.UtcNow;
+            string token = HGSP2Authorization.Sign(new HGSP2Authorization.Grant
+            {
+                Issuer = localGrid.TrimEnd('/'),
+                Audience = destination.TrimEnd('/'),
+                Avatar = circuit.AgentID.ToString(),
+                Session = circuit.SessionID.ToString(),
+                Trip = trip,
+                Service = "xinventory",
+                Scopes = "inventory.read inventory.write",
+                PeerKeyId = HGSP2Authorization.KeyId(peerPublic),
+                TokenId = Guid.NewGuid().ToString("D"),
+                NotBefore = issuedAt.ToUnixTimeSeconds(),
+                Expires = issuedAt.AddMinutes(grantMinutes).ToUnixTimeSeconds()
+            }, signer);
+            // Existing ServiceURLs are transported in AgentCircuitData; the
+            // grant is NOT a password, and is bound to the pinned peer key.
+            circuit.ServiceURLs ??= new Dictionary<string, object>();
+            circuit.ServiceURLs["OGLHGSP2TravelGrant"] = token;
+            travel.HGSP2Trip = trip;
+            StoreTravelInfo(travel);
+            m_log.Info("[HGSP2] Secure travel authorized for pinned destination.");
             return true;
         }
 
@@ -717,7 +827,8 @@ namespace OpenSim.Services.HypergridService
                 {
                     ["GridExternalName"] = travel.GridExternalName,
                     ["ServiceToken"] = travel.ServiceToken,
-                    ["ClientIPAddress"] = travel.ClientIPAddress
+                    ["ClientIPAddress"] = travel.ClientIPAddress,
+                    ["HGSP2Trip"] = travel.HGSP2Trip
                 }
             };
 
@@ -734,6 +845,7 @@ namespace OpenSim.Services.HypergridService
         public string GridExternalName = string.Empty;
         public string ServiceToken = string.Empty;
         public string ClientIPAddress = string.Empty; // as seen from this user agent service
+        public string HGSP2Trip = string.Empty;
 
         public TravelingAgentInfo(HGTravelingData t)
         {
@@ -748,10 +860,12 @@ namespace OpenSim.Services.HypergridService
                 t.Data.TryGetValue("GridExternalName", out GridExternalName);
                 t.Data.TryGetValue("ServiceToken", out ServiceToken);
                 t.Data.TryGetValue("ClientIPAddress", out ClientIPAddress);
+                t.Data.TryGetValue("HGSP2Trip", out HGSP2Trip);
 
                 GridExternalName ??= string.Empty;
                 ServiceToken ??= string.Empty;
                 ClientIPAddress ??= string.Empty;
+                HGSP2Trip ??= string.Empty;
             }
         }
 
@@ -764,6 +878,7 @@ namespace OpenSim.Services.HypergridService
                 GridExternalName = old.GridExternalName;
                 ServiceToken = old.ServiceToken;
                 ClientIPAddress = old.ClientIPAddress;
+                HGSP2Trip = old.HGSP2Trip;
             }
         }
     }
