@@ -129,7 +129,10 @@ namespace OpenSim.Server.Handlers.Hypergrid
                             "[HGSP2] enabled=true version=2.0 signed_inventory=true " +
                             "legacy_travel=" + hgsp.GetBoolean("AllowLegacyHypergrid", true) +
                             " prevent_downgrade=true homeagent_validation=partial " +
-                            "key_configured=" + hasKey + " pinned_peers=" + pinned);
+                            "key_configured=" + hasKey + " pinned_peers=" + pinned +
+                            " presence_cleanup=" + hgsp.GetBoolean("PresenceCleanupEnabled", true) +
+                            " presence_stale_hours=" + hgsp.GetInt("PresenceStaleAfterHours", 72) +
+                            " presence_batch_max=" + hgsp.GetInt("PresenceCleanupBatchSize", 50));
                     });
             }
             server.AddSimpleStreamHandler(new HomeAgentHandler(m_HomeUsersService, loginServerIP, proxy), true);
