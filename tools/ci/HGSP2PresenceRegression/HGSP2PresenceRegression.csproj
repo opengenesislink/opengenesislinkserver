@@ -6,6 +6,8 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
   <ItemGroup>
+    <PackageReference Include="System.Security.Permissions" Version="8.0.0" />
+    <PackageReference Include="System.Configuration.ConfigurationManager" Version="8.0.0" />
     <ProjectReference Include="../../../OpenSim/Data/MySQL/OpenSim.Data.MySQL.csproj" />
     <Reference Include="OpenMetaverseTypes">
       <HintPath>../../../bin/OpenMetaverseTypes.dll</HintPath>
