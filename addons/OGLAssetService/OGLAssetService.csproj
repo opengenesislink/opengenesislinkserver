@@ -14,6 +14,7 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="StackExchange.Redis" Version="2.8.24" />
+    <PackageReference Include="AWSSDK.S3" Version="4.0.104.12" />
     <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.14" />
     <ProjectReference Include="../../OpenSim/Services/FSAssetService/OpenSim.Services.FSAssetService.csproj" />
     <Reference Include="OpenMetaverse">
