@@ -62,7 +62,9 @@ jobs:
             -p 127.0.0.1:19119:9000 \
             -e MINIO_ROOT_USER="$user" \
             -e MINIO_ROOT_PASSWORD="$password" \
-            quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z server /data
+            # The upstream Quay image became anonymously unavailable in 2026.
+            # This version-locked test-only mirror advertises identical upstream bytes.
+            dappros/minio:RELEASE.2025-09-07T16-13-09Z server /data
           ready=0
           for attempt in $(seq 1 45); do
             if curl -fsS --max-time 2 http://127.0.0.1:19119/minio/health/live >/dev/null; then
