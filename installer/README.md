@@ -25,7 +25,8 @@ The installer offers:
 3. ROBUST and simulator on one host (recommended for the first deployment).
 
 It asks for the grid name, public ROBUST host/port, the region name and public
-region host/port, plus local MariaDB or existing MariaDB access. Local MariaDB
+region host/port, Estate name and owner avatar name, plus local MariaDB or
+existing MariaDB access. Local MariaDB
 uses an automatically generated password stored only in root-protected service
 environment files. No existing grid directory, database, DB user, INI file
 or service is silently overwritten.
@@ -55,7 +56,13 @@ systemctl stop opengenesislink-simulator
 systemctl restart opengenesislink-robust
 ~~~
 
-The first simulator region is stored under bin/Regions/Regions.ini.
+The first simulator region is stored under bin/Regions/Regions.ini. The
+installer configures the first Estate and its owner name. For a new grid,
+create the owner account in the ROBUST console when prompted (command:
+create user). The simulator only starts after confirming that account was
+created. For an existing remote ROBUST, create that account there before
+starting the simulator. Estate setup and avatar creation are two separate
+operations; a running ROBUST process alone does not provide an owner avatar.
 
 ### Configuration and security
 
