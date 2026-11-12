@@ -933,10 +933,23 @@ jobs:
           grep -F 'public const string ProductName = "OpenGenesisLINK";' OpenSim/Framework/VersionInfo.cs
           grep -F 'public const string VersionNumber = "0.9.4.0";' OpenSim/Framework/VersionInfo.cs
           grep -F 'public const string AssemblyVersionNumber = "0.9.4.0";' OpenSim/Framework/VersionInfo.cs
-          grep -F 'public const Flavour VERSION_FLAVOUR = Flavour.Dev;' OpenSim/Framework/VersionInfo.cs
+          # Development and the approved Release candidate share the same G1
+          # version number. The official publisher separately requires Release.
+          grep -Eq 'public const Flavour VERSION_FLAVOUR = Flavour\.(Dev|Release);' OpenSim/Framework/VersionInfo.cs
           grep -F 'return global::OpenSim.VersionInfo.ProductName;' OpenSim/Region/ScriptEngine/Shared/Api/Implementation/LSL_Api.cs
           grep -F 'private string m_lsl_shard = global::OpenSim.VersionInfo.ProductName;' OpenSim/Region/CoreModules/Scripting/LSLHttp/UrlModule.cs
           grep -F 'public const string MilestoneVersion = "0.9.4.0";' NexVerse/Core/NexVersePlatform.cs
+
+      - name: Verify Generation 1 Profile Feed disabled in default configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          for config in bin/Robust.HG.ini bin/Robust.HG.ini.example bin/Robust.ini.example; do
+            grep -Fxq '    EnableProfileFeed = false' "$config" || {
+              echo "::error::$config must disable optional Profile Feed until Issue #435 is resolved"
+              exit 1
+            }
+          done
 
       - name: Verify Generation 1 Hypergrid asset egress lockdown
         shell: bash

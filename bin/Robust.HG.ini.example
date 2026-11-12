@@ -778,7 +778,7 @@
     PortalAvatarRegistrationEnabled = false
     ; Optional local profile feed. Creates 4 MariaDB tables when enabled.
     ; Enabled by default; schema/account deletion checks fail closed if unsafe.
-    EnableProfileFeed = true
+    EnableProfileFeed = false
     ; Feedbeitraege und Kommentare nach 180 Tagen automatisch ausblenden
     ; und loeschen; zulaessig 7..3650 Tage. Follows bis zur Entfolgung.
     ProfileFeedRetentionDays = 180
