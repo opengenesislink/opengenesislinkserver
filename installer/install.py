@@ -78,7 +78,7 @@ def safe_host(value):
 
 
 def safe_label(value):
-    return len(value) <= 80 and not re.search(r'[\r\n"=;]', value)
+    return len(value) <= 80 and re.fullmatch(r"[\w .-]+", value, re.UNICODE) is not None
 
 
 def safe_port(value):
@@ -245,10 +245,18 @@ def collect():
     region_host = ""
     region_name = ""
     region_port = 9000
+    estate_name = ""
+    estate_owner = ""
     if simulator:
         region_name = ask("Name der ersten Region", "Welcome", safe_label)
         region_host = ask("Oeffentlicher Regions-Hostname oder IP", public_host, safe_host)
         region_port = int(ask("Regionsport (UDP, auch Simulator-HTTP)", "9000", safe_port))
+        estate_name = ask("Estate-Name", "Mein Estate", safe_label)
+        owner_first = ask("Besitzer-Avatar Vorname", "Admin",
+                          lambda v: re.fullmatch(r"[A-Za-z][A-Za-z0-9_-]{1,31}", v) is not None)
+        owner_last = ask("Besitzer-Avatar Nachname", "Resident",
+                         lambda v: re.fullmatch(r"[A-Za-z][A-Za-z0-9_-]{1,31}", v) is not None)
+        estate_owner = owner_first + " " + owner_last
     local_db = yes("Lokale MariaDB automatisch installieren und einrichten?", True)
     if local_db:
         dbhost, dbname, dbuser = "127.0.0.1", "opengenesislink", "ogl"
@@ -265,6 +273,7 @@ def collect():
     print(f"  Rollen: {mode}  | Grid: {grid} | Login/HG: {public_url}")
     if simulator:
         print(f"  Region: {region_name} @ {region_host}:{region_port}/UDP")
+        print(f"  Estate: {estate_name} | Besitzer: {estate_owner}")
     print(f"  Datenbank: {dbhost}/{dbname} (Benutzer: {dbuser})")
     print("  Ziel: /opt/opengenesislink (neue Installation, keine Updates)")
     if not yes("Installation verbindlich starten?"):
@@ -440,6 +449,8 @@ def configure_simulator(folder, cfg):
     ]
     for sec, key, value in common_vals:
         put_ini(ini, sec, key, value)
+    put_ini(ini, "Estates", "DefaultEstateName", f'"{cfg["estate_name"]}"')
+    put_ini(ini, "Estates", "DefaultEstateOwnerName", f'"{cfg["estate_owner"]}"')
     for sec, key, value in [
         ("Hypergrid", "HomeURI", f'"{cfg["public_url"]}"'),
         ("Hypergrid", "GatekeeperURI", f'"{cfg["public_url"]}"'),
@@ -529,8 +540,30 @@ def install_files(pkg, cfg):
         create_systemd("simulator", after)
     command("systemctl", "daemon-reload")
     services = [r for r in ("robust", "simulator") if cfg[r]]
-    for role in services:
-        command("systemctl", "enable", "--now", "opengenesislink-" + role)
+    if rb:
+        command("systemctl", "enable", "--now", "opengenesislink-robust")
+    if rb and sm:
+        print("\nVor dem ersten Simulatorstart muss der Besitzer-Avatar im Grid existieren.")
+        print(f"Bitte in ROBUST 'create user' ausfuehren und den Avatar "
+              f"{cfg['estate_owner']} anlegen.")
+        print("Die ROBUST-Konsole wird jetzt geoeffnet. Mit CTRL+A, D "
+              "wieder zum Installer zurueckkehren.")
+        input("Zum Oeffnen der ROBUST-Konsole Enter druecken ...")
+        command("runuser", "-u", USER, "--", "screen", "-r",
+                "OpenGenesisLINK-Robust", check=False)
+        if not yes(f"Ist der Avatar {cfg['estate_owner']} erfolgreich angelegt?"):
+            print("Simulator wird vorsorglich NICHT gestartet. "
+                  "Nach Anlage des Avatars: systemctl enable --now "
+                  "opengenesislink-simulator")
+        else:
+            command("systemctl", "enable", "--now", "opengenesislink-simulator")
+    elif sm:
+        print("Simulator-only: Besitzer-Avatar muss bereits auf ROBUST existieren.")
+        if yes("Ist dieser Avatar bereits auf dem Ziel-Grid angelegt?"):
+            command("systemctl", "enable", "--now", "opengenesislink-simulator")
+        else:
+            print("Simulator noch nicht gestartet. Nach Avataranlage: "
+                  "systemctl enable --now opengenesislink-simulator")
     print("\nInstallation ausgefuehrt. Dienstestatus:")
     for role in services:
         command("systemctl", "status", "--no-pager", "--lines=8",
