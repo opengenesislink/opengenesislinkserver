@@ -44,6 +44,28 @@ namespace OpenSim.Data
     /// <summary>
     /// An interface for connecting to the presence datastore
     /// </summary>
+    /// <summary>
+    /// Return only SQL rows actually removed after a conditional and
+    /// revalidated cleanup. This optional interface does not change the
+    /// existing IPresenceData implementations or external protocols.
+    /// </summary>
+    public sealed class HGStalePresence
+    {
+        public string UserID;
+        public UUID SessionID;
+    }
+
+    public interface IHGForeignPresenceMaintenance
+    {
+        /// <summary>
+        /// Delete aged HG guest presences ONLY when correlated GridUser
+        /// records establish a foreign identity and a safely stale status.
+        /// Must atomically compare owner/session/region/LastSeen before
+        /// deleting, so an active heartbeat or fresh session survives.
+        /// </summary>
+        List<HGStalePresence> CleanupConfirmedOrphans(int minimumAgeHours, int maxRows);
+    }
+
     public interface IPresenceData
     {
         bool Store(PresenceData data);
