@@ -51,10 +51,15 @@ Mesh-LLSD und PBR; GitHub-CI Linux x64, ARM64, Windows x64 und MariaDB.
 Details: [Issue #442](https://github.com/opengenesislink/opengenesislinkserver/issues/442).
 
 **Noch zu belegen:**
-- GitHub meldete am 12.11.2026 fuer `main` `protected: false`
-  und `GET /rulesets` lieferte keine aktiven Rulesets. Die
-  Environment- und Actions-Variablen konnten ueber den verbundenen
-  GitHub-App-Zugriff nicht verifiziert werden.
+- **Behoben/technisch nachgewiesen am 12.11.2026:** `main` ist durch
+  das aktive [Ruleset #27082748](https://github.com/opengenesislink/opengenesislinkserver/rules/27082748)
+  geschuetzt (PR + sechs CI-Checks, kein Force-Push/Delete);
+  `v0.9.4.0` durch [Tag-Ruleset #27082762](https://github.com/opengenesislink/opengenesislinkserver/rules/27082762)
+  gegen Loeschung/Mutation. GitHub-Environment `generation1-stable`
+  hat den Required Reviewer `opengenesislink` und erlaubt nur
+  geschuetzte Branches. Beide Actions-Variablen
+  `OGL_GEN1_STABLE_RELEASE_APPROVED` und `OGL_GEN1_UPDATES_APPROVED`
+  wurden initial auf `false` gesetzt.
 - Die genaue Betreiberabnahme fuer Feed-Loeschung/Retention, externen
   HG-Rueckweg und die Datensicherungs-/Restore-/Rollback-Umgebung muss
   im abschliessenden Protokoll spezifiziert werden.
@@ -63,6 +68,18 @@ Details: [Issue #442](https://github.com/opengenesislink/opengenesislinkserver/i
 - Erst dann in einem **separaten reinen Abnahmeprotokoll-Commit**
   `Status: APPROVED` und die technischen `PASS`-Kennzeichnungen
   freigeben; der `v0.9.4.0`-Tag bleibt bis dahin gesperrt.
+
+## Release-Schutz fuer den optionalen Profile Feed
+
+[Issue #435](https://github.com/opengenesislink/opengenesislinkserver/issues/435)
+ist weiter offen. Die Konto-Loeschung/Retention darf deshalb nicht als
+funktionierender aktiver Feed attestiert werden. Fuer die Stable-Quelle
+sind `EnableProfileFeed = false` in `bin/Robust.HG.ini`,
+`bin/Robust.HG.ini.example` und `bin/Robust.ini.example`
+festgeschrieben; die NexVerse-CI prueft diesen Zustand. Das
+Release-ZIP liefert keine laufenden Betreiber-INIs und schaltet
+keinen Feed im vorhandenen produktiven Grid um. Betreiber mit
+eigener Live-Konfiguration muessen diesen Schalter gesondert pruefen.
 
 ## Protokoll
 
