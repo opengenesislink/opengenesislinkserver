@@ -22,6 +22,25 @@ namespace OpenGenesisLINK.Addons.AssetService
         private readonly IAmazonS3 client;
         private readonly OGLS3StorageOptions options;
         private readonly bool ownsClient;
+        private Timer healthTimer;
+        private int healthInProgress;
+        private int healthState; // 0 unknown, 1 healthy, 2 unavailable
+        private long healthChecks;
+        private long healthFailures;
+        private long healthCheckUtcTicks;
+
+        public string HealthStatus => Volatile.Read(ref healthState) == 1 ? "healthy" :
+            Volatile.Read(ref healthState) == 2 ? "unavailable" : "unknown";
+        public long HealthChecks => Interlocked.Read(ref healthChecks);
+        public long HealthFailures => Interlocked.Read(ref healthFailures);
+        public DateTime? LastHealthCheckUtc
+        {
+            get
+            {
+                long ticks = Interlocked.Read(ref healthCheckUtcTicks);
+                return ticks == 0 ? null : new DateTime(ticks, DateTimeKind.Utc);
+            }
+        }
 
         public OGLS3ObjectStore(OGLS3StorageOptions options)
         {
@@ -75,24 +94,60 @@ namespace OpenGenesisLINK.Addons.AssetService
         private static bool IsNotFound(AmazonS3Exception exception)
             => exception.StatusCode == HttpStatusCode.NotFound;
 
-        /// <summary>One-shot startup check. Health probes are not scheduled.</summary>
+        /// <summary>One-shot startup/health check. No bucket is created.</summary>
         public void CheckBucket()
         {
             using var timeout = Timeout();
+            Interlocked.Increment(ref healthChecks);
+            Interlocked.Exchange(ref healthCheckUtcTicks, DateTime.UtcNow.Ticks);
             try
             {
                 client.HeadBucketAsync(new HeadBucketRequest
                 {
                     BucketName = options.Bucket
                 }, timeout.Token).GetAwaiter().GetResult();
+                Volatile.Write(ref healthState, 1);
             }
             catch (AmazonS3Exception error) when (IsNotFound(error))
             {
+                Volatile.Write(ref healthState, 2);
+                Interlocked.Increment(ref healthFailures);
                 throw new InvalidOperationException(
                     "Configured OGL S3 bucket does not exist. Buckets are never created automatically.");
             }
+            catch
+            {
+                Volatile.Write(ref healthState, 2);
+                Interlocked.Increment(ref healthFailures);
+                throw;
+            }
             // Authentication failures, 5xx and network errors intentionally
             // propagate rather than silently selecting another backend.
+        }
+
+        /// <summary>
+        /// Starts only when the configured S3 provider is active AND an
+        /// operator explicitly enables health monitoring. One bounded HEAD
+        /// probe per minute, no concurrent probes and no secrets in logs.
+        /// </summary>
+        public void StartHealthMonitoring()
+        {
+            if (!options.HealthCheckEnabled || healthTimer != null)
+                return;
+            healthTimer = new Timer(_ =>
+            {
+                if (Interlocked.CompareExchange(ref healthInProgress, 1, 0) != 0)
+                    return;
+                try { CheckBucket(); }
+                catch (Exception error)
+                {
+                    // Never log endpoint, bucket, access keys or exception
+                    // messages, which may include provider response details.
+                    System.Diagnostics.Trace.TraceWarning(
+                        "[OGL-S3]: Health HEAD failed ({0}).", error.GetType().Name);
+                }
+                finally { Volatile.Write(ref healthInProgress, 0); }
+            }, null, TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(1));
         }
 
         /// <summary>HEAD only: no asset body download.</summary>
@@ -198,6 +253,7 @@ namespace OpenGenesisLINK.Addons.AssetService
 
         public void Dispose()
         {
+            healthTimer?.Dispose();
             if (ownsClient)
                 client.Dispose();
         }
