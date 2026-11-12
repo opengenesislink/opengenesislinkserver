@@ -84,7 +84,18 @@ namespace OpenSim.Server.Handlers.Inventory
                 m_ConfigName, "HGInventoryService", StringComparison.OrdinalIgnoreCase);
             bool allowLegacyPublicHypergridInventory = publicHypergridInventory &&
                 serverConfig.GetBoolean("AllowLegacyPublicHGInventory", false);
-            if (publicHypergridInventory)
+            HGSP2InventoryGuard hgsp2 = null;
+            if (publicHypergridInventory &&
+                config.Configs["OGLHypergridSecurity"]?.GetBoolean("Enabled", false) == true)
+            {
+                // Even an earlier explicit Legacy opt-in may never bypass
+                // HGSP2 authorization after this security gate is enabled.
+                hgsp2 = new HGSP2InventoryGuard(config);
+                m_log.Info("[HGSP2] Secure protocol enabled; /xinventory requires signed travel and peer proof.");
+                if (allowLegacyPublicHypergridInventory)
+                    m_log.Warn("[HGSP2] Legacy public inventory flag is overridden by authenticated HGSP2 guard.");
+            }
+            if (publicHypergridInventory && hgsp2 == null)
             {
                 if (allowLegacyPublicHypergridInventory)
                     m_log.Warn("[OGL SECURITY][LEGACY HG]: Öffentliches /xinventory ausdrücklich " +
@@ -99,7 +110,8 @@ namespace OpenSim.Server.Handlers.Inventory
 
             server.AddStreamHandler(new XInventoryConnectorPostHandler(
                 m_InventoryService, auth,
-                publicHypergridInventory && !allowLegacyPublicHypergridInventory));
+                publicHypergridInventory && !allowLegacyPublicHypergridInventory && hgsp2 == null,
+                hgsp2));
         }
     }
 
@@ -109,13 +121,16 @@ namespace OpenSim.Server.Handlers.Inventory
 
         private IInventoryService m_InventoryService;
         private readonly bool m_DenyPublicHypergridInventory;
+        private readonly HGSP2InventoryGuard m_Hgsp2;
 
         public XInventoryConnectorPostHandler(
-            IInventoryService service, IServiceAuth auth, bool denyPublicHypergridInventory = false) :
+            IInventoryService service, IServiceAuth auth, bool denyPublicHypergridInventory = false,
+            HGSP2InventoryGuard hgsp2 = null) :
                 base("POST", "/xinventory", auth)
         {
             m_InventoryService = service;
             m_DenyPublicHypergridInventory = denyPublicHypergridInventory;
+            m_Hgsp2 = hgsp2;
         }
 
         protected override byte[] ProcessRequest(string path, Stream requestData,
@@ -150,6 +165,19 @@ namespace OpenSim.Server.Handlers.Inventory
 
                 string method = request["METHOD"].ToString();
                 request.Remove("METHOD");
+
+                if (m_Hgsp2 != null &&
+                    !m_Hgsp2.Authorize(httpRequest.Headers[HGSP2Authorization.GrantHeader],
+                        httpRequest.Headers[HGSP2Authorization.ProofHeader],
+                        Util.UTF8NoBomEncoding.GetBytes(body), method, request))
+                {
+                    // Any missing/invalid HGSP2 evidence is a denial, NOT
+                    // a fallback to the old unauthenticated inventory route.
+                    m_log.Warn("[HGSP2] Invalid authorization rejected on public inventory.");
+                    httpResponse.StatusCode = (int)System.Net.HttpStatusCode.Forbidden;
+                    httpResponse.ContentType = "text/plain";
+                    return Util.UTF8NoBomEncoding.GetBytes("HGSP2-403");
+                }
 
                 switch (method)
                 {
