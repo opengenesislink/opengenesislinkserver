@@ -77,7 +77,37 @@ jobs:
       - name: Exercise immutable S3 objects, corruption and missing backend
         run: |
           set -euo pipefail
-          dotnet run --project addons/OGLAssetService.S3.Tests/OGLAssetService.S3.Tests.csproj -c Release --no-build -- --s3-integration
-      - name: Stop isolated local test server
+          dotnet run --project addons/OGLAssetService.S3.Tests/OGLAssetService.S3.Tests.csproj -c Release --no-build -- --s3-integration --keep-test-bucket
+      - name: Start disposable MariaDB metadata database
+        shell: bash
+        run: |
+          set -euo pipefail
+          password="$(openssl rand -hex 24)"
+          echo "::add-mask::$password"
+          echo "OGL_S3_CI_DB_PASSWORD=$password" >> "$GITHUB_ENV"
+          docker run -d --rm --name ogl-s3-ci-db \
+            -p 127.0.0.1:19497:3306 \
+            -e MARIADB_ROOT_PASSWORD="$password" \
+            -e MARIADB_DATABASE=ogl_s3_ci \
+            mariadb:11.4
+          ready=0
+          for i in $(seq 1 75); do
+            if docker exec -e MYSQL_PWD="$password" ogl-s3-ci-db \
+                mariadb -u root -e 'SELECT 1' >/dev/null 2>&1; then
+              ready=1; break
+            fi
+            sleep 2
+          done
+          test "$ready" -eq 1
+      - name: Real ROBUST HTTP + MariaDB metadata + S3 payload restart-readback
+        run: |
+          set -euo pipefail
+          dotnet restore OpenSim.sln
+          dotnet build OpenSim.sln -c Release --no-restore --nologo -v minimal
+          dotnet build addons/OGLAssetService/OGLAssetService.csproj -c Release --no-restore --nologo -v minimal
+          bash tools/ci/smoke_ogl_s3_runtime.sh
+      - name: Stop disposable S3 and MariaDB test servers
         if: always()
-        run: docker rm -f ogl-s3-ci >/dev/null 2>&1 || true
+        run: |
+          docker rm -f ogl-s3-ci-db >/dev/null 2>&1 || true
+          docker rm -f ogl-s3-ci >/dev/null 2>&1 || true
