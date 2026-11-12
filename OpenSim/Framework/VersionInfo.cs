@@ -39,7 +39,7 @@ namespace OpenSim
         // The released 0.9.3.13 Stable sources remain at immutable tag v0.9.3.13.
         public const string PublicGenerationName = "Generation 1";
         public const string PublicVersionName = ProductName + " " + PublicGenerationName;
-        public const Flavour VERSION_FLAVOUR = Flavour.Dev;
+        public const Flavour VERSION_FLAVOUR = Flavour.Release;
 
         public enum Flavour
         {
