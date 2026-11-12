@@ -1,0 +1,80 @@
+name: HGSP2 security and no-downgrade regression
+
+on:
+  pull_request:
+    paths:
+      - 'OpenSim/Framework/HGSP2Authorization.cs'
+      - 'OpenSim/Server/Handlers/Inventory/**'
+      - 'OpenSim/Data/IPresenceData.cs'
+      - 'OpenSim/Data/MySQL/MySQLPresenceData.cs'
+      - 'OpenSim/Services/PresenceService/PresenceService.cs'
+      - 'tools/ci/HGSP2PresenceRegression/**'
+      - 'OpenSim/Services/HypergridService/UserAgentService.cs'
+      - 'OpenSim/Server/Handlers/Simulation/AgentHandlers.cs'
+      - 'tools/ci/HGSP2SecurityRegression/**'
+      - 'prebuild.xml'
+      - 'bin/Robust.HG.ini*'
+      - '.github/workflows/hgsp2-security.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  hgsp2-cryptographic-and-server-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: Verify isolated ES256 signed authorization and rejection paths
+        run: dotnet run --project tools/ci/HGSP2SecurityRegression/HGSP2SecurityRegression.csproj -c Release
+      - name: Generate existing OpenGenesisLINK server projects
+        run: bash runprebuild.sh
+      - name: Compile full .NET 10 server including Hypergrid public handlers
+        run: |
+          dotnet restore OpenSim.sln
+          dotnet build OpenSim.sln --no-restore -c Release -v minimal
+      - name: Ensure unchanged HTTP inventory connector remains separate
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          source = Path("OpenSim/Server/Handlers/Inventory/XInventoryInConnector.cs").read_text()
+          assert 'm_ConfigName, "HGInventoryService"' in source
+          assert 'new HGSP2InventoryGuard(config)' in source
+          assert 'm_Hgsp2.Authorize(' in source
+          assert 'HGSP2-403' in source
+          assert 'XInventoryConnectorPostHandler' in source
+          assert 'AllowLegacyPublicHGInventory' in source
+          print('HG public-only policy integration and no implicit fallback: PASS')
+          PY
+      - name: Start disposable MariaDB for foreign Presence orphan regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          password="$(openssl rand -hex 24)"
+          echo "::add-mask::$password"
+          echo "OGL_HGSP2_CI_MYSQL=Data Source=127.0.0.1;Port=19498;Database=hgsp2_presence_ci;User ID=root;Password=$password;Old Guids=true;SslMode=None;" >> "$GITHUB_ENV"
+          docker run -d --rm --name hgsp2-presence-db \
+            -p 127.0.0.1:19498:3306 \
+            -e MARIADB_ROOT_PASSWORD="$password" \
+            -e MARIADB_DATABASE=hgsp2_presence_ci \
+            mariadb:11.4
+          ready=0
+          for attempt in $(seq 1 75); do
+            if docker exec -e MYSQL_PWD="$password" hgsp2-presence-db \
+                mariadb -u root -e 'SELECT 1' >/dev/null 2>&1; then
+              ready=1
+              break
+            fi
+            sleep 2
+          done
+          test "$ready" -eq 1
+      - name: Confirm foreign orphan cleanup and preserve active/local presences
+        run: dotnet run --project tools/ci/HGSP2PresenceRegression/HGSP2PresenceRegression.csproj -c Release
+      - name: Remove disposable MariaDB test container
+        if: always()
+        run: docker rm -f hgsp2-presence-db >/dev/null 2>&1 || true

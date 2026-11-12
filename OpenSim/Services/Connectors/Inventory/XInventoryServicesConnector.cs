@@ -42,6 +42,7 @@ using OpenSim.Server.Base;
 using OpenMetaverse;
 using System.Text;
 using System.Threading;
+using System.Security.Cryptography;
 
 namespace OpenSim.Services.Connectors
 {
@@ -64,6 +65,12 @@ namespace OpenSim.Services.Connectors
         /// </remarks>
         private int m_requestTimeout = -1;
         private readonly string m_configName = "InventoryService";
+        private readonly object m_Hgsp2Lock = new object();
+        private string m_Hgsp2Grant;
+        private HGSP2Authorization.Grant m_Hgsp2Claims;
+        private ECDsa m_Hgsp2Signer;
+        private string m_Hgsp2LocalGrid;
+        private UUID m_Hgsp2Owner;
 
         private const double CACHE_EXPIRATION_SECONDS = 30.0;
         private static readonly ExpiringCacheOS<UUID, InventoryItemBase> m_ItemCache = new(15000);
@@ -128,6 +135,103 @@ namespace OpenSim.Services.Connectors
                 MeasuresOfInterest.AverageChangeOverTime,
                 s => s.Value = RequestsMade,
                 StatVerbosity.Debug));
+        }
+
+        /// <summary>
+        /// Configure only a per-avatar foreign-grid inventory connector.
+        /// The home ticket is verified using a pinned public key BEFORE it
+        /// may authorize any outbound request. There is never an automatic
+        /// fallback to unsigned inventory if proof generation fails.
+        /// </summary>
+        public void ConfigureHGSP2(string travelGrant, string trustedHomeSpki,
+            string localGridURI, UUID owner)
+        {
+            if (String.IsNullOrWhiteSpace(travelGrant) ||
+                String.IsNullOrWhiteSpace(trustedHomeSpki) ||
+                String.IsNullOrWhiteSpace(localGridURI) || owner == UUID.Zero)
+                throw new InvalidOperationException("[HGSP2] Incomplete inventory peer/travel context.");
+
+            using ECDsa homeKey = ECDsa.Create();
+            homeKey.ImportSubjectPublicKeyInfo(Convert.FromBase64String(trustedHomeSpki), out _);
+            if (!HGSP2Authorization.TryReadSigned(travelGrant, homeKey,
+                    out HGSP2Authorization.Grant signedGrant))
+                throw new InvalidOperationException("[HGSP2] Invalid home-grid signed travel ticket.");
+
+            string destination = localGridURI.TrimEnd('/');
+            string home = new Uri(m_InventoryURL).GetLeftPart(UriPartial.Authority).TrimEnd('/');
+            if (!String.Equals(signedGrant.Version, "2.0", StringComparison.Ordinal) ||
+                !String.Equals(signedGrant.Service, "xinventory", StringComparison.Ordinal) ||
+                !String.Equals(signedGrant.Audience, destination, StringComparison.Ordinal) ||
+                !String.Equals(signedGrant.Issuer, home, StringComparison.OrdinalIgnoreCase) ||
+                !String.Equals(signedGrant.Avatar, owner.ToString(), StringComparison.OrdinalIgnoreCase))
+                throw new InvalidOperationException("[HGSP2] Ticket identity or inventory origin mismatch.");
+
+            string privatePem = Environment.GetEnvironmentVariable("OGL_HGSP2_PRIVATE_KEY_PEM");
+            if (String.IsNullOrWhiteSpace(privatePem))
+                throw new InvalidOperationException("[HGSP2] Visiting-grid signing key missing; no legacy downgrade.");
+            ECDsa signer = ECDsa.Create();
+            try
+            {
+                signer.ImportFromPem(privatePem.Replace("\\n", "\n"));
+                if (signedGrant.PeerKeyId != HGSP2Authorization.KeyId(HGSP2Authorization.PublicKey(signer)))
+                    throw new InvalidOperationException("[HGSP2] Visiting-grid signer does not match pinned ticket key.");
+                lock (m_Hgsp2Lock)
+                {
+                    m_Hgsp2Signer?.Dispose();
+                    m_Hgsp2Signer = signer;
+                    m_Hgsp2Grant = travelGrant;
+                    m_Hgsp2Claims = signedGrant;
+                    m_Hgsp2LocalGrid = destination;
+                    m_Hgsp2Owner = owner;
+                }
+            }
+            catch
+            {
+                signer.Dispose();
+                throw;
+            }
+        }
+
+        private void AddHGSP2Proof(HttpRequestMessage request, string formBody)
+        {
+            lock (m_Hgsp2Lock)
+            {
+                if (m_Hgsp2Signer == null)
+                    return; // Normal legacy connector, never a configured secure one.
+                Dictionary<string, object> form = ServerUtils.ParseQueryString(formBody);
+                if (!form.TryGetValue("METHOD", out object methodValue))
+                    throw new InvalidOperationException("[HGSP2] Missing inventory method.");
+                string method = methodValue.ToString();
+                string scope = HGSP2Authorization.RequiredScope(method);
+                if (scope == null)
+                    throw new InvalidOperationException("[HGSP2] Inventory method not authorized.");
+
+                foreach (string ownerField in new[] { "PRINCIPAL", "Owner", "OWNER" })
+                    if (form.TryGetValue(ownerField, out object value) &&
+                        !String.Equals(value.ToString(), m_Hgsp2Owner.ToString(),
+                            StringComparison.OrdinalIgnoreCase))
+                        throw new InvalidOperationException("[HGSP2] Inventory request owner mismatch.");
+
+                DateTimeOffset issued = DateTimeOffset.UtcNow;
+                var proof = new HGSP2Authorization.Proof
+                {
+                    Issuer = m_Hgsp2LocalGrid,
+                    Audience = m_Hgsp2Claims.Issuer,
+                    Avatar = m_Hgsp2Claims.Avatar,
+                    Session = m_Hgsp2Claims.Session,
+                    Trip = m_Hgsp2Claims.Trip,
+                    Service = "xinventory",
+                    Scope = scope,
+                    BodySHA256 = HGSP2Authorization.Digest(Util.UTF8NoBomEncoding.GetBytes(formBody)),
+                    GrantSHA256 = HGSP2Authorization.Digest(Encoding.UTF8.GetBytes(m_Hgsp2Grant)),
+                    Nonce = Guid.NewGuid().ToString("D"),
+                    Issued = issued.ToUnixTimeSeconds(),
+                    Expires = issued.AddMinutes(1).ToUnixTimeSeconds()
+                };
+                request.Headers.Add(HGSP2Authorization.GrantHeader, m_Hgsp2Grant);
+                request.Headers.Add(HGSP2Authorization.ProofHeader,
+                    HGSP2Authorization.Sign(proof, m_Hgsp2Signer));
+            }
         }
 
         private static bool CheckReturn(Dictionary<string, object> ret)
@@ -811,6 +915,16 @@ namespace OpenSim.Services.Connectors
                 request = new(HttpMethod.Post, m_InventoryURL);
 
                 m_Auth?.AddAuthorization(request.Headers);
+
+                // Signed requests are per-owner: the public handler requires a
+                // consistent PRINCIPAL even for legacy methods that omit it.
+                if (m_Hgsp2Signer != null)
+                {
+                    Dictionary<string, object> fields = ServerUtils.ParseQueryString(obj);
+                    if (!fields.ContainsKey("PRINCIPAL"))
+                        obj += "&PRINCIPAL=" + Uri.EscapeDataString(m_Hgsp2Owner.ToString());
+                    AddHGSP2Proof(request, obj);
+                }
 
                 //if (keepalive)
                 {
