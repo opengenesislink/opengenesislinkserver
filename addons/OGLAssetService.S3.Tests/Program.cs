@@ -155,7 +155,12 @@ try
 }
 finally
 {
-    foreach (string key in objects)
-        await owner.DeleteObjectAsync(new DeleteObjectRequest { BucketName = bucket, Key = key });
-    await owner.DeleteBucketAsync(new DeleteBucketRequest { BucketName = bucket });
+    if (!args.Contains("--keep-test-bucket", StringComparer.OrdinalIgnoreCase))
+    {
+        foreach (string key in objects)
+            await owner.DeleteObjectAsync(new DeleteObjectRequest { BucketName = bucket, Key = key });
+        await owner.DeleteBucketAsync(new DeleteBucketRequest { BucketName = bucket });
+    }
+    else
+        Console.WriteLine("Test-only bucket remains in ephemeral CI container until container teardown.");
 }
