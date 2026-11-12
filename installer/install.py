@@ -322,7 +322,19 @@ def db_setup(cfg):
         "GRANT ALL PRIVILEGES ON `opengenesislink`.* TO 'ogl'@'127.0.0.1';\n"
         "FLUSH PRIVILEGES;\n"
     )
-    # On Debian/Ubuntu, root commonly authenticates via the local Unix socket.
+    # Never reuse or modify an existing grid database/account by accident.
+    guard = ("SELECT COUNT(*) FROM information_schema.SCHEMATA "
+             "WHERE SCHEMA_NAME='opengenesislink';")
+    result = subprocess.run(["mariadb", "-N", "-B", "-u", "root", "-e", guard],
+                            check=True, capture_output=True, text=True)
+    if result.stdout.strip() != "0":
+        abort("Lokale DB opengenesislink existiert bereits. "
+              "Bitte vorhandene Daten manuell sichern/konfigurieren.")
+    guard_user = "SELECT COUNT(*) FROM mysql.user WHERE User='ogl';"
+    result = subprocess.run(["mariadb", "-N", "-B", "-u", "root", "-e", guard_user],
+                            check=True, capture_output=True, text=True)
+    if result.stdout.strip() != "0":
+        abort("MariaDB-Benutzer ogl existiert bereits. Abbruch ohne Passwortaenderung.")
     command("mariadb", "-u", "root", input=sql)
 
 
@@ -381,6 +393,7 @@ def configure_robust(folder, cfg):
     ]
     for sec, key, value in updates:
         put_ini(ini, sec, key, value)
+    put_ini(ini, "Environment", "NEXVERSE_DB_PASSWORD", '""')
 
 
 def configure_simulator(folder, cfg):
@@ -388,6 +401,18 @@ def configure_simulator(folder, cfg):
     shutil.copyfile(folder / "OpenSim.ini.example", ini)
     common = folder / "config-include" / "GridCommon.ini"
     shutil.copyfile(folder / "config-include" / "GridCommon.ini.example", common)
+    # Declare placeholder keys so OpenSim/Nini can expand the process environment
+    # without persisting any secrets in INI files.
+    for name in (
+        "NEXVERSE_DB_PASSWORD", "NEXVERSE_NODE_ID", "NEXVERSE_ECONOMY_API_KEY",
+        "NEXVERSE_GROUP_LAND_API_KEY", "NEXVERSE_EXPERIENCES_API_KEY",
+        "NEXVERSE_EXPERIENCES_VIEWER_PERMISSIONS_API_KEY",
+        "NEXVERSE_EXPERIENCES_VIEWER_MANAGE_API_KEY",
+        "NEXVERSE_NEXBUS_SHARED_KEY", "NEXVERSE_NEXBUS_PEER_URL",
+        "NEXVERSE_OFFLINE_IM_SMTP_PASSWORD", "NEXVERSE_IM_RELAY_SIGNING_KEY",
+        "NEXVERSE_IM_RELAY_IMAP_PASSWORD", "NEX_PORTAL_IM_SECRET",
+    ):
+        put_ini(common, "Environment", name, '""')
     remove_ini(common, "DatabaseService", "Include-Storage")
     p = urllib.parse.urlsplit(cfg["private_url"])
     for sec, key, value in (
