@@ -29,6 +29,41 @@ DB_Backup_Restore_Rollback: PENDING
 - Pruefung aller Netzwerk-/TLS-/World-API-/NV$-Berechtigungen; Sicherheitsgrenzen und optionale Dienste.
 - Native .NET-10-Laufzeiten fuer Linux x64, Linux ARM64 und Windows x64 aus CI; Paketinhalt und SHA256 verifizieren.
 
+
+## Betreiberbestaetigung zum Livebetrieb (12.11.2026)
+
+Der Betreiber bestaetigt fuer die bereits laufende OpenGenesisLINK-Generation-1-Installation:
+
+- **Viewer und Inworld:** Anmeldung, Mesh/PBR, Animesh und Hypergrid funktionieren im Livebetrieb nach Betreiberangabe tadellos.
+- **Persistenz:** MariaDB und FSAssets sowie Backup/Restore/Rollback wurden vom Betreiber als funktionierend bestaetigt.
+- **Freigabeabsicht:** Der Betreiber hat die offiziellen Release-Schutz- und Freigabeschritte grundsaetzlich bestaetigt.
+
+**Nachweisart:** Betreibererklaerung am 12.11.2026, zusaetzlich zur dokumentierten
+technischen Teilabnahme auf `PC-Bomlitz` und den GitHub-CI-Pruefungen.
+Dies stellt keine vom Abnahmeagenten selbst ausgefuehrte Datenwiederherstellung
+und keinen durch den Agenten selbst getesteten grafischen Viewer-Login dar.
+
+**Tatsaechlich verifizierter technischer Teststand vor Umschaltung:**
+`c28ad822ade426087851714bcc8a4a7922d645ae`, .NET10,
+Linux Mint 22.3/de_DE.UTF-8: Release-Build, isoliertes ROBUST,
+lokale OpenSim-Simulator-Login-/CAPS-/LSL-Tests, HomeAgent/Gatekeeper,
+Mesh-LLSD und PBR; GitHub-CI Linux x64, ARM64, Windows x64 und MariaDB.
+Details: [Issue #442](https://github.com/opengenesislink/opengenesislinkserver/issues/442).
+
+**Noch zu belegen:**
+- GitHub meldete am 12.11.2026 fuer `main` `protected: false`
+  und `GET /rulesets` lieferte keine aktiven Rulesets. Die
+  Environment- und Actions-Variablen konnten ueber den verbundenen
+  GitHub-App-Zugriff nicht verifiziert werden.
+- Die genaue Betreiberabnahme fuer Feed-Loeschung/Retention, externen
+  HG-Rueckweg und die Datensicherungs-/Restore-/Rollback-Umgebung muss
+  im abschliessenden Protokoll spezifiziert werden.
+- Nach Freigabe der Release-Flavour-Aenderung den neuen finalen
+  **Code-Commit-SHA** festhalten und dessen gruene CI-Gates pruefen.
+- Erst dann in einem **separaten reinen Abnahmeprotokoll-Commit**
+  `Status: APPROVED` und die technischen `PASS`-Kennzeichnungen
+  freigeben; der `v0.9.4.0`-Tag bleibt bis dahin gesperrt.
+
 ## Protokoll
 
 Testumgebung: PENDING
