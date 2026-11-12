@@ -68,12 +68,14 @@ namespace OpenSim.Server.Handlers.Simulation
             {
                 httpResponse.StatusCode = (int)HttpStatusCode.MethodNotAllowed;
                 httpResponse.RawBuffer = Utils.falseStrBytes;
+                return;
             }
 
             if (httpRequest.ContentType != "application/json" && httpRequest.ContentType != "application/x-gzip")
             {
                 httpResponse.StatusCode = (int)HttpStatusCode.NotAcceptable;
                 httpResponse.RawBuffer = Utils.falseStrBytes;
+                return;
             }
 
             UUID agentID;
@@ -86,6 +88,7 @@ namespace OpenSim.Server.Handlers.Simulation
 
                 httpResponse.StatusCode = (int)HttpStatusCode.NotFound;
                 httpResponse.RawBuffer = Utils.falseStrBytes;
+                return;
             }
 
             OSDMap args = Utils.DeserializeJSONOSMap(httpRequest);
@@ -93,11 +96,13 @@ namespace OpenSim.Server.Handlers.Simulation
             {
                 httpResponse.StatusCode = (int)HttpStatusCode.BadRequest;
                 httpResponse.RawBuffer = Utils.falseStrBytes;
+                return;
             }
 
             DoAgentPost(args, httpRequest.RemoteIPEndPoint.Address.ToString(), httpResponse, agentID);
 
-            httpResponse.StatusCode = 200;
+            // DoAgentPost owns the status code; never overwrite an error
+            // response with HTTP 200 on malformed/unauthorized input.
         }
 
         protected void DoAgentPost(OSDMap args, string remoteAddress, IOSHttpResponse response, UUID id)
@@ -127,6 +132,18 @@ namespace OpenSim.Server.Handlers.Simulation
             {
                 m_log.InfoFormat("[AGENT HANDLER]: exception on unpacking ChildCreate message {0}", ex.Message);
                 response.StatusCode = (int)HttpStatusCode.BadRequest;
+                response.RawBuffer = Utils.falseStrBytes;
+                return;
+            }
+
+            // URI avatar identity must equal the signed/parsed circuit
+            // avatar; a supplied circuit cannot act on another URI avatar.
+            if (aCircuit.AgentID == UUID.Zero || id != aCircuit.AgentID ||
+                aCircuit.SessionID == UUID.Zero)
+            {
+                m_log.Warn("[HGSP2] Invalid HomeAgent/Gatekeeper agent identity rejected.");
+                response.StatusCode = (int)HttpStatusCode.Forbidden;
+                response.RawBuffer = Utils.falseStrBytes;
                 return;
             }
 
