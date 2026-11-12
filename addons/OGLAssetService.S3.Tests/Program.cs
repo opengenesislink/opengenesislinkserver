@@ -151,7 +151,35 @@ try
     try { unavailable.Exists(new string('a', 64)); }
     catch (Exception) { connectionFailed = true; }
     Check(connectionFailed, "S3 connectivity failure incorrectly returned a cache miss");
-    Console.WriteLine("Isolated MinIO-compatible S3 Put/Get/Head/corruption/disconnect: PASS");
+    bool uploadFailed = false;
+    try { unavailable.Put(new byte[] { 14, 37, 88 }); }
+    catch (Exception) { uploadFailed = true; }
+    Check(uploadFailed, "Unreachable S3 endpoint incorrectly acknowledged an upload");
+
+    // Wrong credentials must never be interpreted as a missing object,
+    // and must never trigger a fallback to FSAssets.
+    string validAccess = Environment.GetEnvironmentVariable("OGL_S3_ACCESS_KEY")!;
+    string validSecret = Environment.GetEnvironmentVariable("OGL_S3_SECRET_KEY")!;
+    try
+    {
+        Environment.SetEnvironmentVariable("OGL_S3_ACCESS_KEY", "invalid-ogl-s3-ci-key");
+        Environment.SetEnvironmentVariable("OGL_S3_SECRET_KEY", "invalid-ogl-s3-ci-secret");
+        using var forbidden = new OGLS3ObjectStore(OGLS3StorageOptions.Read(config));
+        bool credentialsRejected = false;
+        try { forbidden.Exists(new string('a', 64)); }
+        catch (AmazonS3Exception error) when (error.StatusCode == HttpStatusCode.Forbidden ||
+                                             error.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            credentialsRejected = true;
+        }
+        Check(credentialsRejected, "S3 unauthorized credentials were incorrectly treated as a 404");
+    }
+    finally
+    {
+        Environment.SetEnvironmentVariable("OGL_S3_ACCESS_KEY", validAccess);
+        Environment.SetEnvironmentVariable("OGL_S3_SECRET_KEY", validSecret);
+    }
+    Console.WriteLine("Isolated MinIO S3 Put/Get/Head/UUID payloads/corruption/disconnect/auth: PASS");
 }
 finally
 {
