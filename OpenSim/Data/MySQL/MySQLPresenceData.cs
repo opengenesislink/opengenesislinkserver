@@ -212,6 +212,34 @@ namespace OpenSim.Data.MySQL
             }
         }
 
+        public int CountUnverifiedOnlineGuests(int minimumAgeHours)
+        {
+            if (minimumAgeHours < 24 || minimumAgeHours > 8760)
+                throw new ArgumentOutOfRangeException(nameof(minimumAgeHours));
+            foreach (char c in m_Realm)
+                if (!Char.IsLetterOrDigit(c) && c != '_')
+                    throw new InvalidOperationException("Invalid Presence table identifier.");
+
+            // This is an AUDIT, not authorization to delete. Classic
+            // LastSeen can remain unchanged during a long legitimate visit.
+            using var db = new MySqlConnection(m_connectionString);
+            db.Open();
+            using var cmd = new MySqlCommand($@"
+                SELECT COUNT(*) FROM `{m_Realm}` AS p
+                WHERE p.`LastSeen` < DATE_SUB(NOW(), INTERVAL ?Age HOUR)
+                  AND p.`RegionID` <> ?Empty
+                  AND EXISTS (
+                    SELECT 1 FROM `GridUser` AS g
+                    WHERE g.`UserID` LIKE CONCAT(p.`UserID`, ';%')
+                      AND LOWER(TRIM(g.`Online`)) = 'true')
+                  AND NOT EXISTS (
+                    SELECT 1 FROM `UserAccounts` AS a
+                    WHERE a.`PrincipalID` = p.`UserID`)", db);
+            cmd.Parameters.AddWithValue("?Age", minimumAgeHours);
+            cmd.Parameters.AddWithValue("?Empty", UUID.Zero.ToString());
+            return Convert.ToInt32(cmd.ExecuteScalar());
+        }
+
         public bool VerifyAgent(UUID agentId, UUID secureSessionID)
         {
             PresenceData[] ret = Get("SecureSessionID",
