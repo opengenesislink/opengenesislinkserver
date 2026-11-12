@@ -1,6 +1,6 @@
 # OGL AssetService — first runnable compatibility module
 
-This separately compiled .NET 8 DLL inherits the existing FSAssetConnector. It implements experimental RAM and SSD read-through caching for interface-dispatched GetData; it **does not** implement a distributed object store, World API metrics or JPEG2000 validation. All existing asset behavior remains delegated to FSAssetConnector.
+This separately compiled .NET 10 DLL inherits the existing FSAssetConnector. It retains the FSAssets default (with optional cache/parallel experiments) and adds a **separately opted-in** S3-compatible payload provider using the same IAssetService and FSAssets SQL metadata contracts. No S3 activation, migration or new mandatory service is performed by building or loading the default connector.
 
 Build from repository root:
 
@@ -25,6 +25,21 @@ Copy `OpenGenesisLINK.Addons.OGLAssetService.dll` into the same `bin/` directory
 Do not use this on production yet. This is an integration smoke-test entry point, not a performance upgrade. A production switchover requires startup-order checks, service registration tests, and end-to-end asset read/write validation.
 
 **Important:** Because the legacy base constructor initializes first, this module must only be enabled in staging with existing working FSAssetConnector configuration. Feature gating will be moved ahead of initialization before production release.
+
+## Optionale S3-Payload-Anbindung (Standard AUS)
+
+Die S3-Unterstuetzung liegt in `OGLS3StorageOptions` und
+`OGLS3ObjectStore` und wird erst mit BEIDEN ausdruecklichen Schaltern
+`[OGLAssetService] StorageBackend=s3` und
+`[OGLS3Storage] Enabled=true` in einem isolierten Staging verwendet.
+Ohne diese bleibt `FSAssets` authoritative; das Verhalten, die
+FSAssets-Logmeldungen und die bisherigen AssetService-Tests bleiben
+erhalten. Das Feature ist **keine automatische Umstellung des Livegrids**.
+
+Vollstaendige Konfiguration, Sicherheits- und Migrationsgrenzen:
+[S3-STORAGE-DE.md](S3-STORAGE-DE.md).
+Testworkflow: `.github/workflows/ogl-s3-storage.yml` mit lokaler
+ephemerer S3-Testumgebung; kein Kontakt zum produktiven NAS.
 
 ## Current cache increment
 
