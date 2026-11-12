@@ -65,6 +65,10 @@ namespace OpenGenesisLINK.Addons.AssetService
         public long DiskCacheEvictions => diskCache?.Evictions ?? 0;
         public bool ParallelStoreEnabled => parallelStore != null;
         public bool S3StorageEnabled => s3Store != null;
+        // Operator-local diagnostics; no S3 endpoint or credentials are exposed.
+        public string S3HealthStatus => s3Store?.HealthStatus ?? "disabled";
+        public long S3HealthChecks => s3Store?.HealthChecks ?? 0;
+        public long S3HealthFailures => s3Store?.HealthFailures ?? 0;
         public long ParallelMirrored => Interlocked.Read(ref parallelMirrored);
         public long ParallelReadHits => Interlocked.Read(ref parallelReadHits);
         public long ParallelReadMisses => Interlocked.Read(ref parallelReadMisses);
@@ -157,7 +161,13 @@ namespace OpenGenesisLINK.Addons.AssetService
                 if (parallelStore != null || atomicUpdatesEnabled)
                     throw new InvalidOperationException("S3 is incompatible with ParallelStoreEnabled or legacy ExperimentalAtomicUpdatesEnabled.");
                 s3Store = new OGLS3ObjectStore(s3);
-                try { s3Store.CheckBucket(); }
+                try
+                {
+                    s3Store.CheckBucket();
+                    // One-shot probe always; optional periodic health checks
+                    // start only with both S3 opt-ins and HealthCheckEnabled.
+                    s3Store.StartHealthMonitoring();
+                }
                 catch
                 {
                     s3Store.Dispose();
