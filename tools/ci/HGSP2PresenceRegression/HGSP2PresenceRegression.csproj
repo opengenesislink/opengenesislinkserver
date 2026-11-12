@@ -7,6 +7,9 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../../../OpenSim/Data/MySQL/OpenSim.Data.MySQL.csproj" />
+    <Reference Include="OpenMetaverseTypes">
+      <HintPath>../../../bin/OpenMetaverseTypes.dll</HintPath>
+    </Reference>
     <Reference Include="OpenMetaverse">
       <HintPath>../../../bin/OpenMetaverse.dll</HintPath>
     </Reference>
