@@ -7,7 +7,7 @@ store=(root/"NexVerse/Server/Api/OglProfileFeedStore.cs").read_text()
 connector=(root/"NexVerse/Server/Api/NexVerseWorldApiConnector.cs").read_text()
 contract=(root/"NexVerse/Server/Api/NexVerseWorldApiHandlers.cs").read_text()
 docs=(root/"doc/OpenGenesisLINK/OGL_PROFILE_FEED_V1.md").read_text()
-for key in ("EnableProfileFeed", '"\/api\/v1\/feed"', '"\/feed"',
+for key in ("EnableProfileFeed", '"/api/v1/feed"', '"/feed"',
             "new OglProfileFeedStore", "apiGate.Wrap(feedApi.HandleApi)",
             "apiGate.Wrap(feedApi.HandleWeb)", "profileStorageProvider"):
     key=key.replace("\\/","/")
@@ -29,7 +29,9 @@ for key in ('["/api/v1/feed/{principalId}"]',
     assert key in contract,key
 for name in ("Robust.HG.ini.example","Robust.ini.example"):
     cfg=(root/"bin"/name).read_text()
-    assert "EnableProfileFeed = true" in cfg
+    # Feature routes remain present, but Stable ships opt-in disabled
+    # while privacy/deletion issue #435 remains open.
+    assert "EnableProfileFeed = false" in cfg
     assert "; web_profile_url = https://world.stadt-nexverse.de/feed?name=[AGENT_NAME]" in cfg
 assert "Keine automatische" in docs and "Datenschutz" in docs
 print("OGL Profile Feed: opt-in, privacy, owner write, scoped interactions, viewer web route OK")
