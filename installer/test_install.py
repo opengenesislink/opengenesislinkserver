@@ -70,13 +70,16 @@ class InstallerTests(unittest.TestCase):
                 "public_port": 8002, "private_url": "http://127.0.0.1:8003",
                 "public_url": "http://mygrid.example.org:8002",
                 "region_host": "region.example.org", "region_name": "Welcome",
-                "region_port": 9000,
+                "region_port": 9000, "estate_name": "Test Estate",
+                "estate_owner": "Admin Resident",
             }
             ogl.configure_simulator(b, cfg)
             ini = (b / "OpenSim.ini").read_text()
             common = (b / "config-include/GridCommon.ini").read_text()
             self.assertIn('Include-Architecture = "config-include/GridHypergrid.ini"', ini)
             self.assertIn('http_listener_port = 9000', ini)
+            self.assertIn('DefaultEstateName = "Test Estate"', ini)
+            self.assertIn('DefaultEstateOwnerName = "Admin Resident"', ini)
             self.assertIn('Password=' + '$' + '{Environment|NEXVERSE_DB_PASSWORD}', common)
             self.assertIn('GatekeeperURI = "http://mygrid.example.org:8002"', common)
             self.assertNotIn('Include-Storage = "config-include/storage/SQLiteStandalone.ini"', common)
