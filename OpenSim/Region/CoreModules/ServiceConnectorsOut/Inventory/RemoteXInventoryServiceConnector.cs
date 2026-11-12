@@ -93,6 +93,18 @@ namespace OpenSim.Region.CoreModules.ServiceConnectorsOut.Inventory
             m_RemoteConnector = new XInventoryServicesConnector(url);
         }
 
+        /// <summary>
+        /// Secure per-avatar HGSP2 client. Does not alter the unmodified
+        /// local/legacy remote connector constructor or viewer interface.
+        /// </summary>
+        public RemoteXInventoryServicesConnector(string url, string travelGrant,
+            string trustedHomeKey, string localGridURI, UUID avatar)
+        {
+            m_RemoteConnector = new XInventoryServicesConnector(url);
+            m_RemoteConnector.ConfigureHGSP2(travelGrant, trustedHomeKey,
+                localGridURI, avatar);
+        }
+
         public RemoteXInventoryServicesConnector(IConfigSource source)
         {
             Init(source);
