@@ -156,7 +156,15 @@ eigenen ConnectionTimeout und CancellationTokens pro Request.
 Keine unbegrenzten Retry-Loops und keine stillschweigende Fehler-
 Umdeutung. Der Bucket wird bei bewusster S3-Auswahl mit HEAD geprueft.
 `HealthCheckEnabled=false` startet keinen periodischen Health-Worker;
-die One-Shot-Pruefung `CheckBucket()` ist explizit verfuegbar. Keine
+die One-Shot-Pruefung `CheckBucket()` wird bei explizit aktivierter S3-
+Auswahl beim Start ausgefuehrt. Nur falls
+`HealthCheckEnabled=true` bei aktivem S3 gesetzt ist, startet ein
+optionaler Health-Timer mit einem begrenzten HEAD-Bucket-Probe alle
+60 Sekunden. Gleichzeitige Probes werden vermieden. Der interne Status
+`S3HealthStatus`, die Zaehler `S3HealthChecks` und
+`S3HealthFailures` sind im OGL-Connector fuer vertrauenswuerdige
+lokale Diagnose verfuegbar; keine Bucket-Namen, Zugangsdaten oder
+Endpoints werden mit diesen Statuswerten offengelegt. Keine
 Bucket-Erstellung durch den Provider.
 
 HTTP ist nur fuer Loopback oder private/ULA-IP-Adressen erlaubt
@@ -188,6 +196,14 @@ fehlender Bucket, Integritaetsverletzung, Netzwerkfehler und
 Idempotenz werden ausschliesslich dort geprueft. Keine produktiven
 S3-Buckets, keine NAS-Verbindung, keine Aktivierung eines produktiven
 ROBUST.
+
+Die CI startet nach den direkten S3-Funktionstests eine **tatsaechliche
+isolierte ROBUST-Instanz** mit temporaerer MariaDB-Testdatenbank und
+MinIO-Testbucket: HTTP-Asset-Upload, Metadatenpruefung (UUID/Typ/Name/
+Beschreibung), unveraendertes Binary-GET fuer Textur/Mesh/Sound/
+Animation und Readback nach Neustart des ROBUST-Prozesses werden
+geprueft. Die temporaeren FSAssets-Verzeichnisse bleiben frei von
+Payload-Kopien. Die Testcontainer werden nach dem Job entfernt.
 
 Die vorhandenen OGL-/FSAssets-/Redis-/SQL-/Viewer-/Hypergrid-
 Regressionen bleiben Pflicht. Ein gruenes Ergebnis der CI ersetzt
