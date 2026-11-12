@@ -9,7 +9,7 @@
     <PackageReference Include="AWSSDK.S3" Version="4.0.104.12" />
     <Reference Include="Nini">
       <HintPath>../../bin/Nini.dll</HintPath>
-      <Private>false</Private>
+      <Private>true</Private>
     </Reference>
     <Compile Include="../OGLAssetService/OGLS3StorageOptions.cs" Link="OGLS3StorageOptions.cs" />
     <Compile Include="../OGLAssetService/OGLS3ObjectStore.cs" Link="OGLS3ObjectStore.cs" />
