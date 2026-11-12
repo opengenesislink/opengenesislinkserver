@@ -1,0 +1,49 @@
+name: HGSP2 security and no-downgrade regression
+
+on:
+  pull_request:
+    paths:
+      - 'OpenSim/Framework/HGSP2Authorization.cs'
+      - 'OpenSim/Server/Handlers/Inventory/**'
+      - 'OpenSim/Services/HypergridService/UserAgentService.cs'
+      - 'OpenSim/Server/Handlers/Simulation/AgentHandlers.cs'
+      - 'tools/ci/HGSP2SecurityRegression/**'
+      - 'prebuild.xml'
+      - 'bin/Robust.HG.ini*'
+      - '.github/workflows/hgsp2-security.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  hgsp2-cryptographic-and-server-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: Verify isolated ES256 signed authorization and rejection paths
+        run: dotnet run --project tools/ci/HGSP2SecurityRegression/HGSP2SecurityRegression.csproj -c Release
+      - name: Generate existing OpenGenesisLINK server projects
+        run: bash runprebuild.sh
+      - name: Compile full .NET 10 server including Hypergrid public handlers
+        run: |
+          dotnet restore OpenSim.sln
+          dotnet build OpenSim.sln --no-restore -c Release -v minimal
+      - name: Ensure unchanged HTTP inventory connector remains separate
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          source = Path("OpenSim/Server/Handlers/Inventory/XInventoryInConnector.cs").read_text()
+          assert 'configName, "HGInventoryService"' in source
+          assert 'new HGSP2InventoryGuard(config)' in source
+          assert 'm_Hgsp2.Authorize(' in source
+          assert 'HGSP2-403' in source
+          assert 'XInventoryConnectorPostHandler' in source
+          assert 'AllowLegacyPublicHGInventory' in source
+          print('HG public-only policy integration and no implicit fallback: PASS')
+          PY
