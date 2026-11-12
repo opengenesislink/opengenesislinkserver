@@ -165,6 +165,10 @@ namespace OpenGenesisLINK.Addons.AssetService
             }
             catch (AmazonS3Exception error) when (IsNotFound(error))
             {
+                // Object HEAD can return the same generic 404 for NoSuchKey
+                // and NoSuchBucket. Verify the bucket is still accessible
+                // before treating this as an asset miss.
+                CheckBucket();
                 return false;
             }
         }
@@ -195,6 +199,9 @@ namespace OpenGenesisLINK.Addons.AssetService
             }
             catch (AmazonS3Exception error) when (IsNotFound(error))
             {
+                // A removed bucket is not a missing individual asset; never
+                // turn it into a clean 404/cache miss.
+                CheckBucket();
                 return null;
             }
         }
