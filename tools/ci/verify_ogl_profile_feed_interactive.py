@@ -56,7 +56,7 @@ assert "EnsureProfileFeedPublicClient(" in connector
 for path in ("bin/Robust.HG.ini", "bin/Robust.HG.ini.example", "bin/Robust.ini.example"):
     config = read(path)
     assert "ProfileFeedOAuthClientId = \"\"" in config, path
-    assert "EnableProfileFeed = true" in config, path
+    assert "EnableProfileFeed = false" in config, path
 for needle in ('["/api/v1/feed/me"]', '["/api/v1/feed/timeline"]'):
     assert needle in contract
 
