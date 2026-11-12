@@ -499,9 +499,9 @@ def create_stop_helper():
     helper.write_text(
         '#!/bin/sh\nset -eu\n'
         'session="$1"\n'
-        '/usr/bin/screen -S "$session" -p 0 -X stuff "$(printf "quit\\r")" || exit 0\n'
+        '/usr/sbin/runuser -u opengenesislink -- /usr/bin/screen -S "$session" -p 0 -X stuff "$(printf "quit\\r")" || exit 0\n'
         'i=0\nwhile [ "$i" -lt 210 ]; do\n'
-        '  if ! /usr/bin/screen -ls | grep -Fq "$session"; then exit 0; fi\n'
+        '  if ! /usr/sbin/runuser -u opengenesislink -- /usr/bin/screen -ls | grep -Fq "$session"; then exit 0; fi\n'
         '  i=$((i+1)); sleep 1\n'
         'done\nexit 1\n', encoding="utf-8")
     os.chmod(helper, 0o755)
