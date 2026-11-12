@@ -58,12 +58,12 @@ jobs:
           password="$(openssl rand -hex 24)"
           echo "OGL_S3_CI_ACCESS_KEY=$user" >> "$GITHUB_ENV"
           echo "OGL_S3_CI_SECRET_KEY=$password" >> "$GITHUB_ENV"
+          # Upstream Quay images became unavailable in 2026.
+          # Use a version-locked, test-only MinIO mirror.
           docker run -d --rm --name ogl-s3-ci \
             -p 127.0.0.1:19119:9000 \
             -e MINIO_ROOT_USER="$user" \
             -e MINIO_ROOT_PASSWORD="$password" \
-            # The upstream Quay image became anonymously unavailable in 2026.
-            # This version-locked test-only mirror advertises identical upstream bytes.
             dappros/minio:RELEASE.2025-09-07T16-13-09Z server /data
           ready=0
           for attempt in $(seq 1 45); do
