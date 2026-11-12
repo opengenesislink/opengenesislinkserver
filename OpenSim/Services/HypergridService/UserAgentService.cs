@@ -55,6 +55,7 @@ namespace OpenSim.Services.HypergridService
     public class UserAgentService : UserAgentServiceBase, IUserAgentService
     {
         private static readonly ILog m_log = LogManager.GetLogger(MethodBase.GetCurrentMethod().DeclaringType);
+        private readonly IConfigSource m_Hgsp2Config;
 
         // This will need to go into a DB table
         //static Dictionary<UUID, TravelingAgentInfo> m_Database = new Dictionary<UUID, TravelingAgentInfo>();
@@ -90,6 +91,7 @@ namespace OpenSim.Services.HypergridService
         public UserAgentService(IConfigSource config, IFriendsSimConnector friendsConnector)
             : base(config)
         {
+            m_Hgsp2Config = config;
             // Let's set this always, because we don't know the sequence
             // of instantiations
             if (friendsConnector is not null)
@@ -347,7 +349,7 @@ namespace OpenSim.Services.HypergridService
             string destinationGrid, out string reason)
         {
             reason = String.Empty;
-            IConfig sec = m_Configuration.Configs["OGLHypergridSecurity"];
+            IConfig sec = m_Hgsp2Config.Configs["OGLHypergridSecurity"];
             if (sec == null || !sec.GetBoolean("Enabled", false))
                 return true;
 
