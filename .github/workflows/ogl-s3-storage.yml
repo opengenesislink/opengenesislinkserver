@@ -1,0 +1,113 @@
+name: OpenGenesisLINK S3 opt-in storage (isolated tests)
+
+on:
+  pull_request:
+    paths:
+      - 'addons/OGLAssetService/**'
+      - 'addons/OGLAssetService.S3.Tests/**'
+      - '.github/workflows/ogl-s3-storage.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  s3-optout-and-minio:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: Generate existing OpenGenesisLINK assemblies
+        run: |
+          set -euo pipefail
+          bash runprebuild.sh
+      - name: Verify existing AssetService and new S3 tests build
+        run: |
+          set -euo pipefail
+          dotnet restore addons/OGLAssetService/OGLAssetService.csproj
+          dotnet build addons/OGLAssetService/OGLAssetService.csproj -c Release --no-restore
+          dotnet restore addons/OGLAssetService.S3.Tests/OGLAssetService.S3.Tests.csproj
+          dotnet run --project addons/OGLAssetService.S3.Tests/OGLAssetService.S3.Tests.csproj -c Release
+          dotnet run --project addons/OGLAssetService.Tests/OGLAssetService.Tests.csproj -c Release
+      - name: Verify S3 remains disabled in all release defaults
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          connector = Path("addons/OGLAssetService/OGLAssetConnector.cs").read_text()
+          s3 = Path("addons/OGLAssetService/OGLS3StorageOptions.cs").read_text()
+          assert 'StorageBackend", "fsassets"' in connector
+          assert 's3Selected != s3.Enabled' in connector
+          assert 'if (section == null || !section.GetBoolean("Enabled", false))' in s3
+          for path in [
+              "addons/OGLAssetService/OGLS3Storage.ini.example",
+          ]:
+              assert "Enabled = false" in Path(path).read_text()
+          print("No default provider switch, credentials or S3 network client: PASS")
+          PY
+      - name: Start ephemeral local S3 test server only
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "OGL_S3_CI_ENDPOINT=http://127.0.0.1:19119" >> "$GITHUB_ENV"
+          echo "OGL_S3_CI_BUCKET=ogl-s3-ci-$GITHUB_RUN_ID" >> "$GITHUB_ENV"
+          user="oglci$GITHUB_RUN_ID"
+          password="$(openssl rand -hex 24)"
+          echo "OGL_S3_CI_ACCESS_KEY=$user" >> "$GITHUB_ENV"
+          echo "OGL_S3_CI_SECRET_KEY=$password" >> "$GITHUB_ENV"
+          # Upstream Quay images became unavailable in 2026.
+          # Use a version-locked, test-only MinIO mirror.
+          docker run -d --rm --name ogl-s3-ci \
+            -p 127.0.0.1:19119:9000 \
+            -e MINIO_ROOT_USER="$user" \
+            -e MINIO_ROOT_PASSWORD="$password" \
+            dappros/minio:RELEASE.2025-09-07T16-13-09Z server /data
+          ready=0
+          for attempt in $(seq 1 45); do
+            if curl -fsS --max-time 2 http://127.0.0.1:19119/minio/health/live >/dev/null; then
+              ready=1
+              break
+            fi
+            sleep 2
+          done
+          test "$ready" -eq 1
+      - name: Exercise immutable S3 objects, corruption and missing backend
+        run: |
+          set -euo pipefail
+          dotnet run --project addons/OGLAssetService.S3.Tests/OGLAssetService.S3.Tests.csproj -c Release --no-build -- --s3-integration --keep-test-bucket
+      - name: Start disposable MariaDB metadata database
+        shell: bash
+        run: |
+          set -euo pipefail
+          password="$(openssl rand -hex 24)"
+          echo "::add-mask::$password"
+          echo "OGL_S3_CI_DB_PASSWORD=$password" >> "$GITHUB_ENV"
+          docker run -d --rm --name ogl-s3-ci-db \
+            -p 127.0.0.1:19497:3306 \
+            -e MARIADB_ROOT_PASSWORD="$password" \
+            -e MARIADB_DATABASE=ogl_s3_ci \
+            mariadb:11.4
+          ready=0
+          for i in $(seq 1 75); do
+            if docker exec -e MYSQL_PWD="$password" ogl-s3-ci-db \
+                mariadb -u root -e 'SELECT 1' >/dev/null 2>&1; then
+              ready=1; break
+            fi
+            sleep 2
+          done
+          test "$ready" -eq 1
+      - name: Real ROBUST HTTP + MariaDB metadata + S3 payload restart-readback
+        run: |
+          set -euo pipefail
+          dotnet restore OpenSim.sln
+          dotnet build OpenSim.sln -c Release --no-restore --nologo -v minimal
+          dotnet build addons/OGLAssetService/OGLAssetService.csproj -c Release --no-restore --nologo -v minimal
+          bash tools/ci/smoke_ogl_s3_runtime.sh
+      - name: Stop disposable S3 and MariaDB test servers
+        if: always()
+        run: |
+          docker rm -f ogl-s3-ci-db >/dev/null 2>&1 || true
+          docker rm -f ogl-s3-ci >/dev/null 2>&1 || true

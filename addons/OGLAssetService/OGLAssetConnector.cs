@@ -1,5 +1,7 @@
 using System;
 using System.IO;
+using System.Security.Cryptography;
+using OpenSim.Data;
 using System.Threading;
 using OpenMetaverse;
 using Nini.Config;
@@ -28,6 +30,7 @@ namespace OpenGenesisLINK.Addons.AssetService
         private readonly bool localCacheEnabled;
         private readonly bool atomicUpdatesEnabled;
         private readonly OGLParallelAssetStore parallelStore;
+        private readonly OGLS3ObjectStore s3Store;
         private readonly bool parallelReadPreferred;
         private long parallelMirrored;
         private long parallelReadHits;
@@ -61,6 +64,11 @@ namespace OpenGenesisLINK.Addons.AssetService
         public long DiskCacheMisses => diskCache?.Misses ?? 0;
         public long DiskCacheEvictions => diskCache?.Evictions ?? 0;
         public bool ParallelStoreEnabled => parallelStore != null;
+        public bool S3StorageEnabled => s3Store != null;
+        // Operator-local diagnostics; no S3 endpoint or credentials are exposed.
+        public string S3HealthStatus => s3Store?.HealthStatus ?? "disabled";
+        public long S3HealthChecks => s3Store?.HealthChecks ?? 0;
+        public long S3HealthFailures => s3Store?.HealthFailures ?? 0;
         public long ParallelMirrored => Interlocked.Read(ref parallelMirrored);
         public long ParallelReadHits => Interlocked.Read(ref parallelReadHits);
         public long ParallelReadMisses => Interlocked.Read(ref parallelReadMisses);
@@ -135,14 +143,55 @@ namespace OpenGenesisLINK.Addons.AssetService
 
             string mode = settings.GetString("Mode", "compatibility");
             if (!String.Equals(mode, "compatibility", StringComparison.OrdinalIgnoreCase))
-                throw new NotSupportedException(
-                    "OGL AssetService currently supports only Mode = compatibility. Distributed storage is not implemented.");
-            OglLog.InfoFormat(
-                "[OGL-ASSETS]: OGL AssetService geladen; authoritative=FSAssets; " +
-                "mode=compatibility; local_cache={0}; redis_coordination={1}; atomic_updates={2}",
-                localCacheEnabled, redisEnabled, atomicUpdatesEnabled);
-            OglLog.InfoFormat("[OGL-ASSETS]: parallel_store={0}; parallel_read_preferred={1}; authoritative=FSAssets",
-                parallelEnabled, parallelReadPreferred);
+                throw new NotSupportedException("OGL AssetService only supports Mode=compatibility; use StorageBackend=s3 for explicit S3 opt-in.");
+
+            // Two independent opt-in switches avoid accidental S3 activation
+            // when a future configuration section is copied to a live grid.
+            string selectedBackend = settings.GetString("StorageBackend", "fsassets").Trim();
+            OGLS3StorageOptions s3 = OGLS3StorageOptions.Read(config);
+            if (!String.Equals(selectedBackend, "fsassets", StringComparison.OrdinalIgnoreCase) &&
+                !String.Equals(selectedBackend, "s3", StringComparison.OrdinalIgnoreCase))
+                throw new InvalidOperationException("OGL AssetService StorageBackend must be fsassets or s3.");
+            bool s3Selected = String.Equals(selectedBackend, "s3", StringComparison.OrdinalIgnoreCase);
+            if (s3Selected != s3.Enabled)
+                throw new InvalidOperationException(
+                    "OGL S3 requires BOTH [OGLAssetService] StorageBackend=s3 and [OGLS3Storage] Enabled=true; no implicit fallback.");
+            if (s3Selected)
+            {
+                if (parallelStore != null || atomicUpdatesEnabled)
+                    throw new InvalidOperationException("S3 is incompatible with ParallelStoreEnabled or legacy ExperimentalAtomicUpdatesEnabled.");
+                s3Store = new OGLS3ObjectStore(s3);
+                try
+                {
+                    s3Store.CheckBucket();
+                    // One-shot probe always; optional periodic health checks
+                    // start only with both S3 opt-ins and HealthCheckEnabled.
+                    s3Store.StartHealthMonitoring();
+                }
+                catch
+                {
+                    s3Store.Dispose();
+                    throw; // A missing/unreachable bucket must prevent startup.
+                }
+            }
+            if (!s3Selected)
+            {
+                // Preserve the legacy startup diagnostics verbatim. Existing
+                // ROBUST smoke checks and operational monitors depend on them.
+                OglLog.InfoFormat(
+                    "[OGL-ASSETS]: OGL AssetService geladen; authoritative=FSAssets; " +
+                    "mode=compatibility; local_cache={0}; redis_coordination={1}; atomic_updates={2}",
+                    localCacheEnabled, redisEnabled, atomicUpdatesEnabled);
+                OglLog.InfoFormat(
+                    "[OGL-ASSETS]: parallel_store={0}; parallel_read_preferred={1}; authoritative=FSAssets",
+                    parallelEnabled, parallelReadPreferred);
+            }
+            else
+            {
+                OglLog.InfoFormat(
+                    "[OGL-ASSETS]: OGL AssetService geladen; authoritative=S3; mode=compatibility; " +
+                    "local_cache={0}; redis_coordination={1}", localCacheEnabled, redisEnabled);
+            }
         }
 
         /// <summary>
@@ -168,7 +217,8 @@ namespace OpenGenesisLINK.Addons.AssetService
                 LocalInvalidationAttempts, DiskInvalidationFailures,
                 RedisInvalidationFailures,
                 ParallelStoreEnabled, parallelReadPreferred, ParallelMirrored,
-                ParallelReadHits, ParallelReadMisses, ParallelWriteFailures);
+                ParallelReadHits, ParallelReadMisses, ParallelWriteFailures,
+                S3StorageEnabled, S3HealthStatus, S3HealthChecks, S3HealthFailures);
         }
 
         private void TryInvalidateRedis(string id)
@@ -191,6 +241,20 @@ namespace OpenGenesisLINK.Addons.AssetService
         {
             lock (cacheSync)
             {
+                if (s3Store != null)
+                {
+                    string hash;
+                    AssetMetadata metadata = m_DataConnector.Get(id, out hash);
+                    if (metadata == null) return null;
+                    byte[] bytes = ReadS3Data(id, hash);
+                    if (bytes == null)
+                        throw new InvalidDataException("S3 payload is missing for an existing asset record.");
+                    var result = new AssetBase { Metadata = metadata, Data = bytes };
+                    if (result.Type == (int)AssetType.Object)
+                        result.Data = Utils.StringToBytes(
+                            ExternalRepresentationUtils.SanitizeXml(Utils.BytesToString(bytes)));
+                    return result;
+                }
                 if (parallelStore != null && parallelReadPreferred)
                 {
                     // The SQL metadata remains authoritative; never resurrect
@@ -223,11 +287,38 @@ namespace OpenGenesisLINK.Addons.AssetService
 
         public override bool[] AssetsExist(string[] ids)
         {
-            lock (cacheSync) return base.AssetsExist(ids);
+            lock (cacheSync)
+            {
+                if (s3Store == null) return base.AssetsExist(ids);
+                if (ids == null) return Array.Empty<bool>();
+                var results = new bool[ids.Length];
+                for (int i = 0; i < ids.Length; i++)
+                {
+                    if (!Guid.TryParse(ids[i], out Guid guid) || guid == Guid.Empty)
+                        continue;
+                    string hash;
+                    if (m_DataConnector.Get(ids[i], out hash) != null)
+                        results[i] = s3Store.Exists(hash); // HEAD, fail closed on 403/timeout
+                }
+                return results;
+            }
         }
 
         public override byte[] GetData(string id)
         {
+            if (s3Store != null)
+            {
+                lock (cacheSync)
+                {
+                    if (String.IsNullOrWhiteSpace(id)) return null;
+                    string hash;
+                    if (m_DataConnector.Get(id, out hash) == null) return null;
+                    byte[] bytes = ReadS3Data(id, hash);
+                    if (bytes == null)
+                        throw new InvalidDataException("S3 payload is missing for an existing asset record.");
+                    return bytes;
+                }
+            }
             if (String.IsNullOrWhiteSpace(id)) return base.GetData(id);
             lock (cacheSync)
             {
@@ -285,9 +376,11 @@ namespace OpenGenesisLINK.Addons.AssetService
                 }
                 try
                 {
-                    bool updated = atomicUpdatesEnabled
-                        ? TryUpdateContentAtomic(id, data)
-                        : base.UpdateContent(id, data);
+                    bool updated = s3Store != null
+                        ? TryUpdateS3Content(id, data)
+                        : atomicUpdatesEnabled
+                            ? TryUpdateContentAtomic(id, data)
+                            : base.UpdateContent(id, data);
                     if (atomicUpdatesEnabled)
                     {
                         if (updated)
@@ -326,7 +419,10 @@ namespace OpenGenesisLINK.Addons.AssetService
             {
                 try
                 {
-                    return base.Delete(id);
+                    // S3 objects are immutable/content-addressed and may be
+                    // shared by several UUIDs. Only the authorized metadata
+                    // mapping is removed; physical GC is a separate offline task.
+                    return s3Store == null ? base.Delete(id) : m_DataConnector.Delete(id);
                 }
                 finally
                 {
@@ -346,7 +442,7 @@ namespace OpenGenesisLINK.Addons.AssetService
                 string id = null;
                 try
                 {
-                    id = base.Store(asset);
+                    id = s3Store == null ? base.Store(asset) : StoreS3Asset(asset);
                     if (parallelStore != null &&
                         Guid.TryParse(id, out Guid committedId) && committedId != Guid.Empty)
                         TryMirrorCommitted(id);
@@ -368,6 +464,108 @@ namespace OpenGenesisLINK.Addons.AssetService
                         TryInvalidateRedis(id);
                 }
             }
+        }
+
+        // The same SQL metadata provider as FSAssets retains UUID, type,
+        // name, description, flags, creation date and creator. Only immutable
+        // payload bytes move to the explicitly selected S3 backend.
+        private string StoreS3Asset(AssetBase asset)
+        {
+            if (asset?.Metadata == null || asset.Data == null)
+                return UUID.Zero.ToString();
+            if (String.IsNullOrWhiteSpace(asset.ID) || asset.FullID.IsZero())
+            {
+                if (!Guid.TryParse(asset.ID, out Guid parsed) || parsed == Guid.Empty)
+                {
+                    asset.FullID = UUID.Random();
+                    asset.ID = asset.FullID.ToString();
+                }
+                else
+                    asset.ID = parsed.ToString("D");
+            }
+            if (!Guid.TryParse(asset.ID, out Guid uuid) || uuid == Guid.Empty)
+                throw new ArgumentException("S3 assets require a valid nonzero UUID.");
+            if (asset.Name.Length > AssetBase.MAX_ASSET_NAME)
+                asset.Name = asset.Name.Substring(0, AssetBase.MAX_ASSET_NAME);
+            if (asset.Description.Length > AssetBase.MAX_ASSET_DESC)
+                asset.Description = asset.Description.Substring(0, AssetBase.MAX_ASSET_DESC);
+
+            string hash = s3Store.Put(asset.Data); // Must complete before SQL commit.
+            if (!m_DataConnector.Store(asset.Metadata, hash))
+                return UUID.Zero.ToString(); // Orphan blobs are safe; never return success.
+            string committed;
+            AssetMetadata verified = m_DataConnector.Get(asset.ID, out committed);
+            if (verified == null || !String.Equals(hash, committed, StringComparison.Ordinal))
+                throw new IOException("Concurrent S3 asset metadata change; write result is uncertain.");
+            return asset.ID;
+        }
+
+        private byte[] ReadS3Data(string id, string hash)
+        {
+            // Cache keys include the authoritative SQL digest. A changed UUID
+            // mapping cannot return stale bytes from RAM or disk.
+            string key = id + ":" + hash;
+            byte[] result = null;
+            if (localCacheEnabled && !redisEnabled)
+            {
+                if (!cache.TryGet(key, out result) && diskCache != null)
+                {
+                    try
+                    {
+                        if (diskCache.TryGet(key, out result))
+                            cache.Put(key, result);
+                    }
+                    catch (IOException) { }
+                    catch (UnauthorizedAccessException) { }
+                }
+            }
+            if (result == null)
+                result = s3Store.Get(hash);
+
+            // Remote writers can change or delete an asset after the initial
+            // UUID->hash lookup, even while this instance holds cacheSync.
+            // Always recheck SQL before returning or populating a cache.
+            string freshHash;
+            if (m_DataConnector.Get(id, out freshHash) == null ||
+                !String.Equals(hash, freshHash, StringComparison.OrdinalIgnoreCase))
+            {
+                cache.Invalidate(key);
+                try { diskCache?.Invalidate(key); }
+                catch (IOException) { }
+                catch (UnauthorizedAccessException) { }
+                throw new IOException("OGL S3 asset metadata changed during read; caller must retry.");
+            }
+
+            if (result != null && localCacheEnabled && !redisEnabled)
+            {
+                cache.Put(key, result);
+                try { diskCache?.Put(key, result); }
+                catch (IOException) { }
+                catch (UnauthorizedAccessException) { }
+            }
+            // No FSAssets fallback on missing S3 objects or I/O failures.
+            return result;
+        }
+
+        private bool TryUpdateS3Content(string id, byte[] data)
+        {
+            if (String.IsNullOrWhiteSpace(id) || data == null ||
+                !(m_DataConnector is IFSAssetHashCompareExchange compareExchange))
+                return false;
+            string oldHash;
+            if (m_DataConnector.Get(id, out oldHash) == null)
+                return false;
+            // No write-back without a valid previously committed object.
+            byte[] previous = s3Store.Get(oldHash);
+            if (previous == null)
+                throw new InvalidDataException("S3 update rejected: existing payload missing.");
+            string nextHash = Convert.ToHexString(SHA256.HashData(data)).ToLowerInvariant();
+            if (String.Equals(oldHash, nextHash, StringComparison.Ordinal))
+                return true;
+            string storedHash = s3Store.Put(data);
+            // CAS prevents lost updates. A failed CAS leaves an immutable,
+            // unreferenced blob for a future explicit offline GC.
+            return compareExchange.TryReplaceHash(id, oldHash, storedHash);
         }
 
         // Reads use a SQL hash guard both before and after loading the OGL

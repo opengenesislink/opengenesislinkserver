@@ -8,7 +8,27 @@ To activate the connector, an operator would need to explicitly replace the `Loc
 
 **Verification:** Full .NET/ROBUST build, isolated MariaDB persistence and restart-readback, MariaDB/PostgreSQL CAS fixtures and asset migration tests are enforced by GitHub Actions. Passing those checks means code integration is testable, **not** that Stadt NexVerse production data has been validated. See [staging procedure](STAGING-INBETRIEBNAHME-DE.md) and [cutover gates](CUTOVER-BENCHMARKS.md).
 
-The addon builds as a separate .NET 8 assembly and leaves the original FSAssetService and existing FSAssets authoritative. It is **disabled by default** and is not automatically loaded by ROBUST. No migration or service switchover occurs by building it.
+The addon builds as a separate .NET 10 assembly and leaves the original FSAssetService and existing FSAssets authoritative. It is **disabled by default** and is not automatically loaded by ROBUST. No migration or service switchover occurs by building it.
+
+## Optionaler S3-Payload-Provider (Generation 1, vollständig deaktiviert)
+
+Die neue S3-kompatible Payload-Implementierung ist als **expliziter Opt-in**
+in den vorhandenen `OGLAssetConnector` eingebaut. Sie erzeugt ohne
+`[OGLS3Storage] Enabled=true` **und** `[OGLAssetService] StorageBackend=s3`
+keinen S3-Client, keinen Bucket und keine Migration. Standardmaessig bleiben
+FSAssets und die bestehende SQL-Metadatenquelle unveraendert aktiv.
+
+Die neue S3-Anbindung verwendet das AWS SDK for .NET 10 und
+content-addressed SHA-256-Objekte mit HEAD, GET und bedingtem PUT.
+Beim Delete wird nur der vorhandene Metadateneintrag geloescht:
+Eine automatische physische S3-Garbage-Collection ist absichtlich
+nicht Bestandteil dieses Features. Kein Failover auf FSAssets im
+aktivierten S3-Modus. Die Verwendung in Produktion bleibt bis zu
+einer separaten Betreiberabnahme ausdruecklich untersagt.
+
+**Konfiguration, WireGuard, Sicherheit, Test- und Migrationskonzept:
+[S3-STORAGE-DE.md](S3-STORAGE-DE.md).**
+CI: `.github/workflows/ogl-s3-storage.yml` testet einen isolierten S3-Server.
 
 ## Optional OGL parallel mirror (Generation 2 staging)
 
@@ -43,7 +63,7 @@ with read-only dry-run by default. See the full
 
 ## Not implemented / release blockers
 
-- Distributed object store, node registration, authenticated replication and replica healing.
+- Automatic federation, node registration, authenticated multi-node replication and replica healing (the optional single-endpoint S3 payload backend is available but remains disabled).
 - Full production metadata migration orchestration, spool consistency, transactional cutover and exercised rollback.
 - Production-equivalent staging acceptance on a **consistent clone of real SQL metadata plus FSAssets file contents**. Requires readback parity, `Store`/`Delete`/`UpdateContent` tests and a rehearsed switch back to the original connector. Legacy `UpdateContent` is not implemented as a normal mutable update; the atomic alternative is experimental and opt-in.
 - Verified multi-process cache coherency, Hypergrid interoperability, JPEG2000 diagnostics and production observability.
@@ -55,6 +75,7 @@ From the repository root:
 ```bash
 dotnet build addons/OGLAssetService/OGLAssetService.csproj -c Release
 dotnet run --project addons/OGLAssetService.Tests/OGLAssetService.Tests.csproj -c Release
+dotnet run --project addons/OGLAssetService.S3.Tests/OGLAssetService.S3.Tests.csproj -c Release
 dotnet build addons/OGLAssetService.Migration/OGLAssetService.Migration.csproj -c Release
 ```
 

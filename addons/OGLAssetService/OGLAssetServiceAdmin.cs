@@ -57,6 +57,16 @@ namespace OpenGenesisLINK.Addons.AssetService
                 state = "degraded";
                 reason = "One or more operation or cache invalidation errors were observed.";
             }
+            else if (metrics.S3Enabled && metrics.S3HealthStatus == "unavailable")
+            {
+                state = "degraded";
+                reason = "Explicit S3 payload backend health check failed.";
+            }
+            else if (metrics.S3Enabled)
+            {
+                state = "s3";
+                reason = "Explicit S3 payload backend selected; existing SQL asset metadata retained.";
+            }
             else if (metrics.RedisEnabled)
             {
                 state = "experimental";

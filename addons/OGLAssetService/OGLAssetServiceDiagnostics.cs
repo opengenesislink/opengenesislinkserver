@@ -32,6 +32,11 @@ namespace OpenGenesisLINK.Addons.AssetService
         public long ParallelReadHits { get; }
         public long ParallelReadMisses { get; }
         public long ParallelWriteFailures { get; }
+        // Strictly non-sensitive S3 observations (no endpoints or credentials).
+        public bool S3Enabled { get; }
+        public string S3HealthStatus { get; }
+        public long S3HealthChecks { get; }
+        public long S3HealthFailures { get; }
 
         public OGLAssetServiceDiagnostics(
             bool atomicUpdatesEnabled, bool localCacheEnabled, bool redisEnabled,
@@ -41,7 +46,9 @@ namespace OpenGenesisLINK.Addons.AssetService
             long diskInvalidationFailures, long redisInvalidationFailures,
             bool parallelStoreEnabled = false, bool parallelReadPreferred = false,
             long parallelMirrored = 0, long parallelReadHits = 0,
-            long parallelReadMisses = 0, long parallelWriteFailures = 0)
+            long parallelReadMisses = 0, long parallelWriteFailures = 0,
+            bool s3Enabled = false, string s3HealthStatus = "disabled",
+            long s3HealthChecks = 0, long s3HealthFailures = 0)
         {
             CapturedAtUtc = DateTimeOffset.UtcNow;
             AtomicUpdatesEnabled = atomicUpdatesEnabled;
@@ -68,6 +75,10 @@ namespace OpenGenesisLINK.Addons.AssetService
             ParallelReadHits = parallelReadHits;
             ParallelReadMisses = parallelReadMisses;
             ParallelWriteFailures = parallelWriteFailures;
+            S3Enabled = s3Enabled;
+            S3HealthStatus = s3HealthStatus;
+            S3HealthChecks = s3HealthChecks;
+            S3HealthFailures = s3HealthFailures;
         }
     }
 }
