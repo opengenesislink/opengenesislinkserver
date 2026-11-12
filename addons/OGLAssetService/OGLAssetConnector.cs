@@ -217,7 +217,8 @@ namespace OpenGenesisLINK.Addons.AssetService
                 LocalInvalidationAttempts, DiskInvalidationFailures,
                 RedisInvalidationFailures,
                 ParallelStoreEnabled, parallelReadPreferred, ParallelMirrored,
-                ParallelReadHits, ParallelReadMisses, ParallelWriteFailures);
+                ParallelReadHits, ParallelReadMisses, ParallelWriteFailures,
+                S3StorageEnabled, S3HealthStatus, S3HealthChecks, S3HealthFailures);
         }
 
         private void TryInvalidateRedis(string id)
