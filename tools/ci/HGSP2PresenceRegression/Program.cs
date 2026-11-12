@@ -100,6 +100,8 @@ bool RejectBadAge = false;
 try { store.CleanupConfirmedOrphans(1, 40); }
 catch (ArgumentOutOfRangeException) { RejectBadAge = true; }
 Check(RejectBadAge, "unsafe cleanup age was accepted");
+Check(store.CountUnverifiedOnlineGuests(72) == 2,
+    "Ambiguous long-running online foreign sessions must be audited and preserved");
 List<HGStalePresence> first = store.CleanupConfirmedOrphans(72, 1);
 Check(first.Count == 1, "cleanup must respect batch size");
 List<HGStalePresence> second = store.CleanupConfirmedOrphans(72, 25);
