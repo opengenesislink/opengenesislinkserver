@@ -504,24 +504,37 @@ namespace OpenGenesisLINK.Addons.AssetService
             // Cache keys include the authoritative SQL digest. A changed UUID
             // mapping cannot return stale bytes from RAM or disk.
             string key = id + ":" + hash;
+            byte[] result = null;
             if (localCacheEnabled && !redisEnabled)
             {
-                if (cache.TryGet(key, out byte[] cached)) return cached;
-                if (diskCache != null)
+                if (!cache.TryGet(key, out result) && diskCache != null)
                 {
                     try
                     {
-                        if (diskCache.TryGet(key, out cached))
-                        {
-                            cache.Put(key, cached);
-                            return cached;
-                        }
+                        if (diskCache.TryGet(key, out result))
+                            cache.Put(key, result);
                     }
                     catch (IOException) { }
                     catch (UnauthorizedAccessException) { }
                 }
             }
-            byte[] result = s3Store.Get(hash);
+            if (result == null)
+                result = s3Store.Get(hash);
+
+            // Remote writers can change or delete an asset after the initial
+            // UUID->hash lookup, even while this instance holds cacheSync.
+            // Always recheck SQL before returning or populating a cache.
+            string freshHash;
+            if (m_DataConnector.Get(id, out freshHash) == null ||
+                !String.Equals(hash, freshHash, StringComparison.OrdinalIgnoreCase))
+            {
+                cache.Invalidate(key);
+                try { diskCache?.Invalidate(key); }
+                catch (IOException) { }
+                catch (UnauthorizedAccessException) { }
+                throw new IOException("OGL S3 asset metadata changed during read; caller must retry.");
+            }
+
             if (result != null && localCacheEnabled && !redisEnabled)
             {
                 cache.Put(key, result);
