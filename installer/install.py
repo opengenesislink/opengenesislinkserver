@@ -402,6 +402,13 @@ def configure_robust(folder, cfg):
     ]
     for sec, key, value in updates:
         put_ini(ini, sec, key, value)
+    if cfg["simulator"]:
+        # The first local region must be a valid default HG/login destination.
+        # Avoid retaining the example's unrelated "Welcome_Area" default.
+        if cfg["region_name"] != "Welcome_Area":
+            remove_ini(ini, "GridService", "Region_Welcome_Area")
+        put_ini(ini, "GridService", "Region_" + cfg["region_name"],
+                '"DefaultRegion, DefaultHGRegion"')
     put_ini(ini, "Environment", "NEXVERSE_DB_PASSWORD", '""')
 
 
