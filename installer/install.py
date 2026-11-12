@@ -315,10 +315,11 @@ def db_setup(cfg):
     # Generated password is urlsafe and single-quote-free; all identifiers are fixed.
     pw = cfg["dbpass"]
     sql = (
-        "CREATE DATABASE IF NOT EXISTS \`opengenesislink\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;\n"
+        "CREATE DATABASE `opengenesislink` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;\n"
         f"CREATE USER IF NOT EXISTS 'ogl'@'localhost' IDENTIFIED BY '{pw}';\n"
-        f"ALTER USER 'ogl'@'localhost' IDENTIFIED BY '{pw}';\n"
-        "GRANT ALL PRIVILEGES ON \`opengenesislink\`.* TO 'ogl'@'localhost';\n"
+        f"CREATE USER 'ogl'@'127.0.0.1' IDENTIFIED BY '{pw}';\n"
+        "GRANT ALL PRIVILEGES ON `opengenesislink`.* TO 'ogl'@'localhost';\n"
+        "GRANT ALL PRIVILEGES ON `opengenesislink`.* TO 'ogl'@'127.0.0.1';\n"
         "FLUSH PRIVILEGES;\n"
     )
     # On Debian/Ubuntu, root commonly authenticates via the local Unix socket.
@@ -339,7 +340,7 @@ def write_env(role, cfg):
 def conn_string(cfg):
     tls = "None" if cfg["local_db"] else "Required"
     return (f'"Data Source={cfg["dbhost"]};Database={cfg["dbname"]};'
-            f'User ID={cfg["dbuser"]};Password=\${Environment|NEXVERSE_DB_PASSWORD};'
+            f'User ID={cfg["dbuser"]};Password=${{Environment|NEXVERSE_DB_PASSWORD}};'
             f'Old Guids=true;SslMode={tls};"')
 
 
