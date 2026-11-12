@@ -152,7 +152,7 @@ namespace OpenSim.Framework.Capabilities
             else if (obj is double || obj is float)
             {
                 writer.WriteStartElement(String.Empty, "real", String.Empty);
-                writer.WriteString(obj.ToString());
+                writer.WriteString(Convert.ToString(obj, CultureInfo.InvariantCulture));
                 writer.WriteEndElement();
             }
             else if (obj is bool b)
@@ -288,7 +288,7 @@ namespace OpenSim.Framework.Capabilities
                         }
 
                         reader.Read();
-                        ret = Convert.ToInt32(reader.ReadString().Trim());
+                        ret = Convert.ToInt32(reader.ReadString().Trim(), CultureInfo.InvariantCulture);
                         break;
                     }
                 case "real":
@@ -300,7 +300,7 @@ namespace OpenSim.Framework.Capabilities
                         }
 
                         reader.Read();
-                        ret = Convert.ToDouble(reader.ReadString().Trim());
+                        ret = Convert.ToDouble(reader.ReadString().Trim(), CultureInfo.InvariantCulture);
                         break;
                     }
                 case "uuid":

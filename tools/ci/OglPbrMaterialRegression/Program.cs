@@ -2,6 +2,7 @@
 // Regression: removing a PBR material from a non-existent face is a no-op.
 using System;
 using System.Reflection;
+using System.Globalization;
 using OpenMetaverse;
 using OpenMetaverse.StructuredData;
 using OpenSim.Region.OptionalModules.Materials;
@@ -67,6 +68,38 @@ internal static class Program
                Math.Abs(offsets[0].AsReal() - offsetU) < 0.002 &&
                Math.Abs(offsets[1].AsReal() - offsetV) < 0.002,
             "PBR UV transform changed for channel " + slot);
+    }
+
+    private static void VerifyPbrAcrossCultures()
+    {
+        CultureInfo original = CultureInfo.CurrentCulture;
+        string baseline = null;
+        try
+        {
+            foreach (string cultureName in new[] { "en-US", "de-DE", "fr-FR" })
+            {
+                CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo(cultureName);
+                const string gltf = "{\"materials\":[{\"pbrMetallicRoughness\":{\"metallicFactor\":0.2,\"roughnessFactor\":0.75}}]}";
+                var add = typeof(MaterialsModule).GetMethod("AddMaterialOverride",
+                    BindingFlags.NonPublic | BindingFlags.Static);
+                Assert(add != null, "PBR culture-regression helper missing");
+                object[] args = { null, gltf, 1 };
+                Assert((bool)add.Invoke(null, args),
+                    "glTF material rejected with host culture " + cultureName);
+                var entries = (RenderMaterialOverrideEntry[])args[0];
+                Assert(entries != null && entries.Length == 1,
+                    "PBR override missing for " + cultureName);
+                if (baseline != null)
+                    Assert(entries[0].data == baseline,
+                        "glTF material conversion changed with host culture " + cultureName);
+                else
+                    baseline = entries[0].data;
+            }
+        }
+        finally
+        {
+            CultureInfo.CurrentCulture = original;
+        }
     }
 
     private static void Main()
@@ -272,6 +305,7 @@ internal static class Program
             Assert(uvEntries[0].data == pristine, "invalid UV mutated existing PBR face");
         }
 
+        VerifyPbrAcrossCultures();
         Console.WriteLine("OpenGenesisLINK PBR ORM/emissive UV channel roundtrip and invalid-input regression: OK");
 
         Console.WriteLine("OpenGenesisLINK PBR face bounds and glTF texture validation regression: OK");

@@ -27,6 +27,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Net;
 using System.Reflection;
@@ -1212,8 +1213,12 @@ namespace OpenSim.Region.OptionalModules.Materials
             if (side < 0 || side > byte.MaxValue)
                 return false;
             OSD tst;
+            // libOpenMetaverse JSON number handling in this legacy path can
+            // depend on CurrentCulture. glTF always uses invariant decimal dots.
+            CultureInfo previousCulture = CultureInfo.CurrentCulture;
             try
             {
+                CultureInfo.CurrentCulture = CultureInfo.InvariantCulture;
                 tst = OSDParser.DeserializeJson(data);
                 if(tst is not OSDMap mainArr)
                     return false;
@@ -1453,6 +1458,10 @@ namespace OpenSim.Region.OptionalModules.Materials
             catch
             {
                 return false;
+            }
+            finally
+            {
+                CultureInfo.CurrentCulture = previousCulture;
             }
 
             if (overrides is null)

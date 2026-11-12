@@ -4,6 +4,7 @@ using System;
 using System.Collections;
 using System.IO;
 using System.IO.Compression;
+using System.Globalization;
 using System.Reflection;
 using System.Text;
 using OpenMetaverse;
@@ -100,6 +101,34 @@ internal static class Program
             "hull without BoundingVerts accepted");
     }
 
+    private static void VerifyInvariantLlsdAcrossCultures()
+    {
+        CultureInfo original = CultureInfo.CurrentCulture;
+        try
+        {
+            foreach (string cultureName in new[] { "de-DE", "fr-FR", "en-US" })
+            {
+                CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo(cultureName);
+
+                const string xml = "<llsd><map><key>value</key><real>1.5</real><key>count</key><integer>2</integer></map></llsd>";
+                var parsed = (Hashtable)LLSD.LLSDDeserialize(Encoding.UTF8.GetBytes(xml));
+                Assert(parsed["value"] is double real && real == 1.5 &&
+                       parsed["count"] is int count && count == 2,
+                    "LLSD XML numeric parsing depends on host culture: " + cultureName);
+
+                string serialized = Encoding.UTF8.GetString(LLSD.LLSDSerialize(
+                    new Hashtable { ["value"] = 1.5d, ["count"] = 2 }));
+                Assert(serialized.Contains("<real>1.5</real>") &&
+                       !serialized.Contains("<real>1,5</real>"),
+                    "LLSD XML numeric serialization depends on host culture: " + cultureName);
+            }
+        }
+        finally
+        {
+            CultureInfo.CurrentCulture = original;
+        }
+    }
+
     private static void Main()
     {
         // These are OSD maps/arrays after real LLSD decoding, NOT
@@ -190,6 +219,7 @@ internal static class Program
         Assert(!ModelCost.TryParseModelInstance((object)brokenType, 1,
             out _, out _, out _), "legacy string mesh index must be rejected");
 
+        VerifyInvariantLlsdAcrossCultures();
         VerifyZlibGeometryDecoding();
         Console.WriteLine("OpenGenesisLINK Mesh upload fee LLSD instance + zlib geometry regression: OK");
     }
